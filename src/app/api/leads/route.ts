@@ -85,9 +85,10 @@ export async function GET(request: Request) {
     const paramOrgId = searchParams.get('orgId');
     
     // Only isolate if orgId isn't the default workspace or master admin
-    const targetOrgId = (headerOrgId && headerOrgId !== 'default-tenant-workspace') 
-      ? headerOrgId 
+    const rawOrgId = (headerOrgId && headerOrgId !== 'default-tenant-workspace')
+      ? headerOrgId
       : paramOrgId;
+    const targetOrgId = (rawOrgId && rawOrgId !== 'default-tenant-workspace') ? rawOrgId : null;
 
     if (prisma) {
       const dbLeads = await prisma.lead.findMany({
