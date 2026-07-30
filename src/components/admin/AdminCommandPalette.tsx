@@ -99,7 +99,7 @@ export default function AdminCommandPalette() {
 
   const items: CommandItem[] = [
     // --- Navigation Items ---
-    { id: 'nav-fulfillment', label: 'Fulfillment Board', hint: '/admin/fulfillment', icon: Kanban, action: () => go('/admin/fulfillment'), group: 'Navigate' },
+    { id: 'nav-fulfillment', label: 'Fulfillment Board', hint: '/fulfillment', icon: Kanban, action: () => go('/fulfillment'), group: 'Navigate' },
     { id: 'nav-flyer', label: 'Offer & Flyer Generator', hint: '/admin/flyer-generator', icon: Printer, action: () => go('/admin/flyer-generator'), group: 'Navigate' },
     { id: 'nav-intake', label: 'Client Intake Form', hint: '/intake', icon: FolderUp, action: () => go('/intake'), group: 'Navigate' },
     { id: 'nav-audit', label: 'Prospect Audit Helper', hint: '/audit/apex-mechanical', icon: Target, action: () => go('/audit/apex-mechanical'), group: 'Navigate' },
@@ -108,7 +108,7 @@ export default function AdminCommandPalette() {
     { id: 'nav-analytics', label: 'Telemetry Analytics', hint: '/admin/analytics', icon: BarChart3, action: () => go('/admin/analytics'), group: 'Navigate' },
     { id: 'nav-quote', label: 'Solution Quoter', hint: '/admin/quote', icon: Calculator, action: () => go('/admin/quote'), group: 'Navigate' },
     { id: 'nav-reports', label: 'Reports', hint: '/admin/reports', icon: FileText, action: () => go('/admin/reports'), group: 'Navigate' },
-    { id: 'nav-dashboard', label: 'Client Dashboard', hint: '/dashboard', icon: Gauge, action: () => go('/dashboard'), group: 'Navigate' },
+    { id: 'nav-dashboard', label: 'Client Dashboard', hint: '/portal/dashboard', icon: Gauge, action: () => go('/portal/dashboard'), group: 'Navigate' },
 
     // --- Actions ---
     { id: 'action-new-quote', label: 'Create New Quote', hint: 'Alt+Q', icon: Plus, action: () => go('/admin/quote'), group: 'Actions' },

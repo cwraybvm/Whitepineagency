@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
   }
 
   // 🔐 1. SECURE ADMIN & PORTAL ROUTES
-  if (pathname.startsWith('/admin') || pathname.startsWith('/portal')) {
+  if (pathname.startsWith('/admin') || pathname.startsWith('/portal') || pathname.startsWith('/fulfillment')) {
     const authToken = request.cookies.get('auth_token')?.value;
     const isAuthenticated = Boolean(authToken && authToken.trim().length > 0);
 
@@ -55,7 +55,8 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/portal/:path*',
-    '/api/analytics/:path*', 
+    '/fulfillment/:path*',
+    '/api/analytics/:path*',
     '/api/leads/:path*'
   ],
 };

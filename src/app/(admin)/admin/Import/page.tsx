@@ -99,7 +99,7 @@ export default function LeadImporterPage() {
     localStorage.setItem('white_pine_imported_leads', JSON.stringify(updated));
 
     toast.success(`Batch imported! ${parsedLeads.length} leads ready for outreach.`);
-    router.push('/admin/fulfillment');
+    router.push('/fulfillment');
   };
 
   const handleClear = () => {
