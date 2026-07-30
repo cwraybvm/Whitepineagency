@@ -2,7 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Fira_Code } from 'next/font/google';
-import { PhoneMissed, PhoneOff, Clock, Moon, Signal, Wifi, BatteryFull, Zap } from 'lucide-react';
+import { PhoneMissed, PhoneOff, Clock, Moon, Signal, Wifi, BatteryFull, Zap, Shield } from 'lucide-react';
+import ObjectionBattlecardDrawer from '@/components/demo/ObjectionBattlecardDrawer';
+import DemoPortalNav from '@/components/demo/DemoPortalNav';
 
 const firaCode = Fira_Code({
   subsets: ['latin'],
@@ -61,6 +63,7 @@ export default function MissedCallSimulatorPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [ringing, setRinging] = useState(false);
   const [typing, setTyping] = useState(false);
+  const [battlecardsOpen, setBattlecardsOpen] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -123,17 +126,30 @@ export default function MissedCallSimulatorPage() {
       <div className="absolute top-0 right-1/4 w-[700px] h-[700px] bg-purple-500/5 rounded-full blur-[160px] pointer-events-none" />
 
       <div className="relative z-10 p-4 sm:p-8 max-w-[1400px] mx-auto space-y-6 font-sans">
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl">
-          <span className="text-xs font-bold text-purple-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
-            <Zap className="w-3.5 h-3.5" /> PROSPECTING DEMO
-          </span>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            Missed Call Text-Back Simulator
-          </h1>
-          <p className="text-xs text-slate-400">
-            Trigger a mock inbound missed call and watch the automated SMS text-back fire in real time.
-          </p>
+        <DemoPortalNav />
+
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl flex items-start justify-between gap-4">
+          <div>
+            <span className="text-xs font-bold text-purple-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> PROSPECTING DEMO
+            </span>
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              Missed Call Text-Back Simulator
+            </h1>
+            <p className="text-xs text-slate-400">
+              Trigger a mock inbound missed call and watch the automated SMS text-back fire in real time.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setBattlecardsOpen(true)}
+            className="shrink-0 px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
+          >
+            <Shield className="w-3.5 h-3.5" /> Battlecards
+          </button>
         </div>
+
+        <ObjectionBattlecardDrawer isOpen={battlecardsOpen} onClose={() => setBattlecardsOpen(false)} />
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
           {/* LEFT: Controls + call log */}
