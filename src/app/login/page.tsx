@@ -31,21 +31,10 @@ export default function LoginPage() {
 
     setLoading(true);
 
-    // 1. 🔑 Master Bypass for your Admin Password (Syncs with Middleware)
-    if (password === 'WhitePineAdmin2026!') {
-      // ✅ FIX: Changes key name to 'auth_token' so it completely satisfies the strict middleware check
-      document.cookie = "auth_token=master_bypass_active_session; path=/; max-age=86400; SameSite=Strict";
-      // Auto-drops fallback workspace tenant context mapping safely
-      document.cookie = "org_id=default-tenant-workspace; path=/; max-age=86400; SameSite=Strict";
-
-      router.push('/admin');
-      router.refresh();
-      return;
-    }
-
-    // 2. 🗄️ Fallback: Authenticate standard users dynamically against Neon PostgreSQL
+    // Single auth path — the server checks the master bypass password (if
+    // configured via ADMIN_BYPASS_PASSWORD) before falling back to a DB lookup.
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -55,7 +44,7 @@ export default function LoginPage() {
 
       if (res.ok && data.success) {
         // Automatically redirects users depending on their database security flags
-        if (data.role === 'ADMIN' || data.role === 'admin') {
+        if (data.role === 'ADMIN' || data.role === 'admin' || data.role === 'AGENCY_ADMIN') {
           router.push('/admin');
         } else {
           router.push('/portal/dashboard'); // Standard client metrics view

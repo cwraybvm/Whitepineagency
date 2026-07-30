@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma'; // ✅ SHARED INSTANCE
 
 // ⚡ Force dynamic execution at request time (prevents static build-time DB evaluation)
 export const dynamic = 'force-dynamic';
 
+// This route reads/writes third-party integration credentials (Mailchimp API
+// key, WordPress app password) — must not be reachable without a session.
+// Not covered by proxy.ts's matcher, so the check lives here instead.
+async function requireAuth() {
+  const store = await cookies();
+  const isAuthenticated = Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
+  return isAuthenticated;
+}
+
 export async function POST(req: Request) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
     const {
       organizationId,
@@ -37,6 +51,10 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
+  if (!(await requireAuth())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(req.url);
   const organizationId = searchParams.get('organizationId');
 

@@ -5,7 +5,35 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    if (!email || !password) {
+    if (!password) {
+      return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
+    }
+
+    // 0. Master admin bypass — checked server-side only, so the password never
+    // ships in client JS. ADMIN_PASSWORD was already declared in .env.local but
+    // never actually read; this wires it up. Unset disables the bypass entirely.
+    const bypassPassword = process.env.ADMIN_PASSWORD;
+    if (bypassPassword && password === bypassPassword) {
+      const response = NextResponse.json({ success: true, role: 'ADMIN' });
+      const isProduction = process.env.NODE_ENV === 'production';
+      response.cookies.set('auth_token', 'master_bypass_active_session', {
+        path: '/',
+        maxAge: 86400,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+      });
+      response.cookies.set('org_id', 'default-tenant-workspace', {
+        path: '/',
+        maxAge: 86400,
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+      });
+      return response;
+    }
+
+    if (!email) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
     }
 
@@ -56,7 +84,7 @@ export async function POST(request: Request) {
 
     // 🔐 SECURE ADMIN GATEWAY ACCESS OVERLAY
     // If the database profile user role registers as an admin, grant the strict middleware token
-    if (user.role === 'ADMIN' || user.role === 'admin') {
+    if (user.role === 'ADMIN' || user.role === 'admin' || user.role === 'AGENCY_ADMIN') {
       response.cookies.set('auth_token', `session_active_token_wp_${user.id}`, {
         path: '/',
         maxAge: 86400, // 24 hour lifespan
