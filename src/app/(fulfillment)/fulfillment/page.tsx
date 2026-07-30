@@ -1,24 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { 
-  FolderOpen, 
-  Search, 
-  Filter, 
-  CheckSquare, 
-  AlertCircle, 
-  Send, 
-  Printer, 
-  Plus, 
+import {
+  FolderOpen,
+  Search,
+  Filter,
+  CheckSquare,
+  Plus,
   Phone,
   Mail,
   Clock,
   Sparkles,
   Tag,
   Eye,
-  X
+  X,
+  Loader2,
 } from 'lucide-react';
 
 interface ChecklistItem {
@@ -27,162 +25,157 @@ interface ChecklistItem {
   done: boolean;
 }
 
-interface ClientDeliverable {
+interface FulfillmentTask {
   id: string;
   clientName: string;
   ownerName: string;
   trade: 'HVAC' | 'Plumbing' | 'Electrical' | 'General Trade';
-  serviceType: string;
-  stage: 'Intake Pending' | 'Content Uploaded' | 'Setup Live' | 'Active Retainer';
+  title: string;
+  status: 'Intake Pending' | 'Content Uploaded' | 'Setup Live' | 'Active Retainer';
   contractValue: number;
-  driveFolderUrl?: string;
-  daysInStage: number;
+  driveFolderUrl?: string | null;
+  stageEnteredAt: string;
+  slaDeadline: string | null;
   contactEmail: string;
   contactPhone: string;
   checklist: ChecklistItem[];
-  offerHeadline?: string;
-  notes?: string;
+  offerHeadline?: string | null;
+  notes?: string | null;
 }
 
-const INITIAL_CLIENTS: ClientDeliverable[] = [
-  {
-    id: '1',
-    clientName: 'Apex Mechanical Services',
-    ownerName: 'Mark Stevens',
-    trade: 'HVAC',
-    serviceType: 'AI Receptionist + Review Pass',
-    stage: 'Content Uploaded',
-    contractValue: 1500,
-    driveFolderUrl: 'https://drive.google.com',
-    daysInStage: 1,
-    contactEmail: 'mark@apexmech.com',
-    contactPhone: '(555) 234-5678',
-    offerHeadline: '$79 Seasonal AC Tune-Up Special',
-    checklist: [
-      { id: 'c1', label: 'Intake Form Submitted', done: true },
-      { id: 'c2', label: 'Twilio Number Provisioned', done: true },
-      { id: 'c3', label: 'Review QR Pass Printed', done: false },
-      { id: 'c4', label: 'A2P 10DLC Registration', done: false },
-    ],
-    notes: 'Client uploaded logos and $79 AC tune-up offer.',
-  },
-  {
-    id: '2',
-    clientName: 'Northern Electric & Plumbing',
-    ownerName: 'Dave Miller',
-    trade: 'Electrical',
-    serviceType: 'Local Visibility + Lead Capture',
-    stage: 'Intake Pending',
-    contractValue: 500,
-    daysInStage: 4, // SLA breach alert (>3 days)
-    contactEmail: 'info@northernelectric.com',
-    contactPhone: '(555) 876-5432',
-    offerHeadline: 'Free Main Panel Inspection with Service Call',
-    checklist: [
-      { id: 'c1', label: 'Intake Form Submitted', done: false },
-      { id: 'c2', label: 'Twilio Number Provisioned', done: false },
-      { id: 'c3', label: 'Review QR Pass Printed', done: false },
-    ],
-    notes: 'Waiting on owner to upload logo files.',
-  },
-  {
-    id: '3',
-    clientName: 'Cascade HVAC Solutions',
-    ownerName: 'Sarah Jenkins',
-    trade: 'HVAC',
-    serviceType: 'Full Automation Retainer',
-    stage: 'Active Retainer',
-    contractValue: 1500,
-    driveFolderUrl: 'https://drive.google.com',
-    daysInStage: 14,
-    contactEmail: 'service@cascadehvac.com',
-    contactPhone: '(555) 345-6789',
-    offerHeadline: '10% Off First Emergency Service Call',
-    checklist: [
-      { id: 'c1', label: 'Intake Form Submitted', done: true },
-      { id: 'c2', label: 'Twilio Number Provisioned', done: true },
-      { id: 'c3', label: 'Review QR Pass Printed', done: true },
-      { id: 'c4', label: 'A2P 10DLC Registration', done: true },
-    ],
-    notes: 'Account active and healthy. Generating ~12 leads/wk.',
-  },
+const STAGES: FulfillmentTask['status'][] = [
+  'Intake Pending',
+  'Content Uploaded',
+  'Setup Live',
+  'Active Retainer',
 ];
 
-const LOCAL_STORAGE_KEY = 'white_pine_fulfillment_clients_v2';
+const ORG_ID = 'default-tenant-workspace';
+
+function daysInStage(stageEnteredAt: string, now: number): number {
+  return Math.floor((now - new Date(stageEnteredAt).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function slaCountdown(slaDeadline: string | null, now: number): { label: string; breached: boolean } | null {
+  if (!slaDeadline) return null;
+  const diffMs = new Date(slaDeadline).getTime() - now;
+  if (diffMs <= 0) {
+    const hoursAgo = Math.floor(-diffMs / (1000 * 60 * 60));
+    return { label: `Breached ${hoursAgo < 1 ? 'just now' : `${hoursAgo}h ago`}`, breached: true };
+  }
+  const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+  if (hoursLeft < 24) return { label: `${hoursLeft}h left`, breached: false };
+  return { label: `${Math.floor(hoursLeft / 24)}d left`, breached: false };
+}
 
 export default function UltimateFulfillmentPage() {
   const router = useRouter();
-  const [clients, setClients] = useState<ClientDeliverable[]>(INITIAL_CLIENTS);
+  const [tasks, setTasks] = useState<FulfillmentTask[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTrade, setSelectedTrade] = useState<string>('All');
   const [showSlaBreachedOnly, setShowSlaBreachedOnly] = useState(false);
-  
-  // Asset Modal Preview
-  const [activePreviewClient, setActivePreviewClient] = useState<ClientDeliverable | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
 
-  useEffect(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
-      try {
-        setClients(JSON.parse(saved));
-      } catch (e) {
-        console.error('Failed to load saved state', e);
-      }
+  const [activePreviewTask, setActivePreviewTask] = useState<FulfillmentTask | null>(null);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/fulfillment?orgId=${ORG_ID}&t=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (Array.isArray(data.tasks)) setTasks(data.tasks);
+    } catch {
+      toast.error('Failed to load fulfillment board');
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const updateClientsState = (newClients: ClientDeliverable[]) => {
-    setClients(newClients);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newClients));
-  };
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
 
-  const handleStageChange = (id: string, newStage: ClientDeliverable['stage']) => {
-    const updated = clients.map((c) =>
-      c.id === id ? { ...c, stage: newStage, daysInStage: 0 } : c
+  // Live SLA countdown — re-renders every minute off the stored timestamps,
+  // no refetch needed.
+  useEffect(() => {
+    const interval = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStageChange = async (id: string, newStatus: FulfillmentTask['status']) => {
+    const previousTasks = tasks;
+    const task = tasks.find((t) => t.id === id);
+    if (!task || task.status === newStatus) return;
+
+    const now = new Date().toISOString();
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: newStatus, stageEnteredAt: now } : t))
     );
-    updateClientsState(updated);
-    toast.success(`Moved client to "${newStage}"`);
+
+    try {
+      const res = await fetch('/api/fulfillment', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status: newStatus }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+      const { task: updated } = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
+      toast.success(`Moved "${task.clientName}" to "${newStatus}"`);
+    } catch {
+      setTasks(previousTasks);
+      toast.error(`Failed to move "${task.clientName}" — reverted`);
+    }
   };
 
-  const toggleChecklistItem = (clientId: string, itemId: string) => {
-    const updated = clients.map((c) => {
-      if (c.id === clientId) {
-        const updatedChecklist = c.checklist.map((item) =>
-          item.id === itemId ? { ...item, done: !item.done } : item
-        );
-        return { ...c, checklist: updatedChecklist };
-      }
-      return c;
-    });
-    updateClientsState(updated);
+  const toggleChecklistItem = async (taskId: string, itemId: string) => {
+    const previousTasks = tasks;
+    const task = tasks.find((t) => t.id === taskId);
+    const item = task?.checklist.find((i) => i.id === itemId);
+    if (!task || !item) return;
+
+    const nextDone = !item.done;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, checklist: t.checklist.map((i) => (i.id === itemId ? { ...i, done: nextDone } : i)) }
+          : t
+      )
+    );
+
+    try {
+      const res = await fetch('/api/fulfillment/checklist', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: itemId, done: nextDone }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      setTasks(previousTasks);
+      toast.error('Failed to save checklist change — reverted');
+    }
   };
 
-  const stages: ClientDeliverable['stage'][] = [
-    'Intake Pending',
-    'Content Uploaded',
-    'Setup Live',
-    'Active Retainer',
-  ];
-
-  const filteredClients = clients.filter((c) => {
+  const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
-      c.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.serviceType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.ownerName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTrade = selectedTrade === 'All' || c.trade === selectedTrade;
-    const matchesSla = !showSlaBreachedOnly || (c.stage !== 'Active Retainer' && c.daysInStage >= 3);
+      t.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.ownerName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesTrade = selectedTrade === 'All' || t.trade === selectedTrade;
+    const breach = slaCountdown(t.slaDeadline, nowTick);
+    const matchesSla = !showSlaBreachedOnly || breach?.breached;
     return matchesSearch && matchesTrade && matchesSla;
   });
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-100">
-      
+
       {/* Asset Preview Modal */}
-      {activePreviewClient && (
+      {activePreviewTask && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 space-y-4 relative shadow-2xl">
             <button
-              onClick={() => setActivePreviewClient(null)}
+              onClick={() => setActivePreviewTask(null)}
               className="absolute top-4 right-4 text-slate-400 hover:text-white"
             >
               <X className="w-5 h-5" />
@@ -192,28 +185,28 @@ export default function UltimateFulfillmentPage() {
               <span className="text-[10px] font-bold font-mono text-sky-400 uppercase">
                 ASSET SUMMARY PREVIEW
               </span>
-              <h3 className="text-lg font-bold text-white">{activePreviewClient.clientName}</h3>
-              <p className="text-xs text-slate-400">Owner: {activePreviewClient.ownerName}</p>
+              <h3 className="text-lg font-bold text-white">{activePreviewTask.clientName}</h3>
+              <p className="text-xs text-slate-400">Owner: {activePreviewTask.ownerName}</p>
             </div>
 
             <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
               <div>
                 <span className="text-[10px] text-slate-500 font-mono uppercase block">Primary Offer Headline:</span>
                 <p className="font-bold text-emerald-400 text-sm mt-0.5">
-                  {activePreviewClient.offerHeadline || 'No offer headline uploaded yet'}
+                  {activePreviewTask.offerHeadline || 'No offer headline uploaded yet'}
                 </p>
               </div>
 
               <div>
                 <span className="text-[10px] text-slate-500 font-mono uppercase block">Internal Production Notes:</span>
-                <p className="text-slate-300 mt-0.5">{activePreviewClient.notes || 'None'}</p>
+                <p className="text-slate-300 mt-0.5">{activePreviewTask.notes || 'None'}</p>
               </div>
 
               <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[11px] font-mono">
-                <span>Value: <strong className="text-white">${activePreviewClient.contractValue}/mo</strong></span>
-                {activePreviewClient.driveFolderUrl && (
+                <span>Value: <strong className="text-white">${activePreviewTask.contractValue}/mo</strong></span>
+                {activePreviewTask.driveFolderUrl && (
                   <a
-                    href={activePreviewClient.driveFolderUrl}
+                    href={activePreviewTask.driveFolderUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sky-400 font-bold hover:underline flex items-center gap-1"
@@ -225,7 +218,7 @@ export default function UltimateFulfillmentPage() {
             </div>
 
             <button
-              onClick={() => setActivePreviewClient(null)}
+              onClick={() => setActivePreviewTask(null)}
               className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl text-xs"
             >
               Close Preview
@@ -304,183 +297,193 @@ export default function UltimateFulfillmentPage() {
             }`}
           >
             <Clock className="w-3.5 h-3.5 text-rose-400" />
-            <span>SLA Breached (&gt;3d)</span>
+            <span>SLA Breached</span>
           </button>
         </div>
       </div>
 
       {/* Columns */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stages.map((stage) => {
-          const stageClients = filteredClients.filter((c) => c.stage === stage);
+      {loading ? (
+        <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading fulfillment board from database…
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {STAGES.map((stage) => {
+            const stageTasks = filteredTasks.filter((t) => t.status === stage);
 
-          return (
-            <div key={stage} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-4 min-h-[600px] flex flex-col justify-between">
-              
-              <div className="space-y-3">
-                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
-                    {stage}
-                  </h3>
-                  <span className="text-[10px] font-bold bg-slate-950 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
-                    {stageClients.length}
-                  </span>
-                </div>
+            return (
+              <div key={stage} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-4 min-h-[600px] flex flex-col justify-between">
 
                 <div className="space-y-3">
-                  {stageClients.map((client) => {
-                    const completedChecklistCount = client.checklist.filter((i) => i.done).length;
-                    const progressPct = Math.round(
-                      (completedChecklistCount / (client.checklist.length || 1)) * 100
-                    );
-                    const isSlaBreached = client.stage !== 'Active Retainer' && client.daysInStage >= 3;
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                      {stage}
+                    </h3>
+                    <span className="text-[10px] font-bold bg-slate-950 text-slate-400 px-2.5 py-0.5 rounded-full border border-slate-800 font-mono">
+                      {stageTasks.length}
+                    </span>
+                  </div>
 
-                    return (
-                      <div
-                        key={client.id}
-                        className={`bg-slate-950 border rounded-xl p-4 space-y-3 relative transition-all shadow-md ${
-                          isSlaBreached ? 'border-rose-500/50 shadow-rose-950/20' : 'border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        {/* SLA Timer & Value Bar */}
-                        <div className="flex justify-between items-center text-[10px] font-mono">
-                          <span className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
-                            isSlaBreached 
-                              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse' 
-                              : 'bg-slate-800 text-slate-400'
-                          }`}>
-                            <Clock className="w-3 h-3" /> {client.daysInStage}d in stage
-                          </span>
+                  <div className="space-y-3">
+                    {stageTasks.map((task) => {
+                      const completedChecklistCount = task.checklist.filter((i) => i.done).length;
+                      const progressPct = Math.round(
+                        (completedChecklistCount / (task.checklist.length || 1)) * 100
+                      );
+                      const sla = slaCountdown(task.slaDeadline, nowTick);
+                      const days = daysInStage(task.stageEnteredAt, nowTick);
 
-                          <span className="font-bold text-emerald-400 flex items-center gap-1">
-                            <Tag className="w-3 h-3" /> ${client.contractValue}/mo
-                          </span>
-                        </div>
+                      return (
+                        <div
+                          key={task.id}
+                          className={`bg-slate-950 border rounded-xl p-4 space-y-3 relative transition-all shadow-md ${
+                            sla?.breached ? 'border-rose-500/50 shadow-rose-950/20' : 'border-slate-800 hover:border-slate-700'
+                          }`}
+                        >
+                          {/* SLA Timer & Value Bar */}
+                          <div className="flex justify-between items-center text-[10px] font-mono">
+                            <span className={`px-2 py-0.5 rounded font-bold flex items-center gap-1 ${
+                              sla?.breached
+                                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse'
+                                : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              <Clock className="w-3 h-3" /> {sla ? sla.label : `${days}d in stage`}
+                            </span>
 
-                        {/* Title & Owner */}
-                        <div className="space-y-1">
-                          <div className="flex justify-between items-start">
-                            <h4 className="text-sm font-bold text-white tracking-tight">
-                              {client.clientName}
-                            </h4>
-                            <span className="text-[9px] font-mono px-1.5 py-0.5 bg-slate-800 text-sky-400 rounded">
-                              {client.trade}
+                            <span className="font-bold text-emerald-400 flex items-center gap-1">
+                              <Tag className="w-3 h-3" /> ${task.contractValue}/mo
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-400 font-sans">
-                            Owner: <strong className="text-slate-200">{client.ownerName}</strong>
-                          </p>
-                        </div>
 
-                        {/* Direct Contact Row */}
-                        <div className="flex items-center gap-3 text-[10px] font-mono pt-1 text-slate-400 border-t border-slate-900">
-                          <a
-                            href={`tel:${client.contactPhone}`}
-                            className="hover:text-sky-400 flex items-center gap-1"
-                          >
-                            <Phone className="w-3 h-3 text-sky-400" /> {client.contactPhone}
-                          </a>
-                          <a
-                            href={`mailto:${client.contactEmail}`}
-                            className="hover:text-sky-400 flex items-center gap-1 truncate"
-                          >
-                            <Mail className="w-3 h-3 text-sky-400" /> Email
-                          </a>
-                        </div>
-
-                        {/* Task Checklist */}
-                        <div className="space-y-1.5 pt-1">
-                          <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
-                            <span className="flex items-center gap-1">
-                              <CheckSquare className="w-3 h-3 text-slate-500" /> Tasks
-                            </span>
-                            <span>{completedChecklistCount}/{client.checklist.length} ({progressPct}%)</span>
-                          </div>
-                          <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className="bg-sky-500 h-full transition-all duration-300"
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Interactive Sub-items */}
-                        <div className="space-y-1 pt-1 border-t border-slate-900">
-                          {client.checklist.map((item) => (
-                            <label
-                              key={item.id}
-                              className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer hover:text-white"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={item.done}
-                                onChange={() => toggleChecklistItem(client.id, item.id)}
-                                className="rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0 w-3 h-3 cursor-pointer"
-                              />
-                              <span className={item.done ? 'line-through text-slate-500' : ''}>
-                                {item.label}
+                          {/* Title & Owner */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-sm font-bold text-white tracking-tight">
+                                {task.clientName}
+                              </h4>
+                              <span className="text-[9px] font-mono px-1.5 py-0.5 bg-slate-800 text-sky-400 rounded">
+                                {task.trade}
                               </span>
-                            </label>
-                          ))}
-                        </div>
-
-                        {/* Quick Tools & Asset Drawer Trigger */}
-                        <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-[10px]">
-                          <button
-                            onClick={() => setActivePreviewClient(client)}
-                            className="text-sky-400 font-bold hover:underline flex items-center gap-1"
-                          >
-                            <Eye className="w-3 h-3" /> Preview Assets
-                          </button>
-
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => router.push('/admin/flyer-generator')}
-                              className="text-slate-400 hover:text-slate-200 font-mono"
-                            >
-                              Flyer
-                            </button>
-                            <button
-                              onClick={() => router.push('/admin/onboarding')}
-                              className="text-slate-400 hover:text-slate-200 font-mono"
-                            >
-                              Onboard
-                            </button>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-sans">
+                              {task.title}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-sans">
+                              Owner: <strong className="text-slate-200">{task.ownerName}</strong>
+                            </p>
                           </div>
-                        </div>
 
-                        {/* Stage Selector */}
-                        <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
-                          <span className="text-[9px] text-slate-500 font-mono">Stage:</span>
-                          <select
-                            value={client.stage}
-                            onChange={(e) => handleStageChange(client.id, e.target.value as ClientDeliverable['stage'])}
-                            className="bg-slate-900 border border-slate-800 rounded text-[10px] text-slate-300 px-2 py-1 focus:outline-none focus:border-sky-500 font-mono"
-                          >
-                            {stages.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
+                          {/* Direct Contact Row */}
+                          <div className="flex items-center gap-3 text-[10px] font-mono pt-1 text-slate-400 border-t border-slate-900">
+                            <a
+                              href={`tel:${task.contactPhone}`}
+                              className="hover:text-sky-400 flex items-center gap-1"
+                            >
+                              <Phone className="w-3 h-3 text-sky-400" /> {task.contactPhone}
+                            </a>
+                            <a
+                              href={`mailto:${task.contactEmail}`}
+                              className="hover:text-sky-400 flex items-center gap-1 truncate"
+                            >
+                              <Mail className="w-3 h-3 text-sky-400" /> Email
+                            </a>
+                          </div>
+
+                          {/* Task Checklist */}
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex justify-between items-center text-[10px] font-mono text-slate-400">
+                              <span className="flex items-center gap-1">
+                                <CheckSquare className="w-3 h-3 text-slate-500" /> Tasks
+                              </span>
+                              <span>{completedChecklistCount}/{task.checklist.length} ({progressPct}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className="bg-sky-500 h-full transition-all duration-300"
+                                style={{ width: `${progressPct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Interactive Sub-items */}
+                          <div className="space-y-1 pt-1 border-t border-slate-900">
+                            {task.checklist.map((item) => (
+                              <label
+                                key={item.id}
+                                className="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer hover:text-white"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={item.done}
+                                  onChange={() => toggleChecklistItem(task.id, item.id)}
+                                  className="rounded bg-slate-900 border-slate-700 text-sky-500 focus:ring-0 w-3 h-3 cursor-pointer"
+                                />
+                                <span className={item.done ? 'line-through text-slate-500' : ''}>
+                                  {item.label}
+                                </span>
+                              </label>
                             ))}
-                          </select>
+                          </div>
+
+                          {/* Quick Tools & Asset Drawer Trigger */}
+                          <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-[10px]">
+                            <button
+                              onClick={() => setActivePreviewTask(task)}
+                              className="text-sky-400 font-bold hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" /> Preview Assets
+                            </button>
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => router.push('/admin/flyer-generator')}
+                                className="text-slate-400 hover:text-slate-200 font-mono"
+                              >
+                                Flyer
+                              </button>
+                              <button
+                                onClick={() => router.push('/admin/onboarding')}
+                                className="text-slate-400 hover:text-slate-200 font-mono"
+                              >
+                                Onboard
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Stage Selector */}
+                          <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
+                            <span className="text-[9px] text-slate-500 font-mono">Stage:</span>
+                            <select
+                              value={task.status}
+                              onChange={(e) => handleStageChange(task.id, e.target.value as FulfillmentTask['status'])}
+                              className="bg-slate-900 border border-slate-800 rounded text-[10px] text-slate-300 px-2 py-1 focus:outline-none focus:border-sky-500 font-mono"
+                            >
+                              {STAGES.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
                         </div>
+                      );
+                    })}
 
+                    {stageTasks.length === 0 && (
+                      <div className="p-8 text-center text-[11px] text-slate-600 border border-dashed border-slate-800 rounded-xl font-mono">
+                        No accounts in this stage
                       </div>
-                    );
-                  })}
-
-                  {stageClients.length === 0 && (
-                    <div className="p-8 text-center text-[11px] text-slate-600 border border-dashed border-slate-800 rounded-xl font-mono">
-                      No accounts in this stage
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
 
-            </div>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
     </div>
   );

@@ -48,6 +48,7 @@ model Organization {
   seoKeywords        SeoKeyword[]
   subscriptions      Subscription[]
   portalLeads        PortalLead[]
+  fulfillmentTasks   FulfillmentTask[]
 }
 
 model User {
@@ -349,6 +350,51 @@ model PortalChatMessage {
   createdAt DateTime   @default(now())
 
   @@index([leadId])
+}
+
+// 📦 Fulfillment Center: client onboarding/production board (src/app/(fulfillment)/fulfillment)
+model FulfillmentTask {
+  id             String   @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title          String // deliverable / service being fulfilled, e.g. "AI Receptionist + Review Pass"
+  clientName     String
+  ownerName      String  @default("N/A")
+  trade          String  @default("General Trade") // HVAC, Plumbing, Electrical, General Trade
+  status         String  @default("Intake Pending") // Intake Pending, Content Uploaded, Setup Live, Active Retainer
+  contractValue  Int     @default(0)
+  driveFolderUrl String?
+  contactEmail   String  @default("N/A")
+  contactPhone   String  @default("N/A")
+  offerHeadline  String?
+  notes          String? @db.Text
+
+  // Timer source of truth: when the task entered its current status, and the
+  // computed SLA cutoff from that moment. Recomputed on every status change
+  // so the countdown always derives from a real timestamp, never a stored
+  // day-count that would go stale.
+  stageEnteredAt DateTime  @default(now())
+  slaDeadline    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  checklist FulfillmentChecklistItem[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model FulfillmentChecklistItem {
+  id            String          @id @default(uuid())
+  taskId        String
+  task          FulfillmentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  label         String
+  done          Boolean         @default(false)
+  orderPosition Int             @default(0)
+
+  @@index([taskId])
 }
 
 model AuditRun {
