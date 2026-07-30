@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm run dev)",
+      "PowerShell(npx prisma generate --schema=prisma/schema.prisma)",
+      "Bash(command -v chromium-cli)",
+      "Read(//c/Users/Colin Wray/.claude/skills/**)",
+      "Bash(powershell -NoProfile -Command \"Get-Process -Id 1192 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime\")",
+      "PowerShell(Stop-Process *)",
+      "Bash(netstat -ano)",
+      "Bash(nohup npm run dev)",
+      "Bash(echo \"started pid $!\")",
+      "Bash(timeout 40 bash -c 'until curl -sf http://localhost:3000 >/dev/null 2>&1; do sleep 1; done')"
+    ]
+  }
+}

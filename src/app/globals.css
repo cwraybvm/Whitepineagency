@@ -1,0 +1,473 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* System Brand Colors */
+  --color-indigo-400: #818cf8;
+  --color-indigo-500: #6366f1;
+  --color-indigo-600: #4f46e5;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-rose-400: #f87171;
+  --color-rose-500: #ef4444;
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+
+  /* Animations & Keyframes */
+  --animate-fadeIn: fadeIn 0.2s ease-out;
+  --animate-toast-slide: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-glow: pulseGlow 2s infinite ease-in-out;
+  --animate-slideUp: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(120%) scale(0.95);
+      filter: blur(4px);
+    }
+    to {
+      transform: translateX(0) scale(1);
+      filter: blur(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulseGlow {
+    0%, 100% { opacity: 0.3; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+  }
+}
+
+/* ==========================================================================
+   PREMIUM GLASSMORPHIC & SAAS MESH GLOWS
+   ========================================================================== */
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background-color: #030712;
+  color: #F3F4F6;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Cybernetic Grid Mask Overlay */
+.cyber-grid {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  mask-image: radial-gradient(circle at top center, black 40%, transparent 90%);
+}
+
+/* Glassmorphic Panel Texturing */
+.glass-card {
+  background-color: rgba(255, 255, 255, 0.015);
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px rgba(255, 255, 255, 0.03);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  background-color: rgba(255, 255, 255, 0.025);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(99, 102, 241, 0.03),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+/* Subtle data text glow accent */
+.text-glow-emerald {
+  text-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+}
+.text-glow-indigo {
+  text-shadow: 0 0 12px rgba(99, 102, 241, 0.4);
+}
+
+/* ==========================================================================
+   EXECUTIVE PAPER PDF RENDERING SPECIFICATIONS
+   ========================================================================== */
+@media print {
+  @page {
+    margin: 2.5cm 2cm;
+    @bottom-right {
+      content: "Page " counter(page);
+      font-size: 8.5px;
+      font-family: ui-monospace, Consolas, monospace;
+      color: #6B7280;
+    }
+    @bottom-left {
+      content: "WHITE PINE AGENCY • COMMERCIAL RISK INFRASTRUCTURE PROFILE";
+      font-size: 8.5px;
+      font-family: ui-monospace, Consolas, monospace;
+      color: #6B7280;
+    }
+  }
+
+  html, body {
+    background-color: #FFFFFF !important;
+    background: #FFFFFF !important;
+    color: #111827 !important;
+  }
+
+  .print-only,
+  .print-document-flow {
+    display: block !important;
+  }
+
+  header,
+  form,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  main {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  p, span, div, h2, h3, h4, th, text, td {
+    filter: none !important;
+    color: #111827 !important;
+  }
+
+  .roi-calculator-box {
+    background: #FFFFFF !important;
+    border: 2px solid #EF4444 !important;
+  }
+
+  .competitor-matrix-box {
+    background: #FFFFFF !important;
+    border: 1px solid #9CA3AF !important;
+    padding: 15px !important;
+    margin-bottom: 30px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .competitor-matrix-box th {
+    border-bottom: 1px solid #111827 !important;
+  }
+
+  .competitor-matrix-box tr {
+    border-bottom: 1px solid #E5E7EB !important;
+  }
+
+  .diagram-hub {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
+    margin-bottom: 25px !important;
+    page-break-inside: avoid !important;
+  }
+
+  .visual-diagram-box {
+    background: #FFFFFF !important;
+    border: 1px solid #D1D5DB !important;
+    color: #111827 !important;
+    page-break-inside: avoid !important;
+  }
+
+  .chart-bg-circle,
+  .chart-bg-line {
+    stroke: #D1D5DB !important;
+  }
+
+  .radar-polygon {
+    fill: rgba(99, 102, 241, 0.04) !important;
+    stroke: #111827 !important;
+  }
+
+  .gauge-needle {
+    stroke: #111827 !important;
+  }
+
+  .chart-label-text,
+  .chart-text-value,
+  .chart-heading-title {
+    fill: #111827 !important;
+    color: #111827 !important;
+  }
+
+  .print-cover-page {
+    page-break-after: always !important;
+  }
+
+  .print-page-row {
+    display: block !important;
+    page-break-inside: avoid !important;
+  }
+
+  table, tr, td {
+    page-break-inside: avoid !important;
+  }
+}
+
+/* ==========================================================================
+   MOBILE, PWA & SAFE-AREA UTILITIES
+   ========================================================================== */
+body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+input, 
+textarea, 
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Custom Scrollbar Cleanup for Mobile Decks */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Apex Portal: every interactive element gets a pointer cursor + a
+   consistent, smooth hover/active transition by default. Individual
+   elements can still override colors/transforms per-state. */
+.apex-portal button:not(:disabled),
+.apex-portal a[href],
+.apex-portal [role="button"],
+.apex-portal select,
+.apex-portal input[type="range"],
+.apex-portal label[for] {
+  cursor: pointer;
+}
+.apex-portal button,
+.apex-portal a,
+.apex-portal input,
+.apex-portal select,
+.apex-portal textarea {
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease, opacity 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+.apex-portal button:disabled {
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .apex-portal button,
+  .apex-portal a,
+  .apex-portal input,
+  .apex-portal select,
+  .apex-portal textarea {
+    transition-duration: 0.01ms;
+  }
+}
+
+/* Keyboard-accessible focus ring for every interactive element in the
+   portal — applied globally so it stays consistent without touching
+   every button's className individually. Trust-blue (#2563EB = Tailwind
+   blue-600) matches the portal's --color-ring token. outline (not
+   box-shadow) so it still renders in Windows High Contrast mode. */
+.apex-portal button:focus-visible,
+.apex-portal a:focus-visible,
+.apex-portal [role="button"]:focus-visible,
+.apex-portal select:focus-visible,
+.apex-portal input:focus-visible,
+.apex-portal textarea:focus-visible {
+  outline: 2px solid #2563EB;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Subtle hover lift for every clickable action. transform is already in
+   the transition list above, so this animates for free. A per-element
+   hover: transform utility (e.g. hover:scale-110) simply wins the
+   cascade where one is set — transform isn't additive, so nothing
+   stacks or fights visibly. */
+.apex-portal button:not(:disabled):hover,
+.apex-portal a[href]:hover,
+.apex-portal [role="button"]:hover {
+  transform: scale(1.015);
+}
+
+/* Keyboard-accessible focus ring for the admin console — same pattern as
+   .apex-portal above. Color matches the console's actual established
+   accent (indigo-500, already used everywhere via focus:border-indigo-500)
+   rather than MASTER.md's unused #0369A1 token, so it reads as one system
+   instead of a stray new color. */
+.admin-console button:focus-visible,
+.admin-console a:focus-visible,
+.admin-console [role="button"]:focus-visible,
+.admin-console select:focus-visible,
+.admin-console input:focus-visible,
+.admin-console textarea:focus-visible {
+  outline: 2px solid #6366F1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Command palette "light preview" toggle — flips the admin shell's own
+   background/text using the MASTER.md light tokens that were already
+   defined as CSS vars on .admin-console but never applied anywhere. This
+   is a shell-level preview only, not a full re-theme of every nested
+   card — cards keep their navy styling underneath. */
+html.preview-light .admin-console {
+  background-color: var(--color-background, #F8FAFC) !important;
+  color: var(--color-foreground, #020617) !important;
+}
+
+/* Mobile Safe-Area Utilities */
+.pb-safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.pt-safe-top {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+.px-safe-top {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

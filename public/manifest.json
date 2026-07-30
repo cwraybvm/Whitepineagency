@@ -1,0 +1,21 @@
+{
+  "name": "Service Control Portal",
+  "short_name": "Portal",
+  "description": "24/7 Automated Lead & Review Protection System",
+  "start_url": "/portal",
+  "display": "standalone",
+  "background_color": "#070a13",
+  "theme_color": "#070a13",
+  "icons": [
+    {
+      "src": "/client-icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/client-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python \"C:/Users/Colin Wray/.claude/skills/frontend-design/.claude/skills/ui-ux-pro-max/scripts/search.py\" \"drag and drop interaction feedback\" --domain ux)"
+    ]
+  }
+}

@@ -1,0 +1,379 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id                String   @id @default(uuid())
+  name              String
+  slug              String   @unique @default("default-org")
+  domain            String?
+  primaryKeyword    String? // Target search phrase tracked for local rank/competitor snapshots
+  status            String   @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELED
+
+  // Multi-Tenant Agency & Integration Keys
+  mailchimpApiKey   String?  @db.Text
+  mailchimpListId   String?
+  wordpressUrl      String?
+  wordpressUsername String?
+  wordpressAppPass  String?  @db.Text
+
+  // Social API Tokens
+  metaPageAccessToken String? @db.Text
+  metaPageId          String?
+  linkedInAccessToken String? @db.Text
+  linkedInAuthorUrn   String?
+
+  // Stripe Billing Customer Reference
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  // Relations
+  members            Member[]
+  leads              Lead[]
+  auditRuns          AuditRun[]
+  contentPosts       ContentPost[]
+  taskColumns        TaskColumn[]
+  taskCards          TaskCard[]
+  clientKpis         ClientKpi[]
+  taskTemplates      RecurringTaskTemplate[]
+  inboxMessages      InboxMessage[]
+  monthlyReports     MonthlyReport[]
+  seoKeywords        SeoKeyword[]
+  subscriptions      Subscription[]
+  portalLeads        PortalLead[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  fullName     String?
+  passwordHash String   @default("")
+  role         String   @default("AGENCY_ADMIN") // AGENCY_ADMIN, CLIENT_OWNER, CLIENT_MEMBER
+  createdAt    DateTime @default(now())
+
+  members Member[]
+}
+
+model Member {
+  id             String @id @default(uuid())
+  role           String @default("MEMBER") // OWNER, MEMBER, VIEWER
+  organizationId String
+  userId         String
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model Lead {
+  id               String   @id @default(uuid())
+  businessName     String   @default("Unknown Company")
+  url              String   @default("")
+  email            String   @default("N/A")
+  phone            String   @default("N/A")
+  overallScore     Int      @default(50)
+  estimatedLoss    Int      @default(2500)
+  industry         String   @default("Home Services")
+  stage            String   @default("New Lead")
+  aiPriority       String   @default("Stable")
+  memo             String?  @db.Text
+  aiOutreachScript String   @default("") @db.Text
+  organizationId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([stage])
+}
+
+model ContentPost {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title            String
+  status           String       @default("DRAFT") // DRAFT, PENDING_APPROVAL, APPROVED, REJECTED, SCHEDULED, PUBLISHED, FAILED
+  approvalNotes    String?      @db.Text
+
+  // Content & Social Copy
+  content          String?      @db.Text
+  blogMarkdown     String?      @db.Text
+  emailDraft       String?      @db.Text
+  instagramCaption String?      @db.Text
+  twitterThread    String?      @db.Text
+  linkedinPost     String?      @db.Text
+  reelScript       String?      @db.Text
+  imagePrompt      String?      @db.Text
+
+  // Calendar & Media Extensions
+  scheduledAt      DateTime?
+  publishedAt      DateTime?
+  platforms        String[]     @default([])
+  mediaUrl         String?
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+model TaskColumn {
+  id             String   @id @default(uuid())
+  organizationId String
+  title          String
+  orderPosition  Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  cards          TaskCard[]
+
+  @@index([organizationId])
+}
+
+model TaskCard {
+  id             String   @id @default(uuid())
+  organizationId String
+  columnId       String
+  title          String
+  description    String?  @db.Text
+  assignee       String?
+  dueDate        String?
+  tagLabel       String?  @default("General")
+  tagColor       String?  @default("bg-white/10 text-gray-300 border-white/15")
+  orderPosition  Int      @default(0)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  column         TaskColumn   @relation(fields: [columnId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([columnId])
+}
+
+model ClientKpi {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  metricName     String       // e.g. "Monthly Lead Target", "Target CAC", "Ad Spend ROI"
+  currentValue   Float        @default(0)
+  targetValue    Float        @default(100)
+  unit           String       @default("") // e.g. "$", "%", "leads"
+  period         String       @default("Q3 2026")
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model RecurringTaskTemplate {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title          String
+  description    String?      @db.Text
+  frequency      String       @default("WEEKLY") // WEEKLY, MONTHLY
+  dayOffset      Int          @default(1) // Day of week (1-7) or Day of month (1-31)
+  tagLabel       String?      @default("Recurring")
+  tagColor       String?      @default("bg-purple-500/20 text-purple-300 border-purple-500/30")
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model InboxMessage {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  senderName     String       @default("Anonymous")
+  senderContact  String       // Email or Phone number
+  channel        String       @default("SMS") // SMS, FORM_LEAD, EMAIL
+  body           String       @db.Text
+  isRead         Boolean      @default(false)
+
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+model MonthlyReport {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title          String       // e.g. "July 2026 CMO Performance Summary"
+  monthPeriod    String       // e.g. "2026-07"
+  loomEmbedUrl   String?      @db.Text
+  summaryNotes   String?      @db.Text
+  metricsSnapshot Json?       // Stores frozen JSON snapshot of KPIs & post stats
+
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+// 📈 SEO & Search Rank Tracking
+model SeoKeyword {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  keyword        String
+  currentRank    Int          @default(0)
+  previousRank   Int          @default(0)
+  searchVolume   Int          @default(0)
+  targetUrl      String?
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// 💳 Stripe Retainer Billing & Access Status
+model Subscription {
+  id                   String       @id @default(uuid())
+  organizationId       String
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stripeCustomerId     String
+  stripeSubscriptionId String       @unique
+  planName             String       @default("Growth Retainer")
+  amount               Float        @default(0)
+  status               String       @default("ACTIVE") // ACTIVE, PAST_DUE, CANCELED
+  currentPeriodEnd     DateTime
+
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+// 📞 Client Portal: Inbound Customer Lead Feed (calls, forms, texts)
+model PortalLead {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  customerName String
+  phone        String
+  address      String?
+
+  title       String
+  subtitle    String @default("")
+  jobCategory String @default("General Service")
+  badge       String @default("")
+  badgeColor  String @default("bg-slate-800 text-slate-200 border border-white/10")
+
+  source    String  @default("organic_web") // google_maps, google_lsa, organic_web, truck_wrap
+  fmsStatus String  @default("not_applicable") // synced, manual_needed, not_applicable
+  fmsJobId  String?
+
+  estimatedValue Int       @default(0)
+  closedValue    Int?
+  status         String    @default("pending") // won, in_progress, lost, pending, spam
+  assignedTechId String?
+  scheduledAt    DateTime?
+
+  unrepliedMinutes Int     @default(0)
+  isVip            Boolean @default(false)
+  pastJobCount     Int?
+  isDuplicate      Boolean @default(false)
+  duplicateCount   Int?
+  isSnoozed        Boolean @default(false)
+  snoozeUntil      String?
+  isPinned         Boolean @default(false)
+
+  dispatchNote String? @db.Text
+
+  aiIssue             String?
+  aiLocation          String?
+  aiRequestedTime     String?
+  aiIssueAudioTime    Int?
+  aiLocationAudioTime Int?
+  aiTimeAudioTime     Int?
+
+  hasAudio      Boolean @default(false)
+  audioDuration String?
+  transcript    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  history      PortalLeadEvent[]
+  chatMessages PortalChatMessage[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model PortalLeadEvent {
+  id          String     @id @default(uuid())
+  leadId      String
+  lead        PortalLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  event       String
+  statusBadge String     @default("")
+  createdAt   DateTime   @default(now())
+
+  @@index([leadId])
+}
+
+model PortalChatMessage {
+  id        String     @id @default(uuid())
+  leadId    String
+  lead      PortalLead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  sender    String     // system, customer, staff
+  text      String     @db.Text
+  createdAt DateTime   @default(now())
+
+  @@index([leadId])
+}
+
+model AuditRun {
+  id             String   @id @default(uuid())
+  overallScore   Int
+  executedBy     String   @default("SYSTEM")
+  organizationId String   @default("default-org")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metrics      Metric[]
+
+  @@index([organizationId])
+}
+
+model Metric {
+  id         String  @id @default(uuid())
+  nodeKey    String
+  dataValue  String
+  riskLabel  String
+  riskColor  String
+  isResolved Boolean @default(false)
+  auditRunId String
+
+  auditRun AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
+
+  @@index([auditRunId])
+}
