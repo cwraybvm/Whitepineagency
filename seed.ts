@@ -18,13 +18,13 @@ async function main() {
     where: { email: 'colin@example.com' }, 
     update: {
       fullName: 'Colin Wray',
-      role: 'ADMIN',
+      role: 'OWNER',
     },
     create: {
       email: 'colin@example.com',
       fullName: 'Colin Wray',
       passwordHash: 'OAUTH_EXTERNAL_GATED',
-      role: 'ADMIN',
+      role: 'OWNER',
     },
   });
 

@@ -8,9 +8,12 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const LOGIN_RECENT_DAYS = 7;
 const LOGIN_STALE_DAYS = 30;
 
-async function requireAuth() {
+// Sensitive financial metrics — OWNER-only per the RBAC spec, even though
+// proxy.ts already blocks non-owners from reaching /admin/revenue itself.
+// Defense in depth: this is what the page's own Access Denied banner checks.
+async function requireOwner() {
   const store = await cookies();
-  return Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
+  return store.get('role')?.value === 'OWNER';
 }
 
 type HealthScore = 'Healthy' | 'Warning' | 'Churn Risk';
@@ -38,8 +41,8 @@ function scoreClient(params: {
 }
 
 export async function GET() {
-  if (!(await requireAuth())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!(await requireOwner())) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
   try {

@@ -1,5 +1,22 @@
 import { NextResponse, NextRequest } from 'next/server';
 
+type Role = 'OWNER' | 'OPERATOR' | 'SALES' | 'CLIENT_OWNER' | 'CLIENT_MEMBER';
+
+// RBAC route matrix. /demo/* is deliberately NOT here — it stays public on
+// purpose so a rep can hand a screen straight to a prospect with no login
+// (see DEMO_PLAYBOOK.md). Checked in order; first match wins.
+const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
+  { prefix: '/admin', roles: ['OWNER'] },
+  { prefix: '/fulfillment', roles: ['OWNER', 'OPERATOR'] },
+  { prefix: '/crm', roles: ['OWNER', 'OPERATOR', 'SALES'] },
+  { prefix: '/portal', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER', 'CLIENT_MEMBER'] },
+];
+
+function allowedRolesFor(pathname: string): Role[] | null {
+  const match = ROUTE_ROLES.find((r) => pathname.startsWith(r.prefix));
+  return match ? match.roles : null;
+}
+
 export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { pathname } = url;
@@ -13,32 +30,35 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 🔐 1. SECURE ADMIN, FULFILLMENT & CRM ROUTES (staff-only, elevated session required)
-  if (
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/fulfillment') ||
-    pathname.startsWith('/crm')
-  ) {
-    const authToken = request.cookies.get('auth_token')?.value;
-    if (!authToken?.trim()) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('callbackUrl', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  // 🔐 1b. SECURE PORTAL ROUTES (any authenticated user — client or staff)
-  if (pathname.startsWith('/portal')) {
-    // auth_token = elevated/staff session. user_session = any DB-authenticated
-    // login (client or staff) — set on every successful /api/auth/login call.
+  // 🔐 1. RBAC — AUTHENTICATION + ROLE FOR ADMIN/FULFILLMENT/CRM/PORTAL
+  const allowedRoles = allowedRolesFor(pathname);
+  if (allowedRoles) {
     const authToken = request.cookies.get('auth_token')?.value;
     const userSession = request.cookies.get('user_session')?.value;
+    const role = request.cookies.get('role')?.value as Role | undefined;
     const isAuthenticated = Boolean(authToken?.trim() || userSession?.trim());
 
     if (!isAuthenticated) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
+    }
+
+    // Authenticated but no role cookie (pre-RBAC session) or wrong tier for
+    // this route: send to /login for the missing-role case (a fresh login
+    // issues a role cookie) and to /access-denied for a real mismatch, so
+    // an authenticated user sees *why* rather than bouncing in a loop.
+    if (!role) {
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('callbackUrl', pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (!allowedRoles.includes(role)) {
+      const deniedUrl = new URL('/access-denied', request.url);
+      deniedUrl.searchParams.set('path', pathname);
+      deniedUrl.searchParams.set('role', role);
+      return NextResponse.redirect(deniedUrl);
     }
   }
 

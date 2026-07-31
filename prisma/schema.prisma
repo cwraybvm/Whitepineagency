@@ -51,13 +51,25 @@ model Organization {
   fulfillmentTasks   FulfillmentTask[]
 }
 
+// RBAC tiers. OWNER/OPERATOR/SALES are internal White Pine staff roles —
+// CLIENT_OWNER/CLIENT_MEMBER are the pre-existing client-side roles, kept
+// as-is; this enum doesn't change what a client can access, only adds real
+// enforcement for the staff tiers. See src/proxy.ts for the route matrix.
+enum UserRole {
+  OWNER
+  OPERATOR
+  SALES
+  CLIENT_OWNER
+  CLIENT_MEMBER
+}
+
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String    @id @default(uuid())
+  email        String    @unique
   fullName     String?
-  passwordHash String   @default("")
-  role         String   @default("AGENCY_ADMIN") // AGENCY_ADMIN, CLIENT_OWNER, CLIENT_MEMBER
-  createdAt    DateTime @default(now())
+  passwordHash String    @default("")
+  role         UserRole  @default(SALES)
+  createdAt    DateTime  @default(now())
   lastLoginAt  DateTime?
 
   members Member[]

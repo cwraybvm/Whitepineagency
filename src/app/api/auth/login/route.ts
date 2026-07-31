@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
 import { db } from '../../../../lib/db';
 
+function setSessionCookies(
+  response: NextResponse,
+  { userSessionId, orgId, role }: { userSessionId?: string; orgId: string; role: string }
+) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const base = { path: '/', maxAge: 86400, httpOnly: true, secure: isProduction, sameSite: 'strict' as const };
+
+  if (userSessionId) response.cookies.set('user_session', userSessionId, base);
+  response.cookies.set('org_id', orgId, base);
+  // RBAC tier read by proxy.ts to authorize /admin, /fulfillment, /crm, /portal.
+  response.cookies.set('role', role, base);
+  // Legacy "is authenticated at all" marker — kept for anything still reading
+  // it, but authorization decisions now go through the role cookie above.
+  response.cookies.set('auth_token', userSessionId ? `session_active_token_wp_${userSessionId}` : 'master_bypass_active_session', base);
+}
+
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
@@ -14,22 +30,8 @@ export async function POST(request: Request) {
     // never actually read; this wires it up. Unset disables the bypass entirely.
     const bypassPassword = process.env.ADMIN_PASSWORD;
     if (bypassPassword && password === bypassPassword) {
-      const response = NextResponse.json({ success: true, role: 'ADMIN' });
-      const isProduction = process.env.NODE_ENV === 'production';
-      response.cookies.set('auth_token', 'master_bypass_active_session', {
-        path: '/',
-        maxAge: 86400,
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: 'strict',
-      });
-      response.cookies.set('org_id', 'default-tenant-workspace', {
-        path: '/',
-        maxAge: 86400,
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: 'strict',
-      });
+      const response = NextResponse.json({ success: true, role: 'OWNER' });
+      setSessionCookies(response, { orgId: 'default-tenant-workspace', role: 'OWNER' });
       return response;
     }
 
@@ -62,39 +64,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No active workspace membership found' }, { status: 403 });
     }
 
-    // 3. Set up the payload and drop cookies dynamically based on security permissions
+    // 3. Set up the payload and drop cookies — role drives route authorization
     const response = NextResponse.json({ success: true, role: user.role });
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    // Core user identifier session
-    response.cookies.set('user_session', user.id, {
-      path: '/',
-      maxAge: 86400,
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
+    setSessionCookies(response, {
+      userSessionId: user.id,
+      orgId: primaryMembership.organizationId,
+      role: user.role,
     });
-
-    // 🏎️ Core multi-tenant workspace context isolation cookie
-    response.cookies.set('org_id', primaryMembership.organizationId, {
-      path: '/',
-      maxAge: 86400,
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
-    });
-
-    // 🔐 SECURE ADMIN GATEWAY ACCESS OVERLAY
-    // If the database profile user role registers as an admin, grant the strict middleware token
-    if (user.role === 'ADMIN' || user.role === 'admin' || user.role === 'AGENCY_ADMIN') {
-      response.cookies.set('auth_token', `session_active_token_wp_${user.id}`, {
-        path: '/',
-        maxAge: 86400, // 24 hour lifespan
-        httpOnly: true, // Safeguards against cross-site scripting cookie manipulation
-        secure: isProduction,
-        sameSite: 'strict',
-      });
-    }
 
     return response;
   } catch (error: any) {

@@ -43,12 +43,15 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        // Automatically redirects users depending on their database security flags
-        if (data.role === 'ADMIN' || data.role === 'admin' || data.role === 'AGENCY_ADMIN') {
-          router.push('/admin');
-        } else {
-          router.push('/portal/dashboard'); // Standard client metrics view
-        }
+        // Land each role on the module it actually has access to.
+        const ROLE_HOME: Record<string, string> = {
+          OWNER: '/admin',
+          OPERATOR: '/fulfillment',
+          SALES: '/crm',
+          CLIENT_OWNER: '/portal/dashboard',
+          CLIENT_MEMBER: '/portal/dashboard',
+        };
+        router.push(ROLE_HOME[data.role] || '/portal/dashboard');
         router.refresh();
       } else {
         setError(data.error || 'Invalid email credentials or access token.');

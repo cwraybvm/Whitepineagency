@@ -206,7 +206,7 @@ export async function POST(req: NextRequest) {
           email: String(email),
           fullName: 'Corporate Point of Contact',
           passwordHash: 'OAUTH_EXTERNAL_GATED',
-          role: 'CLIENT_USER'
+          role: 'CLIENT_MEMBER'
         },
       });
     }

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   AlertTriangle,
   ShieldAlert,
+  LogOut,
 } from 'lucide-react';
 
 type HealthScore = 'Healthy' | 'Warning' | 'Churn Risk';
@@ -58,11 +59,16 @@ export default function RevenuePage() {
   const [metrics, setMetrics] = useState<RevenueMetrics | null>(null);
   const [clients, setClients] = useState<ClientHealth[]>([]);
   const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
   const [outreachSendingId, setOutreachSendingId] = useState<string | null>(null);
 
   const fetchRevenue = useCallback(async () => {
     try {
       const res = await fetch(`/api/revenue?t=${Date.now()}`, { cache: 'no-store' });
+      if (res.status === 403 || res.status === 401) {
+        setDenied(true);
+        return;
+      }
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       setMetrics(data.metrics);
@@ -126,6 +132,26 @@ export default function RevenuePage() {
       {loading ? (
         <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading revenue data from database…
+        </div>
+      ) : denied ? (
+        <div className="max-w-md mx-auto bg-slate-900/80 border border-rose-500/30 rounded-2xl p-8 space-y-4 text-center backdrop-blur-xl">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
+            <ShieldAlert className="w-7 h-7 text-rose-400" />
+          </div>
+          <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest font-mono block">
+            Access Denied — Elevation Required
+          </span>
+          <h2 className="text-lg font-bold text-white">Owner access required</h2>
+          <p className="text-xs text-slate-400">
+            Revenue and retainer financials are restricted to the Owner role. Ask an Owner to
+            elevate your account if you need visibility here.
+          </p>
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+          >
+            <LogOut className="w-3.5 h-3.5" /> Sign in as someone else
+          </button>
         </div>
       ) : (
         <>

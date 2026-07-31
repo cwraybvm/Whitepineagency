@@ -6,16 +6,15 @@ import { prisma } from '@/lib/prisma'; // ✅ SHARED INSTANCE
 export const dynamic = 'force-dynamic';
 
 // This route reads/writes third-party integration credentials (Mailchimp API
-// key, WordPress app password) — must not be reachable without a session.
-// Not covered by proxy.ts's matcher, so the check lives here instead.
-async function requireAuth() {
+// key, WordPress app password) — "global org API keys" in the RBAC spec,
+// OWNER-only. Not covered by proxy.ts's matcher, so the check lives here.
+async function requireOwner() {
   const store = await cookies();
-  const isAuthenticated = Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
-  return isAuthenticated;
+  return store.get('role')?.value === 'OWNER';
 }
 
 export async function POST(req: Request) {
-  if (!(await requireAuth())) {
+  if (!(await requireOwner())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -51,7 +50,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  if (!(await requireAuth())) {
+  if (!(await requireOwner())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
