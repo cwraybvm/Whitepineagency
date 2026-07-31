@@ -380,10 +380,28 @@ model FulfillmentTask {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  checklist FulfillmentChecklistItem[]
+  checklist    FulfillmentChecklistItem[]
+  intakeAssets IntakeAsset[]
 
   @@index([organizationId])
   @@index([status])
+}
+
+// 📥 Audit record of a raw client intake submission (files + form fields)
+// that produced a FulfillmentTask — kept separate from the task itself so
+// the original submission is preserved even as the task's pipeline state
+// changes.
+model IntakeAsset {
+  id             String          @id @default(uuid())
+  taskId         String
+  task           FulfillmentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  clientName     String
+  offerDetails   String?         @db.Text
+  driveFolderUrl String?
+  fileCount      Int             @default(0)
+  createdAt      DateTime        @default(now())
+
+  @@index([taskId])
 }
 
 model FulfillmentChecklistItem {

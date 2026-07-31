@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
+import { prisma } from '@/lib/prisma';
+
+const INTAKE_SLA_HOURS = 48;
+
+const INTAKE_CHECKLIST = [
+  'Verify Logo Resolution',
+  'Configure Twilio Forwarding',
+  'Deploy Review Pass',
+];
 
 const auth = new google.auth.GoogleAuth({
   credentials: {
@@ -16,6 +25,7 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const clientName = (formData.get('clientName') as string) || 'New Client';
+    const offerDetails = (formData.get('offerDetails') as string) || '';
     const files = formData.getAll('files') as File[];
 
     const parentFolderId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
@@ -61,6 +71,32 @@ export async function POST(req: NextRequest) {
       });
 
       uploadedFileIds.push(fileUpload.data.id);
+    }
+
+    // 3. Drive upload succeeded — the client's assets are safe. Creating the
+    // fulfillment task is a secondary automation from here, so a DB failure
+    // must not turn a successful upload into an error response for the user.
+    try {
+      const now = new Date();
+      await prisma.fulfillmentTask.create({
+        data: {
+          title: 'New Client Asset Intake',
+          clientName,
+          status: 'Intake Pending',
+          driveFolderUrl: folderViewLink,
+          offerHeadline: offerDetails || undefined,
+          stageEnteredAt: now,
+          slaDeadline: new Date(now.getTime() + INTAKE_SLA_HOURS * 60 * 60 * 1000),
+          checklist: {
+            create: INTAKE_CHECKLIST.map((label, idx) => ({ label, orderPosition: idx })),
+          },
+          intakeAssets: {
+            create: [{ clientName, offerDetails: offerDetails || undefined, driveFolderUrl: folderViewLink, fileCount: uploadedFileIds.length }],
+          },
+        },
+      });
+    } catch (dbError) {
+      console.error('Fulfillment task creation failed (Drive upload still succeeded):', dbError);
     }
 
     return NextResponse.json({
