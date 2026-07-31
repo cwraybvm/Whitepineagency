@@ -437,7 +437,7 @@ export default function UltimateFulfillmentPage() {
 
                             <div className="flex gap-2">
                               <button
-                                onClick={() => router.push('/admin/flyer-generator')}
+                                onClick={() => router.push('/fulfillment/flyer-generator')}
                                 className="text-slate-400 hover:text-slate-200 font-mono"
                               >
                                 Flyer
