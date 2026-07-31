@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Fira_Code } from 'next/font/google';
-import { Search, Filter, Phone, Mail, Calculator, Users, Clock, Loader2 } from 'lucide-react';
+import { Search, Filter, Phone, Mail, Calculator, Users, Clock, Loader2, Send } from 'lucide-react';
 
 const firaCode = Fira_Code({
   subsets: ['latin'],
@@ -64,6 +64,7 @@ export default function CrmPipelinePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [dragLeadId, setDragLeadId] = useState<string | null>(null);
+  const [sendingSequenceId, setSendingSequenceId] = useState<string | null>(null);
 
   const fetchLeads = useCallback(async () => {
     try {
@@ -101,6 +102,33 @@ export default function CrmPipelinePage() {
     } catch {
       setLeads(previousLeads);
       toast.error(`Failed to move "${lead.businessName}" — reverted`);
+    }
+  };
+
+  const triggerEmailSequence = async (lead: Lead) => {
+    if (sendingSequenceId) return;
+    setSendingSequenceId(lead.id);
+
+    try {
+      const res = await fetch('/api/leads/dispatch-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: lead.email,
+          subject: `Following up on your proposal — ${lead.businessName}`,
+          body:
+            `Hi ${lead.businessName} team,\n\n` +
+            `Wanted to follow up on the proposal we sent over. Happy to answer any questions ` +
+            `or jump on a quick call to walk through next steps.\n\n` +
+            `Looking forward to hearing from you.\n\n— White Pine Agency`,
+        }),
+      });
+      if (!res.ok) throw new Error('Dispatch failed');
+      toast.success(`Follow-up sequence sent to "${lead.businessName}"`);
+    } catch {
+      toast.error(`Failed to send sequence to "${lead.businessName}"`);
+    } finally {
+      setSendingSequenceId(null);
     }
   };
 
@@ -285,6 +313,22 @@ export default function CrmPipelinePage() {
                           <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-900">
                             <Clock className="w-3 h-3" /> Updated: {formatTimestamp(lead.updatedAt)}
                           </div>
+
+                          {/* Proposal Sent: automated follow-up sequence trigger */}
+                          {lead.stage === 'Proposal Sent' && (
+                            <button
+                              onClick={() => triggerEmailSequence(lead)}
+                              disabled={sendingSequenceId === lead.id}
+                              className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-lg text-[10px] font-mono transition-all flex items-center justify-center gap-1.5"
+                            >
+                              {sendingSequenceId === lead.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Send className="w-3 h-3" />
+                              )}
+                              {sendingSequenceId === lead.id ? 'Sending…' : 'Send Follow-Up Sequence'}
+                            </button>
+                          )}
 
                           {/* Stage Selector (accessible alternative to drag) */}
                           <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
