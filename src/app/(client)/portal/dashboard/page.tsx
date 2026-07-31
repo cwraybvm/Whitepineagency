@@ -1,37 +1,75 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  PhoneCall, 
-  Star, 
-  Calendar, 
-  Download, 
-  MessageSquare, 
-  Sparkles, 
+import {
+  PhoneCall,
+  Star,
+  Download,
+  MessageSquare,
+  Sparkles,
   ArrowUpRight,
   ShieldCheck,
-  Building2
 } from 'lucide-react';
+
+interface Branding {
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string | null;
+}
+
+const DEFAULT_PRIMARY = '#0284C7'; // sky-600 — matches the pre-branding look
 
 export default function ClientPortalDashboard() {
   const router = useRouter();
+  const [branding, setBranding] = useState<Branding | null>(null);
+
+  useEffect(() => {
+    fetch('/api/portal/branding', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setBranding(data))
+      .catch(() => {});
+  }, []);
+
+  const businessName = branding?.name || 'Apex Mechanical Services';
+  const primaryColor = branding?.primaryColor || DEFAULT_PRIMARY;
+  const logoUrl = branding?.logoUrl;
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-slate-100">
-      
+    // Primary color lands as a CSS custom property so any element on this
+    // page can pick it up via var(--portal-primary) — buttons/highlights
+    // below reference it directly instead of the old hardcoded sky-600.
+    <div
+      className="p-4 sm:p-8 space-y-6 max-w-7xl mx-auto font-sans text-slate-100"
+      style={{ ['--portal-primary' as string]: primaryColor }}
+    >
+
       {/* Header Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-sky-600 rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-lg">
-            A
-          </div>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={`${businessName} logo`}
+              className="w-12 h-12 rounded-2xl object-cover shadow-lg border border-slate-700"
+            />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center font-black text-white text-xl shadow-lg"
+              style={{ backgroundColor: 'var(--portal-primary)' }}
+            >
+              {businessName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
-            <span className="text-xs font-bold text-sky-400 uppercase tracking-widest font-mono block flex items-center gap-1">
+            <span
+              className="text-xs font-bold uppercase tracking-widest font-mono block flex items-center gap-1"
+              style={{ color: 'var(--portal-primary)' }}
+            >
               <ShieldCheck className="w-3.5 h-3.5" /> CLIENT SELF-SERVICE HUB
             </span>
             <h1 className="text-2xl font-black text-white tracking-tight">
-              Apex Mechanical Services
+              {businessName}
             </h1>
             <p className="text-xs text-slate-400">
               AI Safety Net Active • Powered by White Pine Agency
@@ -42,17 +80,21 @@ export default function ClientPortalDashboard() {
         <div className="flex gap-2">
           <button
             onClick={() => router.push('/portal/reviews')}
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer hover:brightness-110"
+            style={{ backgroundColor: 'var(--portal-primary)' }}
           >
-            <Star className="w-3.5 h-3.5 text-amber-400" /> Review Pass Sign
+            <Star className="w-3.5 h-3.5" /> Review Pass Sign
           </button>
         </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl">
+
+        <div
+          className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl border-t-2"
+          style={{ borderTopColor: 'var(--portal-primary)' }}
+        >
           <div className="flex justify-between items-center text-slate-400">
             <span className="text-xs font-bold font-mono uppercase">Captured Leads</span>
             <PhoneCall className="w-4 h-4 text-emerald-400" />
@@ -65,7 +107,10 @@ export default function ClientPortalDashboard() {
           </p>
         </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl">
+        <div
+          className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl border-t-2"
+          style={{ borderTopColor: 'var(--portal-primary)' }}
+        >
           <div className="flex justify-between items-center text-slate-400">
             <span className="text-xs font-bold font-mono uppercase">Google Rating</span>
             <Star className="w-4 h-4 text-amber-400" />
@@ -78,12 +123,15 @@ export default function ClientPortalDashboard() {
           </p>
         </div>
 
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl">
+        <div
+          className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2 shadow-xl border-t-2"
+          style={{ borderTopColor: 'var(--portal-primary)' }}
+        >
           <div className="flex justify-between items-center text-slate-400">
             <span className="text-xs font-bold font-mono uppercase">Active Offer</span>
-            <Sparkles className="w-4 h-4 text-sky-400" />
+            <Sparkles className="w-4 h-4" style={{ color: 'var(--portal-primary)' }} />
           </div>
-          <div className="text-lg font-bold text-sky-400 truncate">
+          <div className="text-lg font-bold truncate" style={{ color: 'var(--portal-primary)' }}>
             $79 AC Tune-Up
           </div>
           <p className="text-[10px] text-slate-400 font-mono">
@@ -96,7 +144,7 @@ export default function ClientPortalDashboard() {
       {/* Recent Activity Log */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-xl">
         <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono border-b border-slate-800 pb-3 flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-sky-400" /> Recent Automated Lead Captures
+          <MessageSquare className="w-4 h-4" style={{ color: 'var(--portal-primary)' }} /> Recent Automated Lead Captures
         </h3>
 
         <div className="space-y-3 font-mono text-xs">

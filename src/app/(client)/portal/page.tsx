@@ -13,7 +13,7 @@ import {
   Play, Mic, Bot, Clock, Ban, Search, LayoutGrid, Maximize2, Minimize2, Siren,
   Calendar, Inbox, FlaskConical, Drama, Activity, Trophy, X, Headphones, Link2,
   Lightbulb, Rocket, List, ChevronUp, ChevronDown, Hourglass, PartyPopper, Gauge, CalendarClock,
-  Check, CheckCheck,
+  Check, CheckCheck, Palette,
 } from 'lucide-react';
 
 gsap.registerPlugin(useGSAP);
@@ -293,6 +293,15 @@ export default function CompleteOperationalClientPortal() {
   const [accentTheme, setAccentTheme] = useState<ThemeAccent>('indigo');
   const [isCustomerTyping, setIsCustomerTyping] = useState(false);
 
+  // Whitelabel branding — persisted org identity, distinct from accentTheme
+  // above (that's a local-only UI preference; this is the org's actual logo
+  // + brand color, saved to the database and applied on the client's
+  // /portal/dashboard view).
+  const [isBrandingOpen, setIsBrandingOpen] = useState(false);
+  const [brandingLogoUrl, setBrandingLogoUrl] = useState('');
+  const [brandingPrimaryColor, setBrandingPrimaryColor] = useState('#2563EB');
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+
   const [isRecordingVoice, setIsRecordingVoice] = useState<string | null>(null);
   const [isVoiceSearching, setIsVoiceSearching] = useState<boolean>(false);
 
@@ -531,6 +540,36 @@ export default function CompleteOperationalClientPortal() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetch('/api/portal/branding')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        setBrandingLogoUrl(data.logoUrl || '');
+        setBrandingPrimaryColor(data.primaryColor || '#2563EB');
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveBranding = async () => {
+    setIsSavingBranding(true);
+    try {
+      const res = await fetch('/api/portal/branding', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logoUrl: brandingLogoUrl.trim(), primaryColor: brandingPrimaryColor }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      toast.success('Branding updated — your logo and color are live on the dashboard.');
+      setIsBrandingOpen(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save branding');
+    } finally {
+      setIsSavingBranding(false);
+    }
+  };
 
   const saveKpis = (patch: { goal?: number; retainer?: number }) => {
     if (isDemoMode) return;
@@ -2678,10 +2717,92 @@ export default function CompleteOperationalClientPortal() {
                 <span className="inline-flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5" /> Webhooks Automation Endpoint</span>
                 <span className="text-xs bg-blue-500/20 px-2 py-0.5 rounded-full">Configure</span>
               </button>
+
+              <button
+                onClick={() => { setIsSettingsOpen(false); setIsBrandingOpen(true); }}
+                className="w-full py-3 px-3 bg-indigo-50 border border-indigo-500/30 text-indigo-700 font-bold rounded-xl text-left text-xs flex justify-between items-center min-h-[44px]"
+              >
+                <span className="inline-flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Branding Options</span>
+                <span className="text-xs bg-indigo-500/20 px-2 py-0.5 rounded-full">Logo &amp; Color</span>
+              </button>
             </div>
 
             <button onClick={() => setIsSettingsOpen(false)} className="w-full py-3 bg-slate-50 text-slate-800 font-bold rounded-xl border border-slate-200 cursor-pointer font-sans active:scale-95 min-h-[44px] flex items-center justify-center">
               Close Controls
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🎨 BRANDING OPTIONS — logo + primary color, saved to the org and
+          applied live on /portal/dashboard */}
+      {isBrandingOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border-t sm:border border-slate-200 rounded-t-[28px] sm:rounded-2xl max-w-md w-full p-5 space-y-4 font-sans text-xs pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-5">
+            <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto sm:hidden mb-1" />
+
+            <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+              <h3 className="text-xs font-bold text-slate-800 uppercase font-sans flex items-center gap-1.5">
+                <Palette className="w-3.5 h-3.5" /> Branding Options
+              </h3>
+              <button onClick={() => setIsBrandingOpen(false)} aria-label="Close branding options" className="min-h-[44px] min-w-[44px] text-slate-600 hover:text-slate-800 font-bold p-2 cursor-pointer flex items-center justify-center">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Your logo and brand color show up on your dashboard header, buttons, and highlights.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Logo URL</label>
+              <input
+                type="url"
+                value={brandingLogoUrl}
+                onChange={(e) => setBrandingLogoUrl(e.target.value)}
+                placeholder="https://yourbusiness.com/logo.png"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs placeholder-slate-400 focus:outline-none focus:border-indigo-500 min-h-[44px]"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 block">Brand Color</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={/^#([0-9a-fA-F]{6})$/.test(brandingPrimaryColor) ? brandingPrimaryColor : '#2563EB'}
+                  onChange={(e) => setBrandingPrimaryColor(e.target.value)}
+                  className="w-11 h-11 rounded-xl border border-slate-200 cursor-pointer shrink-0"
+                />
+                <input
+                  type="text"
+                  value={brandingPrimaryColor}
+                  onChange={(e) => setBrandingPrimaryColor(e.target.value)}
+                  placeholder="#2563EB"
+                  className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 text-xs font-mono placeholder-slate-400 focus:outline-none focus:border-indigo-500 min-h-[44px]"
+                />
+              </div>
+            </div>
+
+            {brandingLogoUrl && (
+              <div className="flex items-center gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <span className="text-xs text-slate-500 font-bold uppercase shrink-0">Preview</span>
+                <img
+                  src={brandingLogoUrl}
+                  alt="Logo preview"
+                  className="w-10 h-10 rounded-xl object-cover border border-slate-200"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+            )}
+
+            <button
+              onClick={saveBranding}
+              disabled={isSavingBranding}
+              className="w-full py-3 text-white font-bold rounded-xl text-xs active:scale-95 min-h-[44px] flex items-center justify-center gap-2 disabled:opacity-60"
+              style={{ backgroundColor: /^#([0-9a-fA-F]{6})$/.test(brandingPrimaryColor) ? brandingPrimaryColor : '#2563EB' }}
+            >
+              {isSavingBranding ? 'Saving…' : 'Save Branding'}
             </button>
           </div>
         </div>

@@ -14,6 +14,11 @@ model Organization {
   primaryKeyword    String? // Target search phrase tracked for local rank/competitor snapshots
   status            String   @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELED
 
+  // Whitelabel Branding — applied to the client's own portal view
+  logoUrl       String?
+  primaryColor  String? // hex, e.g. "#2563EB"
+  customDomain  String?
+
   // Multi-Tenant Agency & Integration Keys
   mailchimpApiKey   String?  @db.Text
   mailchimpListId   String?
