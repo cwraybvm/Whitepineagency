@@ -21,7 +21,8 @@ const firaCode = Fira_Code({
 
 export interface HubMetrics {
   activeLeads: number | null;
-  activeRetainers: number | null;
+  fulfillmentOnTrack: number | null;
+  fulfillmentTotal: number | null;
   liveOrgs: number | null;
   unreadSignals: number | null;
 }
@@ -72,7 +73,12 @@ function buildModules(metrics: HubMetrics): Module[] {
       description: 'Production board tracking every deliverable from intake to launch.',
       href: '/fulfillment',
       badge: 'PRODUCTION',
-      status: metrics.activeRetainers !== null ? `${metrics.activeRetainers} Active Retainers` : 'Production Board',
+      status:
+        metrics.fulfillmentTotal === null
+          ? 'Production Board'
+          : metrics.fulfillmentTotal === 0
+            ? 'No Active Tasks'
+            : `${metrics.fulfillmentOnTrack}/${metrics.fulfillmentTotal} SLA On-Track`,
       accent: '#F59E0B',
       glow: 'shadow-[0_0_60px_-15px_rgba(245,158,11,0.5)]',
       icon: PackageCheck,

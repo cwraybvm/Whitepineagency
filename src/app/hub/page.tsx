@@ -6,16 +6,24 @@ export const dynamic = 'force-dynamic';
 
 async function getMetrics(): Promise<HubMetrics> {
   try {
-    const [activeLeads, activeRetainers, liveOrgs, unreadSignals] = await Promise.all([
+    const now = new Date();
+    const [activeLeads, fulfillmentTotal, fulfillmentBreached, liveOrgs, unreadSignals] = await Promise.all([
       db.lead.count({ where: { stage: { notIn: ['Closed Won', 'Closed Lost'] } } }),
-      db.subscription.count({ where: { status: 'ACTIVE' } }),
+      db.fulfillmentTask.count(),
+      db.fulfillmentTask.count({ where: { slaDeadline: { lt: now } } }),
       db.organization.count({ where: { status: 'ACTIVE' } }),
       db.inboxMessage.count({ where: { isRead: false } }),
     ]);
-    return { activeLeads, activeRetainers, liveOrgs, unreadSignals };
+    return {
+      activeLeads,
+      fulfillmentOnTrack: fulfillmentTotal - fulfillmentBreached,
+      fulfillmentTotal,
+      liveOrgs,
+      unreadSignals,
+    };
   } catch (err) {
     console.warn('⚠️ Hub metrics query bypassed, DB unreachable:', err);
-    return { activeLeads: null, activeRetainers: null, liveOrgs: null, unreadSignals: null };
+    return { activeLeads: null, fulfillmentOnTrack: null, fulfillmentTotal: null, liveOrgs: null, unreadSignals: null };
   }
 }
 
