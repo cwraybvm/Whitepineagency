@@ -94,9 +94,25 @@ model Lead {
   updatedAt DateTime @default(now()) @updatedAt
 
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  messages     LeadMessage[]
 
   @@index([organizationId])
   @@index([stage])
+}
+
+// 💬 Two-way SMS thread for a CRM Lead (Twilio), shown in the CRM chat drawer
+model LeadMessage {
+  id         String   @id @default(uuid())
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  direction  String // inbound (from the lead) | outbound (from us)
+  body       String   @db.Text
+  fromNumber String?
+  toNumber   String?
+  twilioSid  String?
+  createdAt  DateTime @default(now())
+
+  @@index([leadId])
 }
 
 model ContentPost {

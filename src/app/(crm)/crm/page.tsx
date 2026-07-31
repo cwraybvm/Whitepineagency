@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { Fira_Code } from 'next/font/google';
-import { Search, Filter, Phone, Mail, Calculator, Users, Clock, Loader2, Send } from 'lucide-react';
+import { Search, Filter, Phone, Mail, Calculator, Users, Clock, Loader2, Send, MessageSquare } from 'lucide-react';
+import LeadChatDrawer from '@/components/crm/LeadChatDrawer';
 
 const firaCode = Fira_Code({
   subsets: ['latin'],
@@ -65,6 +66,7 @@ export default function CrmPipelinePage() {
   const [priorityFilter, setPriorityFilter] = useState('All');
   const [dragLeadId, setDragLeadId] = useState<string | null>(null);
   const [sendingSequenceId, setSendingSequenceId] = useState<string | null>(null);
+  const [chatLead, setChatLead] = useState<Lead | null>(null);
 
   const fetchLeads = useCallback(async () => {
     try {
@@ -309,6 +311,14 @@ export default function CrmPipelinePage() {
                             </a>
                           </div>
 
+                          {/* Chat History */}
+                          <button
+                            onClick={() => setChatLead(lead)}
+                            className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-lg text-[10px] font-mono transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <MessageSquare className="w-3 h-3 text-emerald-400" /> View Chat History
+                          </button>
+
                           {/* Last Updated */}
                           <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono pt-1 border-t border-slate-900">
                             <Clock className="w-3 h-3" /> Updated: {formatTimestamp(lead.updatedAt)}
@@ -361,6 +371,8 @@ export default function CrmPipelinePage() {
           </div>
         )}
       </div>
+
+      <LeadChatDrawer isOpen={!!chatLead} onClose={() => setChatLead(null)} lead={chatLead} />
     </div>
   );
 }
