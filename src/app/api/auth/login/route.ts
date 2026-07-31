@@ -54,7 +54,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // 2. Identify their primary workspace context
+    // 2. Record login recency for the revenue/health radar, then identify
+    // their primary workspace context
+    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     const primaryMembership = user.members[0];
     if (!primaryMembership) {
       return NextResponse.json({ error: 'No active workspace membership found' }, { status: 403 });

@@ -58,6 +58,7 @@ model User {
   passwordHash String   @default("")
   role         String   @default("AGENCY_ADMIN") // AGENCY_ADMIN, CLIENT_OWNER, CLIENT_MEMBER
   createdAt    DateTime @default(now())
+  lastLoginAt  DateTime?
 
   members Member[]
 }
