@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Rocket, Loader2, Archive, Send, Download, FileArchive } from 'lucide-react';
+import { Rocket, Loader2, Archive, Send, FileArchive } from 'lucide-react';
 import type { CreativeAsset, SandboxTool } from './types';
 import ScoreBadge from './ScoreBadge';
 import type { ScorableType } from '@/lib/creativeScore';
@@ -85,13 +85,12 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
   };
 
   const selectedAssets = assets.filter((a) => selectedIds.has(a.id));
-  const needsManualUrl = selectedAssets.some((a) => !a.organization);
 
   const buildDeployBody = (action: 'deploy' | 'export') => {
     const targetUrls: Record<string, string> = {};
     if (manualTargetUrl.trim()) {
       for (const a of selectedAssets) {
-        if (!a.organization) targetUrls[a.id] = manualTargetUrl.trim();
+        targetUrls[a.id] = manualTargetUrl.trim();
       }
     }
     return { action, assetIds: Array.from(selectedIds), platform, targetUrls };
@@ -194,14 +193,12 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
               </button>
             ))}
           </div>
-          {needsManualUrl && (
-            <input
-              value={manualTargetUrl}
-              onChange={(e) => setManualTargetUrl(e.target.value)}
-              placeholder="Target URL for unpromoted assets…"
-              className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 min-w-[220px]"
-            />
-          )}
+          <input
+            value={manualTargetUrl}
+            onChange={(e) => setManualTargetUrl(e.target.value)}
+            placeholder="Target URL (used if the client has no custom domain set)…"
+            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 min-w-[220px]"
+          />
           <button
             onClick={deploySelected}
             disabled={deploying}

@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
 
     const deployedAt = new Date().toISOString();
-    await Promise.all(
+    await prisma.$transaction(
       resolved.map(({ asset, targetUrl }) =>
         prisma.creativeAsset.update({
           where: { id: asset.id },
