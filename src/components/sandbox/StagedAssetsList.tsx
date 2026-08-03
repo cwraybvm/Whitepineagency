@@ -46,6 +46,8 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
 
   useEffect(() => {
     load();
+    setSelectedIds(new Set());
+    setManualTargetUrl('');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool]);
 
