@@ -1,19 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Rocket, Loader2, Archive, Send, FileArchive } from 'lucide-react';
+import { Archive } from 'lucide-react';
 import type { CreativeAsset, SandboxTool } from './types';
-import ScoreBadge from './ScoreBadge';
-import type { ScorableType } from '@/lib/creativeScore';
 import type { Platform } from '@/lib/platformExport';
+import AssetsSidebar, { type StatusFilter, type TypeFilter } from './AssetsSidebar';
+import BulkActionBar from './BulkActionBar';
+import AssetListRow from './AssetListRow';
+import AssetCard from './AssetCard';
+import SkeletonLoader from './SkeletonLoader';
 
 // 'campaign' and 'swipe' are intentionally absent — both produce mixed-type
 // output (COPY + AD), so their Staged Assets view shows everything, unfiltered.
 const TOOL_TYPE: Partial<Record<SandboxTool, string>> = { copy: 'COPY', ad: 'AD', video: 'VIDEO_SCRIPT', 'landing-page': 'LANDING_PAGE' };
-
-const PLATFORMS: Platform[] = ['META', 'GOOGLE', 'TIKTOK'];
-const PLATFORM_LABELS: Record<Platform, string> = { META: 'Meta Ads', GOOGLE: 'Google Ads', TIKTOK: 'TikTok' };
 
 export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTool }) {
   const [assets, setAssets] = useState<CreativeAsset[]>([]);
@@ -26,6 +26,9 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
   const [manualTargetUrl, setManualTargetUrl] = useState('');
   const [deploying, setDeploying] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   const load = async () => {
     setLoading(true);
@@ -48,6 +51,8 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
     load();
     setSelectedIds(new Set());
     setManualTargetUrl('');
+    setStatusFilter('ALL');
+    setTypeFilter('ALL');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTool]);
 
@@ -107,7 +112,7 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Deploy failed');
-      toast.success(`Deployed ${data.payloads.length} asset(s) to ${PLATFORM_LABELS[platform]}`);
+      toast.success(`Deployed ${data.payloads.length} asset(s) to ${platform}`);
       load();
     } catch (err: any) {
       toast.error(err.message || 'Failed to deploy');
@@ -158,130 +163,86 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
     }
   };
 
+  const filteredAssets = useMemo(() => {
+    return assets.filter((a) => {
+      if (statusFilter !== 'ALL' && a.status !== statusFilter) return false;
+      if (typeFilter !== 'ALL' && a.type !== typeFilter) return false;
+      return true;
+    });
+  }, [assets, statusFilter, typeFilter]);
+
   if (loading) {
     return (
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-10 flex items-center justify-center text-slate-500">
-        <Loader2 className="w-5 h-5 animate-spin" />
+      <div className="space-y-3">
+        <SkeletonLoader variant={viewMode === 'grid' ? 'card' : 'row'} count={viewMode === 'grid' ? 6 : 3} />
       </div>
     );
   }
 
   if (assets.length === 0) {
     return (
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 text-sm">
+      <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
         <Archive className="w-6 h-6" />
         No staged assets yet for this tool. Generate and save one from Draft Canvas.
       </div>
     );
   }
 
+  const rowProps = (asset: CreativeAsset) => ({
+    asset,
+    selected: selectedIds.has(asset.id),
+    onToggleSelected: toggleSelected,
+    orgs,
+    selectedOrgId: selectedOrg[asset.id],
+    onSelectOrg: (id: string) => setSelectedOrg((prev) => ({ ...prev, [asset.id]: id })),
+    onPromote: () => promote(asset.id),
+    promoting: promotingId === asset.id,
+    onOptimized: (r: { title?: string; content: string; metadata?: any }) =>
+      optimizeAsset(asset.id, r.content, r.title, r.metadata || asset.metadata),
+  });
+
   return (
     <div className="space-y-3">
+      <AssetsSidebar
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+      />
+
       {selectedIds.size > 0 && (
-        <div className="bg-slate-900/80 border border-indigo-500/40 rounded-2xl p-4 flex flex-wrap items-center gap-3">
-          <span className="text-xs font-bold text-white">{selectedIds.size} selected</span>
-          <div className="flex gap-1.5 bg-slate-950 border border-slate-800 rounded-xl p-1">
-            {PLATFORMS.map((p) => (
-              <button
-                key={p}
-                onClick={() => setPlatform(p)}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                  platform === p ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {PLATFORM_LABELS[p]}
-              </button>
-            ))}
-          </div>
-          <input
-            value={manualTargetUrl}
-            onChange={(e) => setManualTargetUrl(e.target.value)}
-            placeholder="Target URL (used if the client has no custom domain set)…"
-            className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-sky-500 min-w-[220px]"
-          />
-          <button
-            onClick={deploySelected}
-            disabled={deploying}
-            className="py-2 px-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5"
-          >
-            {deploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            Deploy Campaign
-          </button>
-          <button
-            onClick={exportSelected}
-            disabled={exporting}
-            className="py-2 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5"
-          >
-            {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileArchive className="w-3.5 h-3.5" />}
-            Export ZIP
-          </button>
+        <BulkActionBar
+          selectedCount={selectedIds.size}
+          platform={platform}
+          onPlatformChange={setPlatform}
+          manualTargetUrl={manualTargetUrl}
+          onManualTargetUrlChange={setManualTargetUrl}
+          deploying={deploying}
+          exporting={exporting}
+          onDeploy={deploySelected}
+          onExport={exportSelected}
+        />
+      )}
+
+      {filteredAssets.length === 0 ? (
+        <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+          No assets match the current filters.
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAssets.map((asset) => (
+            <AssetCard key={asset.id} {...rowProps(asset)} />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredAssets.map((asset) => (
+            <AssetListRow key={asset.id} {...rowProps(asset)} />
+          ))}
         </div>
       )}
-      {assets.map((asset) => (
-        <div key={asset.id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(asset.id)}
-                onChange={() => toggleSelected(asset.id)}
-                className="w-3.5 h-3.5 accent-indigo-500"
-              />
-              <span
-                className={`text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border ${
-                  asset.status === 'PRODUCTION'
-                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                    : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                }`}
-              >
-                {asset.status}
-              </span>
-              <span className="text-sm font-bold text-white truncate">{asset.title}</span>
-              {asset.organization && (
-                <span className="text-[11px] text-slate-500">→ {asset.organization.name}</span>
-              )}
-              {PLATFORMS.filter((p) => asset.metadata?.deployments?.[p]?.status === 'ACTIVE').map((p) => (
-                <span
-                  key={p}
-                  className="text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full border bg-violet-500/15 text-violet-300 border-violet-500/30"
-                >
-                  {PLATFORM_LABELS[p]} Ready
-                </span>
-              ))}
-            </div>
-            <p className="text-xs text-slate-400 line-clamp-2 whitespace-pre-wrap">{asset.content}</p>
-            <ScoreBadge
-              content={asset.content}
-              type={asset.type as ScorableType}
-              metadata={asset.metadata}
-              onOptimized={(r) => optimizeAsset(asset.id, r.content, r.title, r.metadata || asset.metadata)}
-            />
-          </div>
-
-          {asset.status === 'STAGED' && (
-            <div className="flex items-center gap-2 shrink-0">
-              <select
-                value={selectedOrg[asset.id] || ''}
-                onChange={(e) => setSelectedOrg((prev) => ({ ...prev, [asset.id]: e.target.value }))}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
-              >
-                <option value="">Select client…</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => promote(asset.id)}
-                disabled={promotingId === asset.id}
-                className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 shrink-0"
-              >
-                {promotingId === asset.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
-                Promote to Production
-              </button>
-            </div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
