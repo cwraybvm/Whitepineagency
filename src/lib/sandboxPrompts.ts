@@ -138,6 +138,9 @@ export function validateVoiceGenInput(body: any): string | null {
   if (typeof body?.sceneText !== 'string' || !body.sceneText.trim()) {
     return 'sceneText is required';
   }
+  if (body.sceneText.length > 4096) {
+    return 'sceneText must be 4096 characters or fewer';
+  }
   if (!Object.prototype.hasOwnProperty.call(VOICE_PERSONAS, body?.voicePersona)) {
     return `voicePersona must be one of ${Object.keys(VOICE_PERSONAS).join(', ')}`;
   }

@@ -15,6 +15,10 @@ const cases: { body: any; expectError: boolean }[] = [
   { body: { sceneText: 'Hello', voicePersona: '__proto__' }, expectError: true },
   { body: { sceneText: 'Hello', voicePersona: 'hasOwnProperty' }, expectError: true },
   { body: { sceneText: 'Hello', voicePersona: 'valueOf' }, expectError: true },
+  // Length validation: exactly 4096 chars is valid
+  { body: { sceneText: 'x'.repeat(4096), voicePersona: 'Warm' }, expectError: false },
+  // Length validation: 4097 chars exceeds limit
+  { body: { sceneText: 'x'.repeat(4097), voicePersona: 'Warm' }, expectError: true },
 ];
 
 let failures = 0;
