@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch } from 'lucide-react';
+import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop } from 'lucide-react';
 import CopyStudioPanel from '@/components/sandbox/CopyStudioPanel';
 import AdBuilderPanel from '@/components/sandbox/AdBuilderPanel';
 import VideoLabPanel from '@/components/sandbox/VideoLabPanel';
 import CampaignBatchPanel from '@/components/sandbox/CampaignBatchPanel';
 import SwipeAnalyzerPanel from '@/components/sandbox/SwipeAnalyzerPanel';
+import LandingPageStudioPanel from '@/components/sandbox/LandingPageStudioPanel';
 import StagedAssetsList from '@/components/sandbox/StagedAssetsList';
 import type { SandboxTool } from '@/components/sandbox/types';
 
@@ -14,6 +15,7 @@ const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
   { id: 'copy', label: 'Copy Studio', icon: PenTool },
   { id: 'ad', label: 'Ad Builder', icon: LayoutTemplate },
   { id: 'video', label: 'Video Lab', icon: Clapperboard },
+  { id: 'landing-page', label: 'Landing Page Studio', icon: LayoutPanelTop },
   { id: 'campaign', label: 'Campaign Engine', icon: Rocket },
   { id: 'swipe', label: 'Ad Swipe File', icon: ScanSearch },
 ];
@@ -82,6 +84,7 @@ export default function SandboxPage() {
           {activeTool === 'copy' && <CopyStudioPanel />}
           {activeTool === 'ad' && <AdBuilderPanel />}
           {activeTool === 'video' && <VideoLabPanel />}
+          {activeTool === 'landing-page' && <LandingPageStudioPanel />}
           {activeTool === 'campaign' && <CampaignBatchPanel />}
           {activeTool === 'swipe' && <SwipeAnalyzerPanel />}
         </>

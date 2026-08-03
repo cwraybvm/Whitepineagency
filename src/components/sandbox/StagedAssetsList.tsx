@@ -9,7 +9,7 @@ import type { ScorableType } from '@/lib/creativeScore';
 
 // 'campaign' and 'swipe' are intentionally absent — both produce mixed-type
 // output (COPY + AD), so their Staged Assets view shows everything, unfiltered.
-const TOOL_TYPE: Partial<Record<SandboxTool, string>> = { copy: 'COPY', ad: 'AD', video: 'VIDEO_SCRIPT' };
+const TOOL_TYPE: Partial<Record<SandboxTool, string>> = { copy: 'COPY', ad: 'AD', video: 'VIDEO_SCRIPT', 'landing-page': 'LANDING_PAGE' };
 
 export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTool }) {
   const [assets, setAssets] = useState<CreativeAsset[]>([]);
