@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
+import { ThemeProvider } from "next-themes";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -35,26 +36,28 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={cn("dark", "font-sans", geist.variable)}>
-      <body className="antialiased bg-[#0B0F17] text-gray-200">
-        {/* 🔔 SONNER DARK TOAST NOTIFICATIONS */}
-        <Toaster 
-          position="top-center" 
-          theme="dark"
-          richColors
-          toastOptions={{
-            style: {
-              background: "#090D16",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              color: "#ffffff",
-              borderRadius: "1rem",
-              fontFamily: "var(--font-mono, monospace)",
-              fontSize: "0.75rem",
-            },
-          }}
-        />
+    <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
+      <body className="antialiased bg-[#0B0F17] dark:bg-[#0B0F17] text-gray-200">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          {/* 🔔 SONNER DARK TOAST NOTIFICATIONS */}
+          <Toaster
+            position="top-center"
+            theme="dark"
+            richColors
+            toastOptions={{
+              style: {
+                background: "#090D16",
+                border: "1px solid rgba(255, 255, 255, 0.1)",
+                color: "#ffffff",
+                borderRadius: "1rem",
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "0.75rem",
+              },
+            }}
+          />
 
-        {children}
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
