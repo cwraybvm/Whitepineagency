@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Clapperboard, Copy, Download } from 'lucide-react';
-import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, type Tone, type Beat, type ShotDuration, type CameraMovement } from './types';
+import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic } from 'lucide-react';
+import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, VOICE_PERSONA_OPTIONS, type Tone, type Beat, type ShotDuration, type CameraMovement, type VoicePersona } from './types';
 import ScoreBadge from './ScoreBadge';
 
 type VideoDraft = {
@@ -35,6 +35,7 @@ export default function VideoLabPanel() {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<VideoDraft | null>(null);
+  const [generatingAudio, setGeneratingAudio] = useState<Record<number, boolean>>({});
 
   const generate = async () => {
     setGenerating(true);
@@ -64,6 +65,27 @@ export default function VideoLabPanel() {
     const beats = [...draft.metadata.beats];
     beats[index] = { ...beats[index], ...patch };
     setDraft({ ...draft, metadata: { beats } });
+  };
+
+  const generateBeatAudio = async (index: number) => {
+    if (!draft) return;
+    const beat = draft.metadata.beats[index];
+    const persona = beat.voicePersona || 'Professional';
+    setGeneratingAudio((prev) => ({ ...prev, [index]: true }));
+    try {
+      const res = await fetch('/api/sandbox/generate-voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sceneText: beat.line, voicePersona: persona }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Voice generation failed');
+      updateBeat(index, { voicePersona: persona, voiceId: data.voiceId, audioUrl: data.audioUrl });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate scene audio');
+    } finally {
+      setGeneratingAudio((prev) => ({ ...prev, [index]: false }));
+    }
   };
 
   const applyOptimized = (title: string | undefined, content: string, metadata: any) => {
@@ -232,6 +254,40 @@ export default function VideoLabPanel() {
                         ))}
                       </div>
                     </div>
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-slate-500 font-mono uppercase block">Voice Persona</label>
+                      <div className="flex gap-1">
+                        {VOICE_PERSONA_OPTIONS.map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => updateBeat(i, { voicePersona: p as VoicePersona })}
+                            className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
+                              (beat.voicePersona || 'Professional') === p ? 'bg-sky-600 text-white' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pl-7 space-y-2">
+                    <button
+                      onClick={() => generateBeatAudio(i)}
+                      disabled={generatingAudio[i]}
+                      className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-white font-bold rounded-lg text-[10px] transition-all flex items-center gap-1.5"
+                    >
+                      {generatingAudio[i] ? <Loader2 className="w-3 h-3 animate-spin" /> : <Mic className="w-3 h-3" />}
+                      {generatingAudio[i] ? 'Generating…' : 'Generate Scene Audio'}
+                    </button>
+                    {beat.audioUrl && (
+                      <audio
+                        controls
+                        src={beat.audioUrl}
+                        className="w-full h-8"
+                        onLoadedMetadata={(e) => updateBeat(i, { audioDuration: e.currentTarget.duration })}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
