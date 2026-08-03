@@ -178,6 +178,28 @@ model ContentPost {
   @@index([status])
 }
 
+// AI Creative Sandbox: generated copy/ad/video-script/landing-page assets,
+// staged unassigned until "Promote to Production" attaches them to an Organization
+model CreativeAsset {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title    String
+  type     String @default("COPY") // COPY, AD, VIDEO_SCRIPT, LANDING_PAGE
+  status   String @default("DRAFT") // DRAFT, STAGED, PRODUCTION
+  content  String @db.Text
+  metadata Json?
+  version  Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
+}
+
 model TaskColumn {
   id             String   @id @default(uuid())
   organizationId String
@@ -461,28 +483,6 @@ model FulfillmentChecklistItem {
   orderPosition Int             @default(0)
 
   @@index([taskId])
-}
-
-// 🎨 AI Creative Sandbox: generated copy/ad/video-script assets, staged
-// unassigned until "Promote to Production" attaches them to an Organization
-model CreativeAsset {
-  id             String        @id @default(uuid())
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  title    String
-  type     String @default("COPY") // COPY, AD, VIDEO_SCRIPT
-  status   String @default("DRAFT") // DRAFT, STAGED, PRODUCTION
-  content  String @db.Text
-  metadata Json?
-  version  Int    @default(1)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
-  @@index([organizationId])
-  @@index([status])
-  @@index([type])
 }
 
 model AuditRun {

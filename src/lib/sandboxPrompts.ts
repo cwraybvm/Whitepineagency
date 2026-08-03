@@ -37,6 +37,7 @@ export function basePromptForType(type: ScorableType): string {
   if (type === 'COPY') return SYSTEM_PROMPTS.copy;
   if (type === 'AD') return SYSTEM_PROMPTS.ad;
   if (type === 'VIDEO_SCRIPT') return SYSTEM_PROMPTS.video;
+  if (type === 'LANDING_PAGE') return LANDING_PAGE_PROMPT;
   return DRIP_PROMPT;
 }
 
@@ -168,4 +169,23 @@ export async function synthesizeSpeech(text: string, persona: keyof typeof VOICE
 
   const arrayBuffer = await res.arrayBuffer();
   return Buffer.from(arrayBuffer);
+}
+
+export const LANDING_PAGE_PROMPT =
+  'You are an expert direct-response landing page copywriter for a local-service marketing agency. ' +
+  'Given either a source ad/hook to match or a brief, write a matching landing page copy set: a hero headline that echoes the source hook, a supporting subheadline, a primary CTA button label, exactly 3 value-proposition bullets, and one social-proof testimonial. ' +
+  'Write the testimonial as a short, generic, clearly-placeholder quote attributed to a role and location (e.g. "— Homeowner, Springfield"), never a fabricated named individual — a real client quote replaces it before publishing. ' +
+  'Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the subheadline", "metadata": {"heroHeadline": "the hero headline", "subheadline": "the subheadline", "primaryCta": "the CTA button label", "valueProps": ["value prop 1", "value prop 2", "value prop 3"], "testimonial": "the placeholder testimonial quote"}} with exactly 3 entries in the valueProps array.';
+
+export function validateLandingPageInput(body: any): string | null {
+  if (body?.mode !== 'asset' && body?.mode !== 'brief') {
+    return "mode must be 'asset' or 'brief'";
+  }
+  if (body.mode === 'asset' && (typeof body.assetId !== 'string' || !body.assetId.trim())) {
+    return 'assetId is required in asset mode';
+  }
+  if (body.mode === 'brief' && (typeof body.prompt !== 'string' || !body.prompt.trim())) {
+    return 'prompt is required in brief mode';
+  }
+  return null;
 }
