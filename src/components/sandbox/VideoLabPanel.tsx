@@ -61,10 +61,12 @@ export default function VideoLabPanel() {
   };
 
   const updateBeat = (index: number, patch: Partial<Beat>) => {
-    if (!draft) return;
-    const beats = [...draft.metadata.beats];
-    beats[index] = { ...beats[index], ...patch };
-    setDraft({ ...draft, metadata: { beats } });
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const beats = [...prev.metadata.beats];
+      beats[index] = { ...beats[index], ...patch };
+      return { ...prev, metadata: { beats } };
+    });
   };
 
   const generateBeatAudio = async (index: number) => {
