@@ -101,6 +101,8 @@ export default function AssetCard({
           <button
             onClick={onPromote}
             disabled={promoting}
+            aria-label="Promote to Production"
+            title="Promote to Production"
             className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 shrink-0"
           >
             {promoting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}

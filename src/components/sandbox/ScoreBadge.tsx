@@ -25,10 +25,10 @@ export default function ScoreBadge({
   const tier = score >= 80 ? 'good' : score >= 60 ? 'ok' : 'bad';
   const colorClass =
     tier === 'good'
-      ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
       : tier === 'ok'
-        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
-        : 'bg-red-500/15 text-red-300 border-red-500/30';
+        ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+        : 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
 
   const optimize = async () => {
     setOptimizing(true);
@@ -59,7 +59,7 @@ export default function ScoreBadge({
           <button
             onClick={optimize}
             disabled={optimizing}
-            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-60 transition-all"
+            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/25 disabled:opacity-60 transition-all"
           >
             {optimizing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
             Auto-Optimize
@@ -67,7 +67,7 @@ export default function ScoreBadge({
         )}
       </div>
       {feedback.length > 0 && (
-        <p className="text-[10px] text-slate-500">{feedback[0]}</p>
+        <p className="text-[10px] text-slate-500 dark:text-slate-400">{feedback[0]}</p>
       )}
     </div>
   );
