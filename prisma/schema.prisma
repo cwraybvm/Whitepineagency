@@ -54,6 +54,7 @@ model Organization {
   subscriptions      Subscription[]
   portalLeads        PortalLead[]
   fulfillmentTasks   FulfillmentTask[]
+  creativeAssets     CreativeAsset[]
 }
 
 // RBAC tiers. OWNER/OPERATOR/SALES are internal White Pine staff roles —
@@ -162,6 +163,25 @@ model ContentPost {
 
   @@index([organizationId])
   @@index([scheduledAt])
+  @@index([status])
+}
+
+model CreativeAsset {
+  id             String       @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title          String
+  type           String // COPY, AD, VIDEO_SCRIPT, LANDING_PAGE
+  content        String       @db.Text
+  metadata       Json?
+  status         String       @default("STAGED") // STAGED, PRODUCTION
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([type])
   @@index([status])
 }
 
