@@ -1,4 +1,4 @@
-export type ScorableType = 'COPY' | 'AD' | 'VIDEO_SCRIPT' | 'DRIP';
+export type ScorableType = 'COPY' | 'AD' | 'VIDEO_SCRIPT' | 'DRIP' | 'LANDING_PAGE';
 
 export type ScoreResult = { score: number; feedback: string[] };
 
@@ -23,6 +23,7 @@ function lastSentence(text: string) {
 function hookTextFor(type: ScorableType, content: string, metadata: any): string {
   if (type === 'AD') return metadata?.headline || firstSentence(content);
   if (type === 'VIDEO_SCRIPT') return metadata?.beats?.[0]?.line || firstSentence(content);
+  if (type === 'LANDING_PAGE') return metadata?.heroHeadline || firstSentence(content);
   return firstSentence(content);
 }
 
@@ -30,6 +31,7 @@ function ctaTextFor(type: ScorableType, content: string, metadata: any): string 
   if (type === 'AD') return metadata?.cta || '';
   if (type === 'VIDEO_SCRIPT') return metadata?.beats?.[metadata.beats.length - 1]?.line || lastSentence(content);
   if (type === 'DRIP') return metadata?.steps?.[metadata.steps.length - 1]?.content || lastSentence(content);
+  if (type === 'LANDING_PAGE') return metadata?.primaryCta || lastSentence(content);
   return lastSentence(content);
 }
 
@@ -58,7 +60,7 @@ function scoreUrgency(fullText: string): { points: number; ok: boolean } {
 }
 
 function scoreCompliance(type: ScorableType, content: string, metadata: any): { points: number; ok: boolean } {
-  if (type === 'VIDEO_SCRIPT') return { points: 25, ok: true };
+  if (type === 'VIDEO_SCRIPT' || type === 'LANDING_PAGE') return { points: 25, ok: true };
 
   if (type === 'AD') {
     const headlineLen = (metadata?.headline || '').length;
