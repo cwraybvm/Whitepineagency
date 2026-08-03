@@ -19,6 +19,11 @@ model Organization {
   primaryColor  String? // hex, e.g. "#2563EB"
   customDomain  String?
 
+  // Brand DNA — persona/voice notes injected into Creative Sandbox generation
+  // prompts. Null on most orgs today; generate falls back to a default tone.
+  brandVoice      String?
+  brandGuidelines String? @db.Text
+
   // Multi-Tenant Agency & Integration Keys
   mailchimpApiKey   String?  @db.Text
   mailchimpListId   String?
@@ -166,23 +171,26 @@ model ContentPost {
   @@index([status])
 }
 
+// AI Creative Sandbox: generated copy/ad/video-script/landing-page assets,
+// staged unassigned until "Promote to Production" attaches them to an Organization
 model CreativeAsset {
-  id             String       @id @default(uuid())
+  id             String        @id @default(uuid())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  title          String
-  type           String // COPY, AD, VIDEO_SCRIPT, LANDING_PAGE
-  content        String       @db.Text
-  metadata       Json?
-  status         String       @default("STAGED") // STAGED, PRODUCTION
+  title    String
+  type     String @default("COPY") // COPY, AD, VIDEO_SCRIPT, LANDING_PAGE
+  status   String @default("DRAFT") // DRAFT, STAGED, PRODUCTION
+  content  String @db.Text
+  metadata Json?
+  version  Int    @default(1)
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([organizationId])
-  @@index([type])
   @@index([status])
+  @@index([type])
 }
 
 model TaskColumn {
