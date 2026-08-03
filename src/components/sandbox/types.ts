@@ -73,12 +73,19 @@ export type ShotDuration = (typeof SHOT_DURATIONS)[number];
 export const CAMERA_MOVEMENTS = ['Static', 'Pan', 'Zoom', 'Tracking'] as const;
 export type CameraMovement = (typeof CAMERA_MOVEMENTS)[number];
 
+export const VOICE_PERSONA_OPTIONS = ['Energetic', 'Professional', 'Warm'] as const;
+export type VoicePersona = (typeof VOICE_PERSONA_OPTIONS)[number];
+
 export type Beat = {
   scene: string;
   shot: string;
   line: string;
   duration?: ShotDuration;
   cameraMovement?: CameraMovement;
+  voicePersona?: VoicePersona;
+  voiceId?: string;
+  audioUrl?: string;
+  audioDuration?: number;
 };
 
 export type SwipeInsights = {
