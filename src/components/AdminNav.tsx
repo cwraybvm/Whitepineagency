@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import ThemeToggle from "@/components/sandbox/ThemeToggle";
 
 export default function AdminNav() {
   const pathname = usePathname();
@@ -31,7 +32,8 @@ export default function AdminNav() {
             <div className="w-8 h-8 rounded-lg bg-white p-1 flex items-center justify-center border border-white/10 overflow-hidden">
               <img src="/logo.jpg" alt="White Pine" className="max-w-full max-h-full object-contain" />
             </div>
-            <span className="font-black tracking-tight text-white text-sm">WHITE PINE</span>
+            <span className="font-black tracking-tight text-white text-sm flex-1">WHITE PINE</span>
+            <ThemeToggle />
           </div>
           
           <nav className="space-y-1.5 font-mono text-xs">

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { resolveOrganizationId } from '@/lib/portalOrg';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 
 function serializeLead(lead: Awaited<ReturnType<typeof prisma.portalLead.findFirstOrThrow>> & {
   history: { id: string; event: string; statusBadge: string; createdAt: Date }[];
@@ -132,6 +133,8 @@ export async function POST(request: Request) {
       chatMessages: { orderBy: { createdAt: 'asc' } },
     },
   });
+
+  await dispatchWebhookEvent('lead.created', serializeLead(lead), organizationId);
 
   return NextResponse.json({ lead: serializeLead(lead) });
 }

@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { slaDeadlineFor } from '@/lib/fulfillmentSla';
 
 export const dynamic = 'force-dynamic';
-
-const SLA_WINDOW_DAYS = 3;
 
 async function requireAuth() {
   const store = await cookies();
   return Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
-}
-
-function slaDeadlineFor(status: string, from: Date): Date | null {
-  if (status === 'Active Retainer') return null;
-  return new Date(from.getTime() + SLA_WINDOW_DAYS * 24 * 60 * 60 * 1000);
 }
 
 // 📥 GET: list fulfillment tasks, org-scoped like /api/leads
@@ -70,6 +64,7 @@ export async function POST(request: Request) {
         contactPhone: body.contactPhone || 'N/A',
         offerHeadline: body.offerHeadline || undefined,
         notes: body.notes || undefined,
+        targetLinkUrl: body.targetLinkUrl || undefined,
         stageEnteredAt: now,
         slaDeadline: slaDeadlineFor(status, now),
         checklist: Array.isArray(body.checklist)
@@ -100,7 +95,7 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json();
-    const { id, status, notes, driveFolderUrl, offerHeadline } = body;
+    const { id, status, notes, driveFolderUrl, offerHeadline, targetLinkUrl } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Missing task ID' }, { status: 400 });
@@ -110,6 +105,7 @@ export async function PUT(request: Request) {
     if (notes !== undefined) data.notes = notes;
     if (driveFolderUrl !== undefined) data.driveFolderUrl = driveFolderUrl;
     if (offerHeadline !== undefined) data.offerHeadline = offerHeadline;
+    if (targetLinkUrl !== undefined) data.targetLinkUrl = targetLinkUrl;
 
     if (status) {
       const now = new Date();

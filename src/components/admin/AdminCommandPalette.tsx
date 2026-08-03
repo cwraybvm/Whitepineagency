@@ -18,6 +18,7 @@ import {
   Target,
   Star,
   Kanban,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -101,6 +102,7 @@ export default function AdminCommandPalette() {
     // --- Navigation Items ---
     { id: 'nav-fulfillment', label: 'Fulfillment Board', hint: '/fulfillment', icon: Kanban, action: () => go('/fulfillment'), group: 'Navigate' },
     { id: 'nav-flyer', label: 'Offer & Flyer Generator', hint: '/fulfillment/flyer-generator', icon: Printer, action: () => go('/fulfillment/flyer-generator'), group: 'Navigate' },
+    { id: 'nav-sandbox', label: 'Creative Sandbox', hint: '/sandbox', icon: Sparkles, action: () => go('/sandbox'), group: 'Navigate' },
     { id: 'nav-intake', label: 'Client Intake Form', hint: '/intake', icon: FolderUp, action: () => go('/intake'), group: 'Navigate' },
     { id: 'nav-audit', label: 'Prospect Audit Helper', hint: '/audit/apex-mechanical', icon: Target, action: () => go('/audit/apex-mechanical'), group: 'Navigate' },
     { id: 'nav-reviews', label: 'Review Request System', hint: '/portal/reviews', icon: Star, action: () => go('/portal/reviews'), group: 'Navigate' },

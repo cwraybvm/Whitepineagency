@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   ShieldAlert,
   LogOut,
+  FileText,
 } from 'lucide-react';
 
 type HealthScore = 'Healthy' | 'Warning' | 'Churn Risk';
@@ -61,6 +62,7 @@ export default function RevenuePage() {
   const [loading, setLoading] = useState(true);
   const [denied, setDenied] = useState(false);
   const [outreachSendingId, setOutreachSendingId] = useState<string | null>(null);
+  const [reportSendingId, setReportSendingId] = useState<string | null>(null);
 
   const fetchRevenue = useCallback(async () => {
     try {
@@ -111,6 +113,24 @@ export default function RevenuePage() {
       toast.error(`Failed to send outreach to "${client.organizationName}"`);
     } finally {
       setOutreachSendingId(null);
+    }
+  };
+
+  const sendMonthlyReport = async (client: ClientHealth) => {
+    setReportSendingId(client.organizationId);
+    try {
+      const res = await fetch('/api/reports/monthly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId: client.organizationId, dispatch: 'email' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Dispatch failed');
+      toast.success(data.emailed ? `ROI report emailed to "${client.organizationName}"` : `Report generated for "${client.organizationName}" (no email on file)`);
+    } catch (err: any) {
+      toast.error(err.message || `Failed to send ROI report to "${client.organizationName}"`);
+    } finally {
+      setReportSendingId(null);
     }
   };
 
@@ -269,6 +289,19 @@ export default function RevenuePage() {
                                   <Send className="w-3 h-3" />
                                 )}
                                 Outreach
+                              </button>
+                              <button
+                                onClick={() => sendMonthlyReport(client)}
+                                disabled={reportSendingId === client.organizationId}
+                                title="Generate & email the monthly ROI report"
+                                className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-60 text-white rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all"
+                              >
+                                {reportSendingId === client.organizationId ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <FileText className="w-3 h-3" />
+                                )}
+                                ROI Report
                               </button>
                               <button
                                 onClick={() => router.push(`/admin/shadow/${client.organizationId}`)}

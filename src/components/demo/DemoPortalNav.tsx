@@ -2,11 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PhoneMissed, Search } from 'lucide-react';
+import { PhoneMissed, Search, AudioWaveform } from 'lucide-react';
 
 const TABS = [
   { href: '/demo/simulator', label: 'Text-Back Simulator', icon: PhoneMissed },
   { href: '/demo/audit-generator', label: 'Audit Generator', icon: Search },
+  { href: '/demo/voice-simulator', label: 'Voice AI Simulator', icon: AudioWaveform },
 ];
 
 export default function DemoPortalNav() {

@@ -23,6 +23,7 @@ export async function GET(req: Request) {
         wordpressUrl: true,
         wordpressUsername: true,
         wordpressAppPass: true,
+        webhookUrl: true,
       },
     });
 
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
       wordpressUrl,
       wordpressUsername,
       wordpressAppPass,
+      webhookUrl,
     } = await req.json();
 
     if (!organizationId) {
@@ -55,6 +57,7 @@ export async function POST(req: Request) {
         wordpressUrl,
         wordpressUsername,
         wordpressAppPass,
+        webhookUrl,
       },
     });
 

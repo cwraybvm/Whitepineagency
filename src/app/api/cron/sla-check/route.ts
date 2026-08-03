@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,7 +59,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, alerted: 0 });
     }
 
-    const breachedCount = atRiskTasks.filter((t) => t.slaDeadline!.getTime() <= now.getTime()).length;
+    const breachedTasks = atRiskTasks.filter((t) => t.slaDeadline!.getTime() <= now.getTime());
+    const breachedCount = breachedTasks.length;
+
+    await Promise.all(
+      breachedTasks.map((t) =>
+        dispatchWebhookEvent(
+          'task.sla_breached',
+          { taskId: t.id, title: t.title, clientName: t.clientName, status: t.status, slaDeadline: t.slaDeadline },
+          t.organizationId
+        )
+      )
+    );
 
     const lines = atRiskTasks.map((t) => {
       const isBreached = t.slaDeadline!.getTime() <= now.getTime();

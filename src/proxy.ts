@@ -8,6 +8,7 @@ type Role = 'OWNER' | 'OPERATOR' | 'SALES' | 'CLIENT_OWNER' | 'CLIENT_MEMBER';
 const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: '/admin', roles: ['OWNER'] },
   { prefix: '/fulfillment', roles: ['OWNER', 'OPERATOR'] },
+  { prefix: '/sandbox', roles: ['OWNER', 'OPERATOR'] },
   { prefix: '/crm', roles: ['OWNER', 'OPERATOR', 'SALES'] },
   { prefix: '/portal', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER', 'CLIENT_MEMBER'] },
 ];
@@ -92,6 +93,7 @@ export const config = {
     '/admin/:path*',
     '/portal/:path*',
     '/fulfillment/:path*',
+    '/sandbox/:path*',
     '/crm/:path*',
     '/api/analytics/:path*',
     '/api/leads/:path*'

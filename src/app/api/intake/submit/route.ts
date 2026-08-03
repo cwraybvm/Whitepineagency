@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
+import { dispatchWebhookEvent } from '@/lib/webhooks';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { businessName, ownerName, email, phone, offerHeadline } = body;
+    const { businessName, ownerName, email, phone, offerHeadline, organizationId } = body;
 
     if (!businessName || !email) {
       return NextResponse.json(
@@ -25,6 +26,12 @@ export async function POST(request: Request) {
     const driveFolderUrl = `https://drive.google.com/drive/folders/${createdFolderId}`;
 
     console.log(`[Intake System] Generated Google Drive folder "${folderName}" (${createdFolderId}) for ${businessName}`);
+
+    await dispatchWebhookEvent(
+      'intake.completed',
+      { businessName, ownerName, email, phone, offerHeadline, driveFolderId: createdFolderId, driveFolderUrl },
+      organizationId ?? null
+    );
 
     return NextResponse.json({
       success: true,

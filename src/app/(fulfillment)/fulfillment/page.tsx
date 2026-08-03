@@ -17,6 +17,10 @@ import {
   Eye,
   X,
   Loader2,
+  Zap,
+  PhoneCall,
+  Link2,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface ChecklistItem {
@@ -27,6 +31,7 @@ interface ChecklistItem {
 
 interface FulfillmentTask {
   id: string;
+  organizationId?: string | null;
   clientName: string;
   ownerName: string;
   trade: 'HVAC' | 'Plumbing' | 'Electrical' | 'General Trade';
@@ -41,6 +46,7 @@ interface FulfillmentTask {
   checklist: ChecklistItem[];
   offerHeadline?: string | null;
   notes?: string | null;
+  targetLinkUrl?: string | null;
 }
 
 const STAGES: FulfillmentTask['status'][] = [
@@ -78,6 +84,10 @@ export default function UltimateFulfillmentPage() {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
   const [activePreviewTask, setActivePreviewTask] = useState<FulfillmentTask | null>(null);
+  const [areaCodeInput, setAreaCodeInput] = useState('');
+  const [provisioningTaskId, setProvisioningTaskId] = useState<string | null>(null);
+  const [validatingTaskId, setValidatingTaskId] = useState<string | null>(null);
+  const [savingLinkTaskId, setSavingLinkTaskId] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -156,6 +166,84 @@ export default function UltimateFulfillmentPage() {
     }
   };
 
+  const syncTaskLocally = (taskId: string, patch: Partial<FulfillmentTask>) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
+    setActivePreviewTask((prev) => (prev && prev.id === taskId ? { ...prev, ...patch } : prev));
+  };
+
+  const provisionPhoneNumber = async (task: FulfillmentTask) => {
+    if (!/^\d{3}$/.test(areaCodeInput.trim())) {
+      toast.error('Enter a valid 3-digit area code');
+      return;
+    }
+
+    setProvisioningTaskId(task.id);
+    try {
+      const res = await fetch('/api/fulfillment/twilio-provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id, areaCode: areaCodeInput.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Provisioning failed');
+      toast.success(`Provisioned ${data.phoneNumber} for "${task.clientName}"`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to provision number');
+    } finally {
+      setProvisioningTaskId(null);
+    }
+  };
+
+  const saveTargetLink = async (task: FulfillmentTask) => {
+    setSavingLinkTaskId(task.id);
+    try {
+      const res = await fetch('/api/fulfillment', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: task.id, targetLinkUrl: task.targetLinkUrl || '' }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      toast.success('Target link saved');
+    } catch {
+      toast.error('Failed to save target link');
+    } finally {
+      setSavingLinkTaskId(null);
+    }
+  };
+
+  const validateLiveLink = async (task: FulfillmentTask) => {
+    if (!task.targetLinkUrl) {
+      toast.error('Set a target link URL first');
+      return;
+    }
+
+    setValidatingTaskId(task.id);
+    try {
+      const res = await fetch('/api/fulfillment/validate-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Validation failed');
+
+      if (data.ok) {
+        toast.success(`Link returned 200 OK${data.checklistUpdated ? ' — "Verify Target Link" checked off' : ''}`);
+        if (data.checklistUpdated && data.item) {
+          syncTaskLocally(task.id, {
+            checklist: task.checklist.map((i) => (i.id === data.item.id ? { ...i, done: true } : i)),
+          });
+        }
+      } else {
+        toast.error(`Link check failed — status ${data.statusCode || 'unreachable'}`);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to validate link');
+    } finally {
+      setValidatingTaskId(null);
+    }
+  };
+
   const filteredTasks = tasks.filter((t) => {
     const matchesSearch =
       t.clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -213,6 +301,82 @@ export default function UltimateFulfillmentPage() {
                   >
                     <FolderOpen className="w-3 h-3" /> Drive Folder ↗
                   </a>
+                )}
+              </div>
+            </div>
+
+            {/* Automated Actions Panel */}
+            <div className="space-y-3 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+              <span className="text-[10px] font-bold font-mono text-amber-400 uppercase flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" /> Automated Actions
+              </span>
+
+              {/* Twilio: Provision Phone Number */}
+              <div className="space-y-1.5 pb-3 border-b border-slate-800">
+                <label className="text-[10px] text-slate-500 font-mono uppercase block">
+                  Provision Phone Number
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={areaCodeInput}
+                    onChange={(e) => setAreaCodeInput(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    placeholder="Area code"
+                    maxLength={3}
+                    className="w-24 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                  <button
+                    onClick={() => provisionPhoneNumber(activePreviewTask)}
+                    disabled={provisioningTaskId === activePreviewTask.id || !activePreviewTask.organizationId}
+                    title={!activePreviewTask.organizationId ? 'Task has no linked organization' : undefined}
+                    className="flex-1 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5"
+                  >
+                    {provisioningTaskId === activePreviewTask.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <PhoneCall className="w-3 h-3" />
+                    )}
+                    Provision via Twilio
+                  </button>
+                </div>
+              </div>
+
+              {/* Link Validator: Validate Live Link */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] text-slate-500 font-mono uppercase block">
+                  Review / Landing Page URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={activePreviewTask.targetLinkUrl || ''}
+                    onChange={(e) => syncTaskLocally(activePreviewTask.id, { targetLinkUrl: e.target.value })}
+                    onBlur={() => saveTargetLink(activePreviewTask)}
+                    placeholder="https://client-site.com/reviews"
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-mono min-w-0"
+                  />
+                  <button
+                    onClick={() => validateLiveLink(activePreviewTask)}
+                    disabled={validatingTaskId === activePreviewTask.id || !activePreviewTask.targetLinkUrl}
+                    className="shrink-0 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg text-[11px] flex items-center justify-center gap-1.5"
+                  >
+                    {validatingTaskId === activePreviewTask.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Link2 className="w-3 h-3" />
+                    )}
+                    Validate Live Link
+                  </button>
+                </div>
+                {activePreviewTask.checklist.some(
+                  (i) => i.label.trim().toLowerCase() === 'verify target link' && i.done
+                ) && (
+                  <p className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> "Verify Target Link" checked off
+                  </p>
+                )}
+                {savingLinkTaskId === activePreviewTask.id && (
+                  <p className="text-[10px] text-slate-500 font-mono">Saving…</p>
                 )}
               </div>
             </div>

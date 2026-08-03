@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Key, Globe, Mail, Save, Lock, CheckCircle2 } from 'lucide-react';
+import { X, Key, Globe, Mail, Save, Lock, CheckCircle2, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface IntegrationSettingsDrawerProps {
@@ -25,6 +25,7 @@ export default function IntegrationSettingsDrawer({
   const [wordpressUrl, setWordpressUrl] = useState('');
   const [wordpressUsername, setWordpressUsername] = useState('');
   const [wordpressAppPass, setWordpressAppPass] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [isSaving, setIsGenerating] = useState(false);
 
   const clientName = activeClient?.businessName || 'TRK Ministries';
@@ -42,6 +43,7 @@ export default function IntegrationSettingsDrawer({
             setWordpressUrl(data.wordpressUrl || '');
             setWordpressUsername(data.wordpressUsername || '');
             setWordpressAppPass(data.wordpressAppPass || '');
+            setWebhookUrl(data.webhookUrl || '');
           }
         })
         .catch(() => {});
@@ -63,6 +65,7 @@ export default function IntegrationSettingsDrawer({
           wordpressUrl,
           wordpressUsername,
           wordpressAppPass,
+          webhookUrl,
         }),
       });
 
@@ -204,6 +207,31 @@ export default function IntegrationSettingsDrawer({
                   </div>
                   <p className="text-gray-500 text-[9px] font-sans">
                     * Generate an Application Password under WP-Admin ➔ Users ➔ Profile ➔ Application Passwords.
+                  </p>
+                </div>
+
+                {/* 🔗 Outbound Webhook Engine */}
+                <div className="bg-slate-900/80 border border-amber-500/30 p-4 rounded-2xl space-y-3">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold border-b border-white/10 pb-2">
+                    <Webhook className="w-4 h-4" />
+                    <span className="uppercase text-[11px]">Outbound Webhook (Zapier / Make.com)</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-gray-400 font-bold block text-[10px]">
+                      Webhook Target URL
+                    </label>
+                    <input
+                      type="url"
+                      placeholder="e.g. https://hooks.zapier.com/hooks/catch/xxxxx/xxxxx"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <p className="text-gray-500 text-[9px] font-sans">
+                    * Fires JSON payloads here for <code>lead.created</code>, <code>task.sla_breached</code>, and{' '}
+                    <code>intake.completed</code> events.
                   </p>
                 </div>
               </form>
