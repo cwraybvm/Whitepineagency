@@ -1,4 +1,4 @@
-export type SandboxTool = 'copy' | 'ad' | 'video' | 'campaign' | 'swipe';
+export type SandboxTool = 'copy' | 'ad' | 'video' | 'campaign' | 'swipe' | 'landing-page';
 
 export const TONE_OPTIONS = ['Direct Response', 'Urgent', 'Friendly'] as const;
 export type Tone = (typeof TONE_OPTIONS)[number];
@@ -105,3 +105,15 @@ export type CopyStudioMode = 'single' | 'matrix' | 'dco';
 export type DcoVariant = { location: string; segment: string; title: string; content: string };
 
 export type OptimizeResult = { title?: string; content: string; metadata?: any };
+
+export type LandingPageDraft = {
+  title: string;
+  content: string;
+  metadata: {
+    heroHeadline: string;
+    subheadline: string;
+    primaryCta: string;
+    valueProps: string[];
+    testimonial: string;
+  };
+};
