@@ -19,6 +19,18 @@ model Organization {
   primaryColor  String? // hex, e.g. "#2563EB"
   customDomain  String?
 
+  // Brand DNA — persona/voice notes injected into Creative Sandbox generation
+  // prompts. Null on most orgs today; generate falls back to a default tone.
+  brandVoice      String?
+  brandGuidelines String? @db.Text
+
+  // Outbound Webhook Engine — client-registered listener (Zapier/Make.com etc.)
+  // that receives lead.created / task.sla_breached / intake.completed events.
+  webhookUrl String? @db.Text
+
+  // Number provisioned via the Fulfillment "Provision Phone Number" action
+  twilioPhoneNumber String?
+
   // Multi-Tenant Agency & Integration Keys
   mailchimpApiKey   String?  @db.Text
   mailchimpListId   String?
@@ -54,6 +66,7 @@ model Organization {
   subscriptions      Subscription[]
   portalLeads        PortalLead[]
   fulfillmentTasks   FulfillmentTask[]
+  creativeAssets     CreativeAsset[]
 }
 
 // RBAC tiers. OWNER/OPERATOR/SALES are internal White Pine staff roles —
@@ -403,6 +416,7 @@ model FulfillmentTask {
   contactPhone   String  @default("N/A")
   offerHeadline  String?
   notes          String? @db.Text
+  targetLinkUrl  String? // client's review/landing page URL, checked by the "Validate Live Link" action
 
   // Timer source of truth: when the task entered its current status, and the
   // computed SLA cutoff from that moment. Recomputed on every status change
@@ -447,6 +461,28 @@ model FulfillmentChecklistItem {
   orderPosition Int             @default(0)
 
   @@index([taskId])
+}
+
+// 🎨 AI Creative Sandbox: generated copy/ad/video-script assets, staged
+// unassigned until "Promote to Production" attaches them to an Organization
+model CreativeAsset {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title    String
+  type     String @default("COPY") // COPY, AD, VIDEO_SCRIPT
+  status   String @default("DRAFT") // DRAFT, STAGED, PRODUCTION
+  content  String @db.Text
+  metadata Json?
+  version  Int    @default(1)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([type])
 }
 
 model AuditRun {
