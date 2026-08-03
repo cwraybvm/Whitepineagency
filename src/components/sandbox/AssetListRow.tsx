@@ -55,9 +55,9 @@ export default function AssetListRow({
           <span className={`text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${typeBadgeClass(asset.type)}`}>
             {asset.type.replace('_', ' ')}
           </span>
-          <span className="text-sm font-bold text-slate-900 dark:text-white truncate">{asset.title}</span>
+          <span className="text-sm font-bold text-slate-900 dark:text-slate-100 truncate">{asset.title}</span>
           {asset.organization && (
-            <span className="text-[11px] text-slate-500 dark:text-slate-500">→ {asset.organization.name}</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">→ {asset.organization.name}</span>
           )}
           {PLATFORMS.filter((p) => asset.metadata?.deployments?.[p]?.status === 'ACTIVE').map((p) => (
             <span
