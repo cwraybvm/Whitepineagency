@@ -9,6 +9,12 @@ const cases: { body: any; expectError: boolean }[] = [
   { body: { sceneText: 'Hello', voicePersona: 'Warm' }, expectError: false },
   { body: { sceneText: 'Hello', voicePersona: 'Energetic' }, expectError: false },
   { body: { sceneText: 'Hello', voicePersona: 'Professional' }, expectError: false },
+  // Prototype pollution protection: inherited property names must be rejected
+  { body: { sceneText: 'Hello', voicePersona: 'constructor' }, expectError: true },
+  { body: { sceneText: 'Hello', voicePersona: 'toString' }, expectError: true },
+  { body: { sceneText: 'Hello', voicePersona: '__proto__' }, expectError: true },
+  { body: { sceneText: 'Hello', voicePersona: 'hasOwnProperty' }, expectError: true },
+  { body: { sceneText: 'Hello', voicePersona: 'valueOf' }, expectError: true },
 ];
 
 let failures = 0;

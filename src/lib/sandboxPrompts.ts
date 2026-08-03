@@ -8,13 +8,16 @@ export function validateVoiceGenInput(body: any): string | null {
   if (typeof body?.sceneText !== 'string' || !body.sceneText.trim()) {
     return 'sceneText is required';
   }
-  if (!VOICE_PERSONAS[body?.voicePersona as keyof typeof VOICE_PERSONAS]) {
+  if (!Object.prototype.hasOwnProperty.call(VOICE_PERSONAS, body?.voicePersona)) {
     return `voicePersona must be one of ${Object.keys(VOICE_PERSONAS).join(', ')}`;
   }
   return null;
 }
 
 export async function synthesizeSpeech(text: string, persona: keyof typeof VOICE_PERSONAS): Promise<Buffer> {
+  if (!Object.prototype.hasOwnProperty.call(VOICE_PERSONAS, persona)) {
+    throw new Error(`Invalid persona: ${String(persona)}`);
+  }
   const { voice, instructions } = VOICE_PERSONAS[persona];
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
