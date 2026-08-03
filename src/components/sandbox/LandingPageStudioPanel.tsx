@@ -8,6 +8,16 @@ import ScoreBadge from './ScoreBadge';
 
 type SourceMode = 'asset' | 'brief';
 
+function normalizeMetadata(metadata: any): LandingPageDraft['metadata'] {
+  return {
+    heroHeadline: metadata?.heroHeadline || '',
+    subheadline: metadata?.subheadline || '',
+    primaryCta: metadata?.primaryCta || '',
+    valueProps: Array.isArray(metadata?.valueProps) ? metadata.valueProps : [],
+    testimonial: metadata?.testimonial || '',
+  };
+}
+
 export default function LandingPageStudioPanel() {
   const [sourceMode, setSourceMode] = useState<SourceMode>('brief');
   const [prompt, setPrompt] = useState('Emergency roof leak repair, same-day service');
@@ -59,7 +69,7 @@ export default function LandingPageStudioPanel() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Generation failed');
-      setDraft({ title: data.title, content: data.content, metadata: data.metadata });
+      setDraft({ title: data.title, content: data.content, metadata: normalizeMetadata(data.metadata) });
     } catch (err: any) {
       toast.error(err.message || 'Failed to generate landing page');
     } finally {
@@ -214,21 +224,20 @@ export default function LandingPageStudioPanel() {
               />
             </div>
 
-            <button disabled className="w-full py-2.5 rounded-lg text-white text-xs font-bold flex items-center justify-center gap-1.5 bg-indigo-600">
+            <div className="w-full py-2.5 rounded-lg text-white text-xs font-bold flex items-center justify-center gap-1.5 bg-indigo-600">
               <input
                 value={draft.metadata.primaryCta}
                 onChange={(e) => updateField({ primaryCta: e.target.value })}
-                onClick={(e) => e.stopPropagation()}
                 className="bg-transparent text-center focus:outline-none w-full"
               />
               <ArrowRight className="w-3.5 h-3.5 shrink-0" />
-            </button>
+            </div>
 
             <ScoreBadge
               content={draft.content}
               type="LANDING_PAGE"
               metadata={draft.metadata}
-              onOptimized={(r) => setDraft({ title: r.title || draft.title, content: r.content, metadata: r.metadata || draft.metadata })}
+              onOptimized={(r) => setDraft((prev) => (prev ? { title: r.title || prev.title, content: r.content, metadata: normalizeMetadata(r.metadata || prev.metadata) } : prev))}
             />
 
             <button
