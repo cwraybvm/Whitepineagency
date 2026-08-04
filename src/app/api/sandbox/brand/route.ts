@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { organizationId, brandVoice, brandGuidelines } = await req.json();
+    const { organizationId, brandVoice, brandGuidelines, primaryColor } = await req.json();
 
     if (!organizationId) {
       return NextResponse.json({ error: 'organizationId is required' }, { status: 400 });
@@ -32,7 +32,11 @@ export async function POST(req: Request) {
 
     const org = await prisma.organization.update({
       where: { id: organizationId },
-      data: { brandVoice, brandGuidelines },
+      data: {
+        brandVoice,
+        brandGuidelines,
+        ...(primaryColor !== undefined ? { primaryColor } : {}),
+      },
     });
 
     return NextResponse.json({ success: true, organization: org });
