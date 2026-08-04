@@ -373,3 +373,53 @@ export function validateLandingPageInput(body: any): string | null {
   }
   return null;
 }
+
+const PRIVATE_HOSTNAMES = new Set(['localhost', '0.0.0.0', '::1']);
+
+function isPrivateIpLiteral(hostname: string): boolean {
+  const parts = hostname.split('.').map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return false;
+  const [a, b] = parts;
+  if (a === 127) return true; // loopback
+  if (a === 10) return true; // 10.0.0.0/8
+  if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+  if (a === 192 && b === 168) return true; // 192.168.0.0/16
+  if (a === 169 && b === 254) return true; // 169.254.0.0/16 link-local
+  return false;
+}
+
+// ponytail: blocks IP-literal private/loopback targets only. A public
+// hostname that DNS-resolves to a private IP (rebinding) still passes —
+// add a dns.lookup() + re-check on the resolved address if this route is
+// ever exposed beyond trusted admin users.
+export function validateExtractBrandUrl(url: unknown): string | null {
+  if (typeof url !== 'string' || !url.trim()) return 'url is required';
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return 'url is not a valid URL';
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return 'url must use http or https';
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (PRIVATE_HOSTNAMES.has(hostname) || isPrivateIpLiteral(hostname)) {
+    return 'url may not target a local or private address';
+  }
+  return null;
+}
+
+export const BRAND_EXTRACT_PROMPT =
+  'You are an expert brand strategist analyzing a business website to extract its brand identity for a marketing agency. ' +
+  "Given the page's visible text and a list of candidate accent colors found in its CSS, infer the brand. " +
+  'Return a valid JSON object matching this structure exactly: {"brandVoice": "a short tone label, e.g. \'Confident, no-fluff, blue-collar friendly\'", "valueProp": "one sentence describing what makes this business worth choosing", "targetAudience": "one sentence describing who this business serves", "accentColors": ["up to 3 hex colors, chosen from the candidates when they look like real brand colors, otherwise your best guess"]}.';
+
+export function mockBrandExtraction(url: string): any {
+  return {
+    brandVoice: '[MOCK] Confident, no-fluff, customer-first',
+    valueProp: `[MOCK — set OPENAI_API_KEY for real output] Fast, reliable service from the team behind ${url}.`,
+    targetAudience: '[MOCK] Local homeowners who want a trustworthy provider.',
+    accentColors: ['#2563eb', '#f59e0b'],
+  };
+}
