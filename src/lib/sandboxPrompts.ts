@@ -75,7 +75,23 @@ export async function brandClauseFor(organizationId: string | null | undefined) 
   ].filter(Boolean).join(' ');
 }
 
-export async function callOpenAiJson(systemPrompt: string, userContext: string): Promise<any> {
+// Thrown instead of letting a missing key fall through to the raw OpenAI
+// fetch — without this, the request goes out anyway, OpenAI 401s, and its
+// literal error body ("You didn't provide an API key...") reaches the UI
+// verbatim via each route's `catch (err) { error: err.message }` handler.
+export class OpenAiNotConfiguredError extends Error {
+  constructor() {
+    super('AI generation is unavailable — OPENAI_API_KEY is not configured for this environment.');
+    this.name = 'OpenAiNotConfiguredError';
+  }
+}
+
+export async function callOpenAiJson(systemPrompt: string, userContext: string, mockFallback?: () => any): Promise<any> {
+  if (!process.env.OPENAI_API_KEY) {
+    if (mockFallback) return mockFallback();
+    throw new OpenAiNotConfiguredError();
+  }
+
   const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -99,7 +115,12 @@ export async function callOpenAiJson(systemPrompt: string, userContext: string):
   return JSON.parse(aiData.choices[0].message.content);
 }
 
-export async function callOpenAiVisionJson(systemPrompt: string, imageUrl: string): Promise<any> {
+export async function callOpenAiVisionJson(systemPrompt: string, imageUrl: string, mockFallback?: () => any): Promise<any> {
+  if (!process.env.OPENAI_API_KEY) {
+    if (mockFallback) return mockFallback();
+    throw new OpenAiNotConfiguredError();
+  }
+
   const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -152,6 +173,9 @@ export async function synthesizeSpeech(text: string, persona: keyof typeof VOICE
   if (!Object.prototype.hasOwnProperty.call(VOICE_PERSONAS, persona)) {
     throw new Error(`Invalid persona: ${String(persona)}`);
   }
+  if (!process.env.OPENAI_API_KEY) {
+    throw new OpenAiNotConfiguredError();
+  }
   const { voice, instructions } = VOICE_PERSONAS[persona];
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
@@ -171,11 +195,171 @@ export async function synthesizeSpeech(text: string, persona: keyof typeof VOICE
   return Buffer.from(arrayBuffer);
 }
 
+// A locally-built silent WAV, base64-encoded as a data URI — used as the
+// "Generate Scene Audio" response when OPENAI_API_KEY is unset, so the
+// button and <audio> player degrade gracefully instead of 500ing.
+function buildSilentWavDataUri(): string {
+  const sampleRate = 8000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const dataSize = 0;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20);
+  buffer.writeUInt16LE(numChannels, 22);
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(byteRate, 28);
+  buffer.writeUInt16LE(blockAlign, 32);
+  buffer.writeUInt16LE(bitsPerSample, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  return `data:audio/wav;base64,${buffer.toString('base64')}`;
+}
+
+export const MOCK_AUDIO_DATA_URI = buildSilentWavDataUri();
+
 export const LANDING_PAGE_PROMPT =
   'You are an expert direct-response landing page copywriter for a local-service marketing agency. ' +
   'Given either a source ad/hook to match or a brief, write a matching landing page copy set: a hero headline that echoes the source hook, a supporting subheadline, a primary CTA button label, exactly 3 value-proposition bullets, and one social-proof testimonial. ' +
   'Write the testimonial as a short, generic, clearly-placeholder quote attributed to a role and location (e.g. "— Homeowner, Springfield"), never a fabricated named individual — a real client quote replaces it before publishing. ' +
   'Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the subheadline", "metadata": {"heroHeadline": "the hero headline", "subheadline": "the subheadline", "primaryCta": "the CTA button label", "valueProps": ["value prop 1", "value prop 2", "value prop 3"], "testimonial": "the placeholder testimonial quote"}} with exactly 3 entries in the valueProps array.';
+
+// Sandbox-only fallbacks so every studio workflow (layout, save, promote)
+// stays testable without a paid OpenAI key. Wired in wherever a route calls
+// callOpenAiJson/callOpenAiVisionJson — pass one of these as the mockFallback
+// argument and a missing key returns this instead of throwing
+// OpenAiNotConfiguredError. Each takes the caller's own clean hook/brief
+// string directly (never a formatted multi-line userContext blob — parsing
+// that back apart with a regex is fragile across call sites that each build
+// it differently) and content is always prefixed [MOCK] so it's never
+// mistaken for real model output.
+function cleanHook(hook: string | null | undefined, fallback = 'Your Offer, Delivered Right'): string {
+  return (hook?.trim() || fallback).slice(0, 80);
+}
+
+export function mockLandingPage(hookInput: string): any {
+  const hook = cleanHook(hookInput);
+  return {
+    title: `[MOCK] ${hook}`,
+    content: `Fast, reliable service — built around: ${hook}`,
+    metadata: {
+      heroHeadline: hook,
+      subheadline: `[MOCK — set OPENAI_API_KEY for real output] Fast, reliable service built around: ${hook}`,
+      primaryCta: 'Get Your Free Quote',
+      valueProps: [
+        'Licensed, insured, and background-checked technicians',
+        'Same-day availability for urgent requests',
+        '100% satisfaction guarantee on every job',
+      ],
+      testimonial: '"They showed up on time and got it right the first time." — Homeowner, Local Area',
+    },
+  };
+}
+
+export function mockCopy(hookInput: string): any {
+  const hook = cleanHook(hookInput);
+  return {
+    title: `[MOCK] ${hook}`,
+    content: `${hook} — for a limited time, get fast, reliable service you can trust. Call now before slots fill up.`,
+  };
+}
+
+export function mockCopyMatrix(hookInput: string): any {
+  const hook = cleanHook(hookInput);
+  return {
+    angles: ANGLES.map((angle) => ({
+      angle,
+      title: `[MOCK] ${angle}: ${hook}`,
+      content: `[MOCK ${angle} angle] ${hook} — written with a ${angle.toLowerCase()} approach to drive action.`,
+    })),
+  };
+}
+
+export function mockDcoVariants(hookInput: string, locations: string[], segments: string[]): any {
+  const hook = cleanHook(hookInput, 'Base Offer');
+  const variants = [];
+  for (const location of locations) {
+    for (const segment of segments) {
+      variants.push({
+        location,
+        segment,
+        title: `[MOCK] ${hook} — ${location}`,
+        content: `[MOCK] Attention ${segment} in ${location}: ${hook}. Call now for fast, local service.`,
+      });
+    }
+  }
+  return { variants };
+}
+
+export function mockAd(hookInput: string): any {
+  const hook = cleanHook(hookInput);
+  return {
+    title: `[MOCK] ${hook}`,
+    content: `${hook}. Don't wait — our team is ready to help today.`,
+    metadata: { headline: `[MOCK] ${hook}`.slice(0, 40), cta: 'Get a Free Quote' },
+  };
+}
+
+export function mockVideo(hookInput: string): any {
+  const hook = cleanHook(hookInput);
+  return {
+    title: `[MOCK] ${hook}`,
+    content: `Scene 1: Hook on "${hook}". Scene 2: Show the problem. Scene 3: Reveal the solution. Scene 4: Call to action.`,
+    metadata: {
+      beats: [
+        { scene: '1', shot: 'Close-up on technician arriving on-site', line: `${hook}?` },
+        { scene: '2', shot: 'Problem visual — frustrated homeowner', line: "We've all been there." },
+        { scene: '3', shot: 'Solution in action', line: "That's where we come in." },
+        { scene: '4', shot: 'Logo + CTA card', line: 'Call now — same-day service available.' },
+      ],
+    },
+  };
+}
+
+export function mockDrip(hookInput: string): any {
+  const hook = cleanHook(hookInput, 'your service');
+  return {
+    title: `[MOCK] Follow-up sequence for ${hook}`,
+    content: `Day 1: reminder. Day 3: value-add. Day 7: final nudge.`,
+    metadata: {
+      steps: [
+        { day: 'Day 1', channel: 'SMS', content: `[MOCK] Still interested in ${hook}? Reply YES to book.` },
+        { day: 'Day 3', channel: 'Email', content: `[MOCK] Here's why customers love our ${hook} service.` },
+        { day: 'Day 7', channel: 'SMS', content: `[MOCK] Last chance — offer for ${hook} ends soon.` },
+      ],
+    },
+  };
+}
+
+export function mockSwipeInsights(): any {
+  return {
+    hookPattern: '[MOCK] Bold question opener paired with a number-driven claim.',
+    visualStyle: '[MOCK] High-contrast product shot with bold sans-serif overlay text.',
+    targetAudience: '[MOCK] Homeowners aged 35-55 researching a specific service need.',
+    emotionalTrigger: '[MOCK] Urgency — limited-time framing drives fast action.',
+  };
+}
+
+export function mockSwipeRemix(hookInput: string): any {
+  const hook = cleanHook(hookInput, 'Our Offer');
+  return {
+    angles: ANGLES.slice(0, 3).map((angle) => ({
+      title: `[MOCK] ${angle}: ${hook}`,
+      content: `[MOCK ${angle} remix] ${hook} — reworked with a ${angle.toLowerCase()} hook.`,
+    })),
+    adPreset: {
+      title: `[MOCK] ${hook}`,
+      content: `${hook}. Limited-time offer — act now.`,
+      metadata: { headline: `[MOCK] ${hook}`.slice(0, 40), cta: 'Claim Your Spot' },
+    },
+  };
+}
 
 export function validateLandingPageInput(body: any): string | null {
   if (body?.mode !== 'asset' && body?.mode !== 'brief') {
