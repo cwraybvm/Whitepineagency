@@ -47,7 +47,7 @@ export const CHAR_LIMITS = [
 export const ASPECT_RATIOS = [
   { id: '1:1', label: 'Square Feed', aspectClass: 'aspect-square', maxWidth: 420 },
   { id: '9:16', label: 'Story/Reels', aspectClass: 'aspect-[9/16]', maxWidth: 280 },
-  { id: '1.91:1', label: 'Landscape Header', aspectClass: 'aspect-[1.91/1]', maxWidth: 560 },
+  { id: '16:9', label: 'Banner/Display', aspectClass: 'aspect-[16/9]', maxWidth: 560 },
 ] as const;
 export type AspectRatioId = (typeof ASPECT_RATIOS)[number]['id'];
 
@@ -86,6 +86,7 @@ export type Beat = {
   voiceId?: string;
   audioUrl?: string;
   audioDuration?: number;
+  mock?: boolean;
 };
 
 export type SwipeInsights = {
