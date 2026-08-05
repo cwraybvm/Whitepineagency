@@ -14,7 +14,9 @@ export type WebhookEvent =
   // Creative-sandbox auto-fulfill lifecycle — see src/lib/sandboxAutoFulfill.ts
   | 'asset.staged'
   | 'asset.production'
-  | 'asset.failed';
+  | 'asset.failed'
+  // Landing Page Studio deploy — see src/app/api/sandbox/landing-page/deploy-webhook/route.ts
+  | 'landing_page.exported';
 
 export interface WebhookDeliveryAttempt {
   attempt: number;
