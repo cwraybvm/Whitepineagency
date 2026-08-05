@@ -99,7 +99,7 @@ export default function IntegrationSettingsDrawer({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full max-w-lg bg-[#080E1A] border-l border-white/10 z-[150] p-6 shadow-2xl font-mono text-xs flex flex-col justify-between overflow-y-auto"
+            className="fixed top-0 right-0 h-full w-full max-w-lg bg-white border-l border-slate-200 dark:bg-[#080E1A] dark:border-white/10 z-[150] p-6 shadow-2xl font-mono text-xs flex flex-col justify-between overflow-y-auto"
           >
             <div className="space-y-6">
               {/* Header */}
@@ -107,29 +107,29 @@ export default function IntegrationSettingsDrawer({
                 <div>
                   <div className="flex items-center gap-2">
                     <Key className="w-4 h-4 text-amber-400" />
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                       Integration Keys & Vault
                     </h3>
                   </div>
-                  <p className="text-gray-400 text-[10px] mt-0.5 font-sans">
-                    Configuring API keys for: <strong className="text-indigo-300">{clientName}</strong>
+                  <p className="text-slate-500 dark:text-gray-400 text-[10px] mt-0.5 font-sans">
+                    Configuring API keys for: <strong className="text-emerald-600 dark:text-emerald-300">{clientName}</strong>
                   </p>
                 </div>
-                <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
+                <button onClick={onClose} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white p-1">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <form id="vault-form" onSubmit={handleSaveCredentials} className="space-y-6">
                 {/* 📧 Mailchimp Configuration */}
-                <div className="bg-slate-900/80 border border-emerald-500/30 p-4 rounded-2xl space-y-3">
+                <div className="bg-white/85 dark:bg-slate-900/80 border border-emerald-500/30 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400 font-bold border-b border-white/10 pb-2">
                     <Mail className="w-4 h-4" />
                     <span className="uppercase text-[11px]">Mailchimp Email Blast Settings</span>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-gray-400 font-bold block text-[10px]">
+                    <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                       Mailchimp API Key *
                     </label>
                     <div className="relative">
@@ -138,14 +138,14 @@ export default function IntegrationSettingsDrawer({
                         placeholder="e.g. 84930xxxxxxxxx-us19"
                         value={mailchimpApiKey}
                         onChange={(e) => setMailchimpApiKey(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/15 p-2.5 pl-8 text-white rounded-xl font-sans text-xs outline-none focus:border-emerald-500"
+                        className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 pl-8 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-emerald-500"
                       />
-                      <Lock className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-3" />
+                      <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-gray-500 absolute left-2.5 top-3" />
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-gray-400 font-bold block text-[10px]">
+                    <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                       Audience List ID (List ID) *
                     </label>
                     <input
@@ -153,20 +153,20 @@ export default function IntegrationSettingsDrawer({
                       placeholder="e.g. a1b2c3d4e5"
                       value={mailchimpListId}
                       onChange={(e) => setMailchimpListId(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-emerald-500"
+                      className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-emerald-500"
                     />
                   </div>
                 </div>
 
                 {/* 🌐 WordPress REST API Configuration */}
-                <div className="bg-slate-900/80 border border-indigo-500/30 p-4 rounded-2xl space-y-3">
+                <div className="bg-white/85 dark:bg-slate-900/80 border border-indigo-500/30 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center gap-2 text-indigo-400 font-bold border-b border-white/10 pb-2">
                     <Globe className="w-4 h-4" />
                     <span className="uppercase text-[11px]">WordPress Blog Direct Publisher</span>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-gray-400 font-bold block text-[10px]">
+                    <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                       WordPress Site Domain URL
                     </label>
                     <input
@@ -174,13 +174,13 @@ export default function IntegrationSettingsDrawer({
                       placeholder="e.g. https://trkministries.org"
                       value={wordpressUrl}
                       onChange={(e) => setWordpressUrl(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
+                      className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <label className="text-gray-400 font-bold block text-[10px]">
+                      <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                         WP Admin Username
                       </label>
                       <input
@@ -188,12 +188,12 @@ export default function IntegrationSettingsDrawer({
                         placeholder="e.g. admin"
                         value={wordpressUsername}
                         onChange={(e) => setWordpressUsername(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-gray-400 font-bold block text-[10px]">
+                      <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                         Application Password
                       </label>
                       <input
@@ -201,24 +201,24 @@ export default function IntegrationSettingsDrawer({
                         placeholder="xxxx xxxx xxxx xxxx"
                         value={wordpressAppPass}
                         onChange={(e) => setWordpressAppPass(e.target.value)}
-                        className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
+                        className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
-                  <p className="text-gray-500 text-[9px] font-sans">
+                  <p className="text-slate-400 dark:text-gray-500 text-[9px] font-sans">
                     * Generate an Application Password under WP-Admin ➔ Users ➔ Profile ➔ Application Passwords.
                   </p>
                 </div>
 
                 {/* 🔗 Outbound Webhook Engine */}
-                <div className="bg-slate-900/80 border border-amber-500/30 p-4 rounded-2xl space-y-3">
+                <div className="bg-white/85 dark:bg-slate-900/80 border border-amber-500/30 p-4 rounded-2xl space-y-3">
                   <div className="flex items-center gap-2 text-amber-400 font-bold border-b border-white/10 pb-2">
                     <Webhook className="w-4 h-4" />
                     <span className="uppercase text-[11px]">Outbound Webhook (Zapier / Make.com)</span>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-gray-400 font-bold block text-[10px]">
+                    <label className="text-slate-500 dark:text-gray-400 font-bold block text-[10px]">
                       Webhook Target URL
                     </label>
                     <input
@@ -226,10 +226,10 @@ export default function IntegrationSettingsDrawer({
                       placeholder="e.g. https://hooks.zapier.com/hooks/catch/xxxxx/xxxxx"
                       value={webhookUrl}
                       onChange={(e) => setWebhookUrl(e.target.value)}
-                      className="w-full bg-slate-950 border border-white/15 p-2.5 text-white rounded-xl font-sans text-xs outline-none focus:border-amber-500"
+                      className="w-full bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-white/15 p-2.5 text-slate-900 dark:text-white rounded-xl font-sans text-xs outline-none focus:border-amber-500"
                     />
                   </div>
-                  <p className="text-gray-500 text-[9px] font-sans">
+                  <p className="text-slate-400 dark:text-gray-500 text-[9px] font-sans">
                     * Fires JSON payloads here for <code>lead.created</code>, <code>task.sla_breached</code>, and{' '}
                     <code>intake.completed</code> events.
                   </p>
@@ -250,7 +250,7 @@ export default function IntegrationSettingsDrawer({
                 type="submit"
                 form="vault-form"
                 disabled={isSaving}
-                className="w-2/3 py-3 bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white font-bold rounded-2xl cursor-pointer shadow-lg flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                className="w-2/3 py-3 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold rounded-2xl cursor-pointer shadow-lg flex items-center justify-center gap-1.5 uppercase tracking-wider"
               >
                 <Save className="w-4 h-4" />
                 {isSaving ? 'Saving...' : 'Save Integrations'}

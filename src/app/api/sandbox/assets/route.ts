@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { maybeAdvanceMany } from '@/lib/sandboxAutoFulfill';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +18,16 @@ export async function GET(req: Request) {
       include: { organization: { select: { id: true, name: true } } },
       orderBy: { updatedAt: 'desc' },
     });
-    return NextResponse.json(assets);
+    const advanced = await maybeAdvanceMany(assets);
+    return NextResponse.json(advanced);
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
 
+// `x-sandbox-auto-fulfill: true` opts this asset into the on-demand
+// auto-advance engine (src/lib/sandboxAutoFulfill.ts) — everything created
+// without it behaves exactly as before, fully manual.
 export async function POST(req: Request) {
   try {
     const { title, type, content, metadata } = await req.json();
@@ -31,8 +36,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'title, type, and content are required' }, { status: 400 });
     }
 
+    const autoFulfillHeader = req.headers.get('x-sandbox-auto-fulfill') === 'true';
+    const mergedMetadata = autoFulfillHeader
+      ? { ...(metadata ?? {}), autoFulfill: true }
+      : metadata;
+
     const asset = await prisma.creativeAsset.create({
-      data: { title, type, content, metadata, status: 'STAGED' },
+      data: { title, type, content, metadata: mergedMetadata, status: 'STAGED' },
     });
 
     return NextResponse.json({ success: true, asset });

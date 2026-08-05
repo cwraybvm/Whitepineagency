@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { validateLandingPageInput, LANDING_PAGE_PROMPT, brandClauseFor, callOpenAiJson } from '@/lib/sandboxPrompts';
+import { validateLandingPageInput, LANDING_PAGE_PROMPT, brandClauseFor, callOpenAiJson, mockLandingPage, LandingPageSchema } from '@/lib/sandboxPrompts';
 
 export async function POST(req: Request) {
   try {
@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     const { mode, organizationId } = body;
 
     let userContext: string;
+    let hook: string;
     if (mode === 'asset') {
       const asset = await prisma.creativeAsset.findUnique({ where: { id: body.assetId } });
       if (!asset) {
@@ -24,14 +25,16 @@ export async function POST(req: Request) {
         `Content: ${asset.content}`,
         asset.metadata && `Metadata: ${JSON.stringify(asset.metadata)}`,
       ].filter(Boolean).join('\n');
+      hook = asset.title;
     } else {
       userContext = `Brief: ${body.prompt}`;
+      hook = body.prompt;
     }
 
     const brandClause = await brandClauseFor(organizationId);
     const systemPrompt = `${LANDING_PAGE_PROMPT}\n\n${brandClause}`;
 
-    const result = await callOpenAiJson(systemPrompt, userContext);
+    const result = await callOpenAiJson(systemPrompt, userContext, () => mockLandingPage(hook), 0.7, LandingPageSchema);
 
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {

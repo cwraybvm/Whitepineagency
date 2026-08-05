@@ -54,7 +54,7 @@ export default function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps)
                   className="flex justify-between items-center bg-white/5 p-2.5 rounded-xl border border-white/5"
                 >
                   <span className="text-gray-300 font-sans">{sc.description}</span>
-                  <kbd className="bg-slate-900 text-indigo-300 border border-indigo-500/30 px-2 py-1 rounded-md text-[10px] font-bold">
+                  <kbd className="bg-slate-900 text-indigo-300 border border-indigo-500/30 border-b-2 border-b-indigo-500/70 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm">
                     {sc.key}
                   </kbd>
                 </div>

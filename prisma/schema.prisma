@@ -67,6 +67,8 @@ model Organization {
   portalLeads        PortalLead[]
   fulfillmentTasks   FulfillmentTask[]
   creativeAssets     CreativeAsset[]
+
+  @@index([customDomain])
 }
 
 // RBAC tiers. OWNER/OPERATOR/SALES are internal White Pine staff roles —
@@ -469,6 +471,8 @@ model IntakeAsset {
   offerDetails   String?         @db.Text
   driveFolderUrl String?
   fileCount      Int             @default(0)
+  status         String          @default("PROCESSING") // PROCESSING, COMPLETE, FAILED — set by the intake-processor worker
+  errorMessage   String?         @db.Text
   createdAt      DateTime        @default(now())
 
   @@index([taskId])

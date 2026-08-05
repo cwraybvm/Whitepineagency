@@ -1,3 +1,4 @@
+import "./load-env";
 import { db } from "./src/lib/db"; // 🛡️ Restored the database client import
 
 async function main() {
@@ -15,22 +16,29 @@ async function main() {
 
   // 2. Create or Update the User
   //
-  // passwordHash used to be the sentinel 'OAUTH_EXTERNAL_GATED', for an OAuth
-  // flow that was never wired into src/app/api/auth/login/route.ts (which
-  // only does a plain password comparison) — so this account could never log
-  // in via email+password. Falls back to that same broken sentinel only if
-  // ADMIN_PASSWORD isn't set, so a fresh `npx tsx seed.ts` run doesn't
-  // silently reintroduce the bug when it is.
+  // Email/password come from ADMIN_USERNAME/ADMIN_PASSWORD so this row stays
+  // in sync with whatever the master-bypass credentials in route.ts are —
+  // this is the real DB-backed fallback for when the bypass env var isn't
+  // configured in a given deployment target. passwordHash used to be the
+  // sentinel 'OAUTH_EXTERNAL_GATED', for an OAuth flow that was never wired
+  // into src/app/api/auth/login/route.ts (which only does a plain password
+  // comparison) — so this account could never log in via email+password.
+  // Only touch passwordHash when ADMIN_PASSWORD is actually set, so running
+  // this seed without it loaded doesn't clobber an existing password.
+  const adminEmail = process.env.ADMIN_USERNAME || 'admin@whitepineagency.com';
+  const adminPassword = process.env.ADMIN_PASSWORD;
+
   const user = await db.user.upsert({
-    where: { email: 'colin@example.com' },
+    where: { email: adminEmail },
     update: {
-      fullName: 'Colin Wray',
+      fullName: 'White Pine Admin',
       role: 'OWNER',
+      ...(adminPassword ? { passwordHash: adminPassword } : {}),
     },
     create: {
-      email: 'colin@example.com',
-      fullName: 'Colin Wray',
-      passwordHash: process.env.ADMIN_PASSWORD || 'OAUTH_EXTERNAL_GATED',
+      email: adminEmail,
+      fullName: 'White Pine Admin',
+      passwordHash: adminPassword || 'OAUTH_EXTERNAL_GATED',
       role: 'OWNER',
     },
   });

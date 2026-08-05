@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+import { pushToCrmWebhook } from '@/lib/crmSync';
 
 // 🏎️ Prisma 7 Driver Adapter Pattern (Next.js Serverless Compatible)
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
@@ -251,6 +252,12 @@ export async function POST(request: Request) {
       } catch (pipedriveError) {
         console.error("External Pipedrive synchronization exception caught:", pipedriveError);
       }
+    }
+
+    // 🛰️ CRM WEBHOOK SYNC — pushes Instant Quote Estimator submissions to
+    // GoHighLevel/Make so a rep gets the lead the moment it's captured.
+    if (isEstimatorPayload) {
+      await pushToCrmWebhook({ event: 'quote.submitted', lead: newLead });
     }
 
     return NextResponse.json({ success: true, lead: savedRecord });

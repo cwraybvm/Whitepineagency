@@ -137,38 +137,38 @@ export default function RevenuePage() {
   const growthPositive = (metrics?.mrrGrowthPct ?? 0) >= 0;
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-100">
+    <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-900 dark:text-slate-100">
       {/* Header */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl">
-        <span className="text-xs font-bold text-sky-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
+      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl p-6">
+        <span className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
           <Wallet className="w-3.5 h-3.5" /> AGENCY OPERATIONAL MATRIX
         </span>
-        <h1 className="text-2xl font-black text-white tracking-tight">Revenue &amp; Retainer Health Radar</h1>
-        <p className="text-xs text-slate-400">
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Revenue &amp; Retainer Health Radar</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           Live MRR, retainer health, and churn-risk signals across every client account.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-24 text-slate-500 gap-2">
+        <div className="flex items-center justify-center py-24 text-slate-500 dark:text-slate-500 gap-2">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading revenue data from database…
         </div>
       ) : denied ? (
-        <div className="max-w-md mx-auto bg-slate-900/80 border border-rose-500/30 rounded-2xl p-8 space-y-4 text-center backdrop-blur-xl">
+        <div className="max-w-md mx-auto bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-rose-500/30 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl p-8 space-y-4 text-center">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-center">
-            <ShieldAlert className="w-7 h-7 text-rose-400" />
+            <ShieldAlert className="w-7 h-7 text-rose-500 dark:text-rose-400" />
           </div>
-          <span className="text-[10px] font-bold text-rose-400 uppercase tracking-widest font-mono block">
+          <span className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest font-mono block">
             Access Denied — Elevation Required
           </span>
-          <h2 className="text-lg font-bold text-white">Owner access required</h2>
-          <p className="text-xs text-slate-400">
+          <h2 className="text-lg font-bold text-slate-900 dark:text-white">Owner access required</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Revenue and retainer financials are restricted to the Owner role. Ask an Owner to
             elevate your account if you need visibility here.
           </p>
           <button
             onClick={() => router.push('/login')}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
           >
             <LogOut className="w-3.5 h-3.5" /> Sign in as someone else
           </button>
@@ -177,18 +177,18 @@ export default function RevenuePage() {
         <>
           {/* Metrics Header */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2">
-              <span className="text-[10px] text-slate-500 font-mono uppercase flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5 text-emerald-400" /> Total MRR
+            <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl p-5 space-y-2">
+              <span className="text-[10px] text-slate-500 dark:text-slate-500 font-mono uppercase flex items-center gap-1.5">
+                <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> Total MRR
               </span>
               <div className="flex items-baseline gap-2">
-                <p className="text-3xl font-black text-white font-mono">
+                <p className="text-3xl font-black text-slate-900 dark:text-white font-mono">
                   ${metrics!.totalMrr.toLocaleString()}
                 </p>
                 {metrics!.mrrGrowthPct !== null && (
                   <span
                     className={`text-xs font-bold font-mono flex items-center gap-0.5 ${
-                      growthPositive ? 'text-emerald-400' : 'text-rose-400'
+                      growthPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                     }`}
                   >
                     {growthPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
@@ -197,45 +197,45 @@ export default function RevenuePage() {
                   </span>
                 )}
               </div>
-              <p className="text-[9px] text-slate-600 font-mono">
+              <p className="text-[9px] text-slate-500 dark:text-slate-600 font-mono">
                 {metrics!.mrrGrowthPct === null ? 'Not enough history for MoM yet' : 'vs. 30 days ago'}
               </p>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2">
-              <span className="text-[10px] text-slate-500 font-mono uppercase flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-sky-400" /> Active Retainers
+            <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl p-5 space-y-2">
+              <span className="text-[10px] text-slate-500 dark:text-slate-500 font-mono uppercase flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> Active Retainers
               </span>
-              <p className="text-3xl font-black text-white font-mono">{metrics!.activeRetainers}</p>
+              <p className="text-3xl font-black text-slate-900 dark:text-white font-mono">{metrics!.activeRetainers}</p>
             </div>
 
-            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-2">
-              <span className="text-[10px] text-slate-500 font-mono uppercase flex items-center gap-1.5">
-                <Wallet className="w-3.5 h-3.5 text-amber-400" /> Avg. Retainer Value
+            <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl p-5 space-y-2">
+              <span className="text-[10px] text-slate-500 dark:text-slate-500 font-mono uppercase flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Avg. Retainer Value
               </span>
-              <p className="text-3xl font-black text-white font-mono">
+              <p className="text-3xl font-black text-slate-900 dark:text-white font-mono">
                 ${metrics!.avgRetainerValue.toLocaleString()}
               </p>
             </div>
           </div>
 
           {/* Health Score Radar Table */}
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-slate-800">
-              <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+          <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">
                 Client Health Radar
               </h2>
             </div>
 
             {clients.length === 0 ? (
-              <div className="p-8 text-center text-[11px] text-slate-600 font-mono">
+              <div className="p-8 text-center text-[11px] text-slate-500 dark:text-slate-600 font-mono">
                 No retainer clients yet
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-slate-800 text-[10px] text-slate-500 font-mono uppercase">
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] text-slate-500 font-mono uppercase">
                       <th className="text-left p-3">Client</th>
                       <th className="text-left p-3">MRR</th>
                       <th className="text-left p-3">Last Login</th>
@@ -252,22 +252,22 @@ export default function RevenuePage() {
                       return (
                         <tr
                           key={client.organizationId}
-                          className="border-b border-slate-900 hover:bg-slate-800/40 transition-colors"
+                          className="border-b border-slate-100 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                         >
                           <td className="p-3">
-                            <p className="font-bold text-white">{client.organizationName}</p>
+                            <p className="font-bold text-slate-900 dark:text-white">{client.organizationName}</p>
                             <p className="text-[10px] text-slate-500 font-mono">{client.planName || 'No active plan'}</p>
                           </td>
-                          <td className="p-3 font-mono text-emerald-400 font-bold">
+                          <td className="p-3 font-mono text-emerald-600 dark:text-emerald-400 font-bold">
                             ${client.mrr.toLocaleString()}
                           </td>
-                          <td className="p-3 font-mono text-slate-400">
+                          <td className="p-3 font-mono text-slate-500 dark:text-slate-400">
                             {formatRelativeLogin(client.lastLoginAt)}
                           </td>
-                          <td className="p-3 font-mono text-slate-400">
+                          <td className="p-3 font-mono text-slate-500 dark:text-slate-400">
                             {client.slaPassRate === null ? 'N/A' : `${client.slaPassRate}%`}
                           </td>
-                          <td className="p-3 font-mono text-slate-400">{client.activeLeadVolume}</td>
+                          <td className="p-3 font-mono text-slate-500 dark:text-slate-400">{client.activeLeadVolume}</td>
                           <td className="p-3">
                             <span
                               className={`px-2 py-0.5 rounded font-bold font-mono text-[10px] border flex items-center gap-1 w-fit ${h.bg} ${h.text} ${h.border}`}
@@ -306,7 +306,7 @@ export default function RevenuePage() {
                               <button
                                 onClick={() => router.push(`/admin/shadow/${client.organizationId}`)}
                                 title="Open Client Shadow Portal"
-                                className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all"
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 transition-all"
                               >
                                 <Eye className="w-3 h-3" /> Shadow
                               </button>

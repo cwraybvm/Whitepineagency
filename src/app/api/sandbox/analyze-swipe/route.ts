@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server';
-import { SWIPE_VISION_PROMPT, REMIX_PROMPT, brandClauseFor, callOpenAiJson, callOpenAiVisionJson } from '@/lib/sandboxPrompts';
+import {
+  SWIPE_VISION_PROMPT,
+  REMIX_PROMPT,
+  brandClauseFor,
+  callOpenAiJson,
+  callOpenAiVisionJson,
+  mockSwipeInsights,
+  mockSwipeRemix,
+  SwipeInsightSchema,
+  SwipeRemixSchema,
+} from '@/lib/sandboxPrompts';
 
 export async function POST(req: Request) {
   try {
@@ -11,7 +21,7 @@ export async function POST(req: Request) {
       if (!imageUrl) {
         return NextResponse.json({ error: 'imageUrl is required' }, { status: 400 });
       }
-      const insights = await callOpenAiVisionJson(SWIPE_VISION_PROMPT, imageUrl);
+      const insights = await callOpenAiVisionJson(SWIPE_VISION_PROMPT, imageUrl, () => mockSwipeInsights(), 0.7, SwipeInsightSchema);
       return NextResponse.json({ success: true, ...insights });
     }
 
@@ -27,7 +37,13 @@ export async function POST(req: Request) {
         prompt && `Our offer/brief: ${prompt}`,
       ].filter(Boolean).join('\n');
 
-      const result = await callOpenAiJson(`${REMIX_PROMPT}\n\n${brandClause}`, userContext);
+      const result = await callOpenAiJson(
+        `${REMIX_PROMPT}\n\n${brandClause}`,
+        userContext,
+        () => mockSwipeRemix(prompt || insights?.hookPattern),
+        0.7,
+        SwipeRemixSchema,
+      );
       return NextResponse.json({ success: true, ...result });
     }
 

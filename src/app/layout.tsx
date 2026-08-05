@@ -37,7 +37,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
-      <body className="antialiased bg-[#0B0F17] dark:bg-[#0B0F17] text-gray-200">
+      <body className="antialiased bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {/* 🔔 SONNER DARK TOAST NOTIFICATIONS */}
           <Toaster

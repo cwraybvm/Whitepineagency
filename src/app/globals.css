@@ -3,6 +3,7 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 
 @theme {
   /* System Brand Colors */
@@ -310,17 +311,17 @@ textarea,
 }
 
 /* Keyboard-accessible focus ring for the admin console — same pattern as
-   .apex-portal above. Color matches the console's actual established
-   accent (indigo-500, already used everywhere via focus:border-indigo-500)
-   rather than MASTER.md's unused #0369A1 token, so it reads as one system
-   instead of a stray new color. */
+   .apex-portal above. Color matches the console's Mineral Sage / Obsidian
+   Pine emerald accent (emerald-600, used everywhere via
+   focus:border-emerald-500) so it reads as one system instead of a stray
+   new color. */
 .admin-console button:focus-visible,
 .admin-console a:focus-visible,
 .admin-console [role="button"]:focus-visible,
 .admin-console select:focus-visible,
 .admin-console input:focus-visible,
 .admin-console textarea:focus-visible {
-  outline: 2px solid #6366F1;
+  outline: 2px solid #059669;
   outline-offset: 2px;
   border-radius: 4px;
 }

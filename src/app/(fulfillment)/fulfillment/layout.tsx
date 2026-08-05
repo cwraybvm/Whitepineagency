@@ -35,7 +35,7 @@ export default function FulfillmentLayout({
 }) {
   return (
     <div
-      className={`admin-console ${firaCode.variable} ${firaSans.variable} font-sans flex bg-[#0F172A] min-h-screen text-gray-200 antialiased relative overflow-hidden`}
+      className={`admin-console ${firaCode.variable} ${firaSans.variable} font-sans flex bg-slate-950 dark:bg-slate-950 light:bg-slate-50 min-h-screen text-slate-100 dark:text-slate-100 light:text-slate-900 antialiased relative overflow-hidden`}
       style={
         {
           "--color-primary": "#0F172A",

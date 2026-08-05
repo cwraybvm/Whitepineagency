@@ -34,13 +34,14 @@ export async function fetchGenerationJson(url: string, options: RequestInit): Pr
     let res: Response;
     try {
       res = await fetch(url, options);
-    } catch {
+    } catch (err: any) {
+      if (err?.name === 'AbortError') throw err;
       if (attempt === MAX_ATTEMPTS) throw new Error('Network error — please check your connection');
       await sleep(BACKOFF_MS[attempt - 1]);
       continue;
     }
 
-    if (res.ok) return res.json().catch(() => ({}));
+    if (res.ok) return res.json().catch((err: any) => { if (err?.name === 'AbortError') throw err; return {}; });
 
     const data = await res.json().catch(() => ({}));
     const error = new Error(data.error || `Request failed with status ${res.status}`);

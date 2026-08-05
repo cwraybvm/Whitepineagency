@@ -193,24 +193,24 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
   const hasOutput = generatedBlog || instagramCaption || linkedinPost;
 
   return (
-    <div className="bg-[#080E1A] border border-white/15 p-6 rounded-3xl space-y-6 font-mono text-xs shadow-2xl backdrop-blur-xl">
+    <div className="bg-white dark:bg-[#080E1A] border border-slate-200 dark:border-white/15 p-6 rounded-3xl space-y-6 font-mono text-xs shadow-2xl backdrop-blur-xl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/10 pb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-4">
         <div>
           <div className="flex items-center gap-2">
             <span className="text-purple-400 font-black uppercase text-[10px] flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5" /> Content Engine OS
             </span>
-            <span className="text-gray-500">•</span>
-            <span className="text-gray-400 font-sans">{clientName}</span>
+            <span className="text-slate-400 dark:text-gray-500">•</span>
+            <span className="text-slate-500 dark:text-gray-400 font-sans">{clientName}</span>
           </div>
-          <h2 className="text-lg font-black text-white font-sans mt-0.5">Multi-Channel Release Studio</h2>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white font-sans mt-0.5">Multi-Channel Release Studio</h2>
         </div>
 
         <button
           onClick={handleGenerateAllContent}
           disabled={isGenerating}
-          className="px-5 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold rounded-2xl cursor-pointer shadow-lg active:scale-95 transition-all uppercase text-[10px] flex items-center gap-1.5 disabled:opacity-50"
+          className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold rounded-2xl cursor-pointer shadow-lg active:scale-95 transition-all uppercase text-[10px] flex items-center gap-1.5 disabled:opacity-50 shadow-emerald-900/20"
         >
           {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : '⚡ Generate Release Pack'}
         </button>
@@ -218,21 +218,21 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
 
       {/* Input Notes Area */}
       <div className="space-y-2">
-        <label className="text-gray-300 font-bold block">Raw Teaching Notes / Sermon Audio Transcript:</label>
+        <label className="text-slate-700 dark:text-gray-300 font-bold block">Raw Teaching Notes / Sermon Audio Transcript:</label>
         <textarea
           rows={4}
           value={sourceNotes}
           onChange={(e) => setSourceNotes(e.target.value)}
           placeholder="Paste raw teaching notes, bullet points, or audio transcript here..."
-          className="w-full bg-slate-900 border border-white/15 p-3.5 text-white rounded-2xl outline-none focus:border-purple-500 font-sans text-xs placeholder-gray-500 resize-none"
+          className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/15 p-3.5 text-slate-900 dark:text-white rounded-2xl outline-none focus:border-emerald-500 font-sans text-xs placeholder-gray-500 resize-none"
         />
       </div>
 
       {/* Approval Status Bar */}
       {hasOutput && (
-        <div className="flex justify-between items-center bg-slate-900 border border-white/10 p-3.5 rounded-2xl">
+        <div className="flex justify-between items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 p-3.5 rounded-2xl">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400">Approval Status:</span>
+            <span className="text-slate-500 dark:text-gray-400">Approval Status:</span>
             <span
               className={`font-bold px-2.5 py-0.5 rounded-full uppercase text-[9px] ${
                 approvalStatus === 'APPROVED'
@@ -259,12 +259,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
       {/* Output Grid - Row 1: Long Form (WordPress, Mailchimp, Reel Script) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* WordPress Card */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-indigo-300 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-indigo-300 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Globe className="w-4 h-4 text-indigo-400" /> WordPress Blog</span>
               {generatedBlog && (
-                <button onClick={() => copyToClipboard(generatedBlog, 'wp')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(generatedBlog, 'wp')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'wp' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -283,12 +283,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
         </div>
 
         {/* Mailchimp Card */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-emerald-300 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-emerald-300 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Mail className="w-4 h-4 text-emerald-400" /> Mailchimp Email</span>
               {generatedEmail && (
-                <button onClick={() => copyToClipboard(generatedEmail, 'mc')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(generatedEmail, 'mc')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'mc' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -307,9 +307,9 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
         </div>
 
         {/* Reel Script Card */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-purple-300 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-purple-300 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Video className="w-4 h-4 text-purple-400" /> Reel / Short Script</span>
             </div>
             <div className="bg-black/50 p-3 rounded-xl max-h-40 overflow-y-auto text-gray-300 font-mono text-[10px] whitespace-pre-wrap leading-relaxed">
@@ -329,12 +329,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
       {/* Output Grid - Row 2: Social Channels (Instagram, Twitter, LinkedIn, Image Prompt) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
         {/* Instagram / Facebook */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-pink-400 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-pink-400 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Instagram className="w-4 h-4" /> Instagram</span>
               {instagramCaption && (
-                <button onClick={() => copyToClipboard(instagramCaption, 'ig')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(instagramCaption, 'ig')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'ig' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -353,12 +353,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
         </div>
 
         {/* Twitter / X Thread */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-sky-400 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-sky-400 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Twitter className="w-4 h-4" /> X Thread</span>
               {twitterThread.length > 0 && (
-                <button onClick={() => copyToClipboard(twitterThread.join('\n\n---\n\n'), 'x')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(twitterThread.join('\n\n---\n\n'), 'x')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'x' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -385,12 +385,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
         </div>
 
         {/* LinkedIn */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-blue-400 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-blue-400 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><Linkedin className="w-4 h-4" /> LinkedIn</span>
               {linkedinPost && (
-                <button onClick={() => copyToClipboard(linkedinPost, 'li')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(linkedinPost, 'li')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'li' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}
@@ -409,12 +409,12 @@ export default function ContentStudio({ clientName, organizationId = 'default-or
         </div>
 
         {/* AI Image Prompt */}
-        <div className="bg-slate-900/80 border border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
+        <div className="bg-white/85 dark:bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 p-4 rounded-2xl space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
-            <div className="flex justify-between items-center text-amber-400 font-bold border-b border-white/10 pb-2">
+            <div className="flex justify-between items-center text-amber-400 font-bold border-b border-slate-200 dark:border-white/10 pb-2">
               <span className="flex items-center gap-1.5"><ImageIcon className="w-4 h-4" /> AI Image Prompt</span>
               {imagePrompt && (
-                <button onClick={() => copyToClipboard(imagePrompt, 'img')} className="text-gray-400 hover:text-white">
+                <button onClick={() => copyToClipboard(imagePrompt, 'img')} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">
                   {copiedKey === 'img' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 </button>
               )}

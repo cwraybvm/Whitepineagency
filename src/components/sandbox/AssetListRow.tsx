@@ -35,10 +35,10 @@ export default function AssetListRow({
 
   return (
     <div
-      className={`rounded-2xl p-5 flex flex-col md:flex-row md:items-center gap-4 border backdrop-blur-md transition-colors ${
+      className={`rounded-xl p-5 flex flex-col md:flex-row md:items-center gap-4 border backdrop-blur-xl transition-colors ${
         selected
           ? 'bg-[#F0FDF4] border-[#059669] dark:bg-emerald-950/40 dark:border-emerald-500'
-          : 'bg-white/85 border-white/60 shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl'
+          : 'bg-white/85 dark:bg-[#121824]/75 border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20'
       }`}
     >
       <div className="flex-1 min-w-0 space-y-1">
@@ -92,7 +92,7 @@ export default function AssetListRow({
           <button
             onClick={onPromote}
             disabled={promoting}
-            className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 shrink-0"
+            className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-lg text-[11px] flex items-center gap-1.5 shrink-0"
           >
             {promoting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
             Promote to Production

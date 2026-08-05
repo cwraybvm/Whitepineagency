@@ -18,6 +18,24 @@ function allowedRolesFor(pathname: string): Role[] | null {
   return match ? match.roles : null;
 }
 
+// Root app domain — a request host matching this (or a `<slug>.` subdomain of
+// it) resolves to a tenant by slug; anything else is treated as a client's
+// own custom domain (e.g. portal.apexplumbing.com) mapped via Organization.customDomain.
+const ROOT_DOMAIN = process.env.ROOT_DOMAIN || 'whitepine.portal';
+
+function resolveTenantFromHost(host: string | null): { tenantSlug?: string; tenantDomain?: string } {
+  if (!host) return {};
+  const hostname = host.split(':')[0].toLowerCase();
+
+  if (hostname === ROOT_DOMAIN || hostname === `www.${ROOT_DOMAIN}` || hostname === 'localhost' || hostname.endsWith('.vercel.app')) {
+    return {};
+  }
+  if (hostname.endsWith(`.${ROOT_DOMAIN}`)) {
+    return { tenantSlug: hostname.slice(0, -(ROOT_DOMAIN.length + 1)) };
+  }
+  return { tenantDomain: hostname };
+}
+
 export function proxy(request: NextRequest) {
   const url = request.nextUrl.clone();
   const { pathname } = url;
@@ -30,6 +48,13 @@ export function proxy(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+
+  // 🌐 0. EDGE TENANT RESOLUTION — subdomain/custom-domain -> x-tenant-* headers
+  // for downstream API routes and Server Components (see TenantTheme).
+  const { tenantSlug, tenantDomain } = resolveTenantFromHost(request.headers.get('host'));
+  const tenantHeaders = new Headers(request.headers);
+  if (tenantSlug) tenantHeaders.set('x-tenant-slug', tenantSlug);
+  if (tenantDomain) tenantHeaders.set('x-tenant-domain', tenantDomain);
 
   // 🔐 1. RBAC — AUTHENTICATION + ROLE FOR ADMIN/FULFILLMENT/CRM/PORTAL
   const allowedRoles = allowedRolesFor(pathname);
@@ -67,6 +92,7 @@ export function proxy(request: NextRequest) {
   if (
     pathname.startsWith('/api/analytics') ||
     pathname.startsWith('/api/leads') ||
+    pathname.startsWith('/api/portal') ||
     pathname.startsWith('/portal')
   ) {
     const organizationId =
@@ -75,17 +101,14 @@ export function proxy(request: NextRequest) {
       url.searchParams.get('orgId') ||
       'default-tenant-workspace';
 
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-organization-id', organizationId);
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    });
+    tenantHeaders.set('x-organization-id', organizationId);
   }
 
-  return NextResponse.next();
+  return NextResponse.next({
+    request: {
+      headers: tenantHeaders,
+    },
+  });
 }
 
 export const config = {
@@ -96,6 +119,7 @@ export const config = {
     '/sandbox/:path*',
     '/crm/:path*',
     '/api/analytics/:path*',
-    '/api/leads/:path*'
+    '/api/leads/:path*',
+    '/api/portal/:path*'
   ],
 };

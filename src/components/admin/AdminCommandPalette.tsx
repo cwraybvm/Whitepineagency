@@ -142,7 +142,7 @@ export default function AdminCommandPalette() {
             placeholder="Jump to a page or run an action..."
             className="w-full bg-transparent text-white outline-none text-xs font-mono placeholder-slate-500"
           />
-          <span className="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-bold shrink-0">ESC</span>
+          <kbd className="text-[10px] bg-slate-800 text-slate-400 border border-slate-700 border-b-2 border-b-slate-600 px-1.5 py-0.5 rounded font-bold shrink-0 shadow-sm">ESC</kbd>
         </div>
 
         <div className="max-h-80 overflow-y-auto p-2 space-y-3">
@@ -178,10 +178,10 @@ export default function AdminCommandPalette() {
 
         <div className="border-t border-slate-800 px-3 py-2 flex items-center justify-between text-[10px] text-slate-500">
           <span className="flex items-center gap-1">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded font-bold">⌘K</span> to toggle
+            <kbd className="bg-slate-800 border border-slate-700 border-b-2 border-b-slate-600 px-1.5 py-0.5 rounded font-bold shadow-sm">⌘K</kbd> to toggle
           </span>
           <span className="flex items-center gap-1">
-            <span className="bg-slate-800 px-1.5 py-0.5 rounded font-bold">ESC</span> to close
+            <kbd className="bg-slate-800 border border-slate-700 border-b-2 border-b-slate-600 px-1.5 py-0.5 rounded font-bold shadow-sm">ESC</kbd> to close
           </span>
         </div>
       </div>

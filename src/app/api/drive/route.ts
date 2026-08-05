@@ -1,10 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { prisma } from '@/lib/prisma';
-import { extractBrandFromUrl } from '@/lib/brandExtractor';
-import { toBrandDna, type BrandDna, type MasterCampaignPackage } from '@/lib/sandboxPrompts';
-import { generateMasterCampaign } from '@/lib/masterCampaign';
+import { pushToCrmWebhook } from '@/lib/crmSync';
 
 const INTAKE_SLA_HOURS = 48;
 
@@ -81,9 +79,10 @@ export async function POST(req: NextRequest) {
     // 3. Drive upload succeeded — the client's assets are safe. Creating the
     // fulfillment task is a secondary automation from here, so a DB failure
     // must not turn a successful upload into an error response for the user.
+    let intakeAssetId: string | undefined;
     try {
       const now = new Date();
-      await prisma.fulfillmentTask.create({
+      const fulfillmentTask = await prisma.fulfillmentTask.create({
         data: {
           title: 'New Client Asset Intake',
           clientName,
@@ -99,31 +98,34 @@ export async function POST(req: NextRequest) {
             create: [{ clientName, offerDetails: offerDetails || undefined, driveFolderUrl: folderViewLink, fileCount: uploadedFileIds.length }],
           },
         },
+        include: { intakeAssets: true },
       });
+      intakeAssetId = fulfillmentTask.intakeAssets[0]?.id;
     } catch (dbError) {
       console.error('Fulfillment task creation failed (Drive upload still succeeded):', dbError);
     }
 
-    // 4. Mine Brand DNA from the client's site and draft their 30-Day Master
-    // Campaign. Both are soft-fail: the Drive upload above already succeeded,
-    // so an LLM/network hiccup here must not turn a successful intake into an
-    // error response.
-    let brandDna: BrandDna | undefined;
-    if (websiteUrl) {
-      try {
-        brandDna = toBrandDna(await extractBrandFromUrl(websiteUrl));
-      } catch (brandError) {
-        console.error('Brand extraction failed (Drive upload still succeeded):', brandError);
-      }
-    }
+    // 4. Notify the CRM immediately so a rep can follow up without waiting on
+    // the slower AI enrichment below. Brand DNA extraction + campaign
+    // generation are offloaded to the intake-processor worker via `after()`
+    // so they run post-response and don't hold up this upload request; that
+    // worker pushes its own CRM event once it has brandDna/campaignPackage.
+    await pushToCrmWebhook({
+      event: 'intake.received',
+      clientName,
+      offerDetails,
+      folderUrl: folderViewLink,
+    });
 
-    let campaignPackage: MasterCampaignPackage | null = null;
-    if (location && offerDetails) {
-      try {
-        campaignPackage = await generateMasterCampaign(location, offerDetails, brandDna);
-      } catch (campaignError) {
-        console.error('Master campaign generation failed (Drive upload still succeeded):', campaignError);
-      }
+    if (websiteUrl || (location && offerDetails)) {
+      const workerUrl = new URL('/api/workers/intake-processor', req.url);
+      after(() =>
+        fetch(workerUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ clientName, websiteUrl, location, offerDetails, intakeAssetId }),
+        }).catch((error) => console.error('Intake worker dispatch failed:', error))
+      );
     }
 
     return NextResponse.json({
@@ -132,7 +134,6 @@ export async function POST(req: NextRequest) {
       folderUrl: folderViewLink,
       portalUrl: new URL('/admin', req.url).toString(),
       uploadedCount: uploadedFileIds.length,
-      campaignPackage,
     });
   } catch (error: any) {
     console.error('Google Drive Upload Error:', error);

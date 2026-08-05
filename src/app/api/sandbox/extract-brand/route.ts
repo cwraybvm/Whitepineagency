@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateExtractBrandUrl, BRAND_EXTRACT_PROMPT, callOpenAiJson, mockBrandExtraction } from '@/lib/sandboxPrompts';
+import { validateExtractBrandUrl, BRAND_EXTRACT_PROMPT, callOpenAiJson, mockBrandExtraction, BrandExtractSchema } from '@/lib/sandboxPrompts';
 import { stripToPlainText, extractHexColors, MAX_EXTRACT_CHARS } from '@/lib/htmlExtract';
 
 const FETCH_TIMEOUT_MS = 8000;
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       candidateColors.length ? `Candidate accent colors found in the page's CSS: ${candidateColors.join(', ')}` : '',
     ].filter(Boolean).join('\n\n');
 
-    const result = await callOpenAiJson(BRAND_EXTRACT_PROMPT, userContext, () => mockBrandExtraction(url));
+    const result = await callOpenAiJson(BRAND_EXTRACT_PROMPT, userContext, () => mockBrandExtraction(url), 0.7, BrandExtractSchema);
 
     const brandGuidelines = [
       result.valueProp && `Value Proposition: ${result.valueProp}`,

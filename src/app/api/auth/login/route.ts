@@ -18,8 +18,24 @@ function setSessionCookies(
 }
 
 export async function POST(request: Request) {
+  let body: unknown;
   try {
-    const { email, password } = await request.json();
+    body = await request.json();
+  } catch {
+    // Malformed/empty/non-JSON body — a client-input problem, not a server
+    // fault. Reported separately from the try below so it doesn't fall into
+    // the generic 500 path (this was the actual cause of "Internal System
+    // Error" reports: any truncated or malformed request here previously
+    // hit the catch-all and returned an unhelpful 500).
+    return NextResponse.json({ error: 'Invalid request format' }, { status: 400 });
+  }
+
+  if (typeof body !== 'object' || body === null) {
+    return NextResponse.json({ error: 'Invalid request format' }, { status: 400 });
+  }
+
+  try {
+    const { email, password } = body as { email?: string; password?: string };
 
     if (!password) {
       return NextResponse.json({ error: 'Missing credentials' }, { status: 400 });
@@ -56,9 +72,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // 2. Record login recency for the revenue/health radar, then identify
-    // their primary workspace context
-    await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    // 2. Record login recency for the revenue/health radar. Best-effort: a
+    // transient failure on this audit-only write must not fail an otherwise
+    // valid login.
+    try {
+      await db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+    } catch (err) {
+      console.error('[AUTH_LOGIN_ERROR] lastLoginAt update failed (non-fatal)', err);
+    }
+
     const primaryMembership = user.members[0];
     if (!primaryMembership) {
       return NextResponse.json({ error: 'No active workspace membership found' }, { status: 403 });
@@ -73,8 +95,10 @@ export async function POST(request: Request) {
     });
 
     return response;
-  } catch (error: any) {
-    console.error('Auth API Failure:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  } catch (err) {
+    // Never leak err.message or a stack trace to the client — could expose
+    // DB/query details. Log server-side for diagnosis instead.
+    console.error('[AUTH_LOGIN_ERROR]', err);
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

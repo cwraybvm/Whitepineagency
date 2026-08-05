@@ -59,7 +59,7 @@ export default function AssetsSidebar({
   onViewModeChange: (v: 'grid' | 'list') => void;
 }) {
   return (
-    <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-4 flex flex-wrap items-start justify-between gap-4">
+    <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-4 flex flex-wrap items-start justify-between gap-4">
       <div className="space-y-3">
         <div className="space-y-1.5">
           <span className="text-[10px] font-mono font-bold uppercase text-slate-500 dark:text-slate-400">Status</span>

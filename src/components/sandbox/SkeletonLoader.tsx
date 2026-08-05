@@ -2,7 +2,7 @@
 
 function RowSkeleton() {
   return (
-    <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-5 flex items-center gap-4 animate-pulse">
+    <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 flex items-center gap-4 animate-pulse">
       <div className="flex-1 min-w-0 space-y-2">
         <div className="h-4 w-1/3 bg-slate-300/70 dark:bg-slate-800 rounded" />
         <div className="h-3 w-2/3 bg-slate-200/70 dark:bg-slate-800/60 rounded" />
@@ -14,7 +14,7 @@ function RowSkeleton() {
 
 function CardSkeleton() {
   return (
-    <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-5 space-y-3 animate-pulse">
+    <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-3 animate-pulse">
       <div className="h-4 w-1/2 bg-slate-300/70 dark:bg-slate-800 rounded" />
       <div className="h-3 w-full bg-slate-200/70 dark:bg-slate-800/60 rounded" />
       <div className="h-3 w-3/4 bg-slate-200/70 dark:bg-slate-800/60 rounded" />

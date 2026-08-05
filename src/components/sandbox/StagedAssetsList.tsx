@@ -38,9 +38,25 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
         fetch(type ? `/api/sandbox/assets?type=${type}` : '/api/sandbox/assets'),
         fetch('/api/sandbox/organizations'),
       ]);
-      setAssets(await assetsRes.json());
-      setOrgs(await orgsRes.json());
+
+      // Both routes return an error object (not an array) on a non-2xx
+      // response — trusting the body shape without checking .ok let a
+      // transient 500 turn into `assets`/`orgs` being a plain object,
+      // which crashed every .filter()/.map() below with an uncaught
+      // TypeError (the actual cause of the "This page couldn't load"
+      // client error boundary).
+      const assetsJson = assetsRes.ok ? await assetsRes.json() : null;
+      const orgsJson = orgsRes.ok ? await orgsRes.json() : null;
+
+      setAssets(Array.isArray(assetsJson) ? assetsJson : []);
+      setOrgs(Array.isArray(orgsJson) ? orgsJson : []);
+
+      if (!assetsRes.ok || !orgsRes.ok) {
+        toast.error('Failed to load staged assets');
+      }
     } catch {
+      setAssets([]);
+      setOrgs([]);
       toast.error('Failed to load staged assets');
     } finally {
       setLoading(false);
@@ -181,7 +197,7 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
 
   if (assets.length === 0) {
     return (
-      <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
         <Archive className="w-6 h-6" />
         No staged assets yet for this tool. Generate and save one from Draft Canvas.
       </div>
@@ -227,7 +243,7 @@ export default function StagedAssetsList({ activeTool }: { activeTool: SandboxTo
       )}
 
       {filteredAssets.length === 0 ? (
-        <div className="bg-white/85 border border-white/60 backdrop-blur-md shadow-sm dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
+        <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-10 flex flex-col items-center justify-center gap-2 text-slate-500 dark:text-slate-400 text-sm">
           No assets match the current filters.
         </div>
       ) : viewMode === 'grid' ? (

@@ -15,8 +15,8 @@ export default function CharLimitBadges({ text }: { text: string }) {
             key={id}
             className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border ${
               over
-                ? 'bg-red-500/15 text-red-300 border-red-500/40'
-                : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                ? 'bg-red-500/15 text-red-600 dark:text-red-300 border-red-500/40'
+                : 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800/60 dark:text-slate-400 dark:border-slate-700'
             }`}
           >
             {label}: {length}/{limit}
