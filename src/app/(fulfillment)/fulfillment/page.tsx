@@ -607,6 +607,12 @@ export default function UltimateFulfillmentPage() {
                                 Flyer
                               </button>
                               <button
+                                onClick={() => router.push('/fulfillment/geo-expansion')}
+                                className="text-slate-400 hover:text-slate-200 font-mono"
+                              >
+                                Geo
+                              </button>
+                              <button
                                 onClick={() => router.push('/admin/onboarding')}
                                 className="text-slate-400 hover:text-slate-200 font-mono"
                               >
