@@ -5,14 +5,8 @@ import {
   LANDING_PAGE_SECTION_REFINE_PROMPT,
   mockSectionRefine,
   SectionRefineSchema,
+  validateRefineSectionInput,
 } from '@/lib/sandboxPrompts';
-
-export function validateRefineSectionInput(body: any): string | null {
-  if (!body || typeof body.field !== 'string' || !body.field.trim()) return 'field is required';
-  if (typeof body.instruction !== 'string' || !body.instruction.trim()) return 'instruction is required';
-  if (body.currentValue !== undefined && typeof body.currentValue !== 'string') return 'currentValue must be a string';
-  return null;
-}
 
 export async function POST(req: Request) {
   try {

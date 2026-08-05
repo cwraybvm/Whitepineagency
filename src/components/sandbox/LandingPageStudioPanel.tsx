@@ -10,6 +10,20 @@ import { renderLandingPageHtml } from './landingPageHtml';
 
 type SourceMode = 'asset' | 'brief';
 
+function slugify(value: string): string {
+  return (value || 'landing-page').replace(/\s+/g, '-').toLowerCase();
+}
+
+function downloadTextFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function normalizeMetadata(metadata: any): LandingPageDraft['metadata'] {
   return {
     heroHeadline: metadata?.heroHeadline || '',
@@ -34,6 +48,8 @@ export default function LandingPageStudioPanel() {
   const [draft, setDraft] = useState<LandingPageDraft | null>(null);
   const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const [refiningField, setRefiningField] = useState<string | null>(null);
+  const [pushingWp, setPushingWp] = useState(false);
+  const [pushingWebhook, setPushingWebhook] = useState(false);
 
   useEffect(() => {
     fetchJsonArray<{ id: string; title: string; type: string }>('/api/sandbox/assets').then(setAssets);
@@ -128,6 +144,79 @@ export default function LandingPageStudioPanel() {
       toast.error(err.message || 'Failed to refine section');
     } finally {
       setRefiningField(null);
+    }
+  };
+
+  const copyHtml = async () => {
+    if (!draft) return;
+    try {
+      await navigator.clipboard.writeText(previewHtml);
+      toast.success('Copied HTML to clipboard');
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const downloadHtml = () => {
+    if (!draft) return;
+    downloadTextFile(`${slugify(draft.title)}.html`, previewHtml, 'text/html');
+  };
+
+  const pushToWordpress = async () => {
+    if (!draft) return;
+    if (!organizationId) {
+      toast.error('Select a client organization first');
+      return;
+    }
+    setPushingWp(true);
+    try {
+      const credsRes = await fetch(`/api/organizations/credentials?organizationId=${organizationId}`);
+      const creds = await credsRes.json();
+      if (!creds.wordpressUrl || !creds.wordpressUsername || !creds.wordpressAppPass) {
+        throw new Error('Missing WordPress credentials in API Vault for this client');
+      }
+      const res = await fetch('/api/wordpress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wpUrl: creds.wordpressUrl,
+          wpUsername: creds.wordpressUsername,
+          wpAppPassword: creds.wordpressAppPass,
+          title: draft.title,
+          content: previewHtml,
+          postType: 'pages',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish to WordPress');
+      toast.success('Draft page created on WordPress');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to push to WordPress');
+    } finally {
+      setPushingWp(false);
+    }
+  };
+
+  const pushToWebhook = async () => {
+    if (!draft) return;
+    if (!organizationId) {
+      toast.error('Select a client organization first');
+      return;
+    }
+    setPushingWebhook(true);
+    try {
+      const res = await fetch('/api/sandbox/landing-page/deploy-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizationId, title: draft.title, html: previewHtml, metadata: draft.metadata }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Webhook push failed');
+      toast[data.delivered ? 'success' : 'error'](data.delivered ? 'Delivered to client webhook' : 'Webhook configured but delivery failed — check the listener');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to push to webhook');
+    } finally {
+      setPushingWebhook(false);
     }
   };
 
@@ -311,6 +400,37 @@ export default function LandingPageStudioPanel() {
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               {saving ? 'Saving…' : 'Save to Staged Assets'}
             </button>
+
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2">
+              <button
+                onClick={copyHtml}
+                className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide"
+              >
+                Copy Clean HTML
+              </button>
+              <button
+                onClick={downloadHtml}
+                className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide"
+              >
+                Download HTML Bundle
+              </button>
+              <button
+                onClick={pushToWordpress}
+                disabled={pushingWp}
+                className="py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+              >
+                {pushingWp ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                Push to WordPress
+              </button>
+              <button
+                onClick={pushToWebhook}
+                disabled={pushingWebhook}
+                className="py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+              >
+                {pushingWebhook ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                Push to Webhook
+              </button>
+            </div>
           </div>
         )}
       </div>

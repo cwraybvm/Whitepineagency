@@ -879,6 +879,22 @@ export function validateLandingPageInput(body: any): string | null {
   return null;
 }
 
+export function validateRefineSectionInput(body: any): string | null {
+  if (!body || typeof body.field !== 'string' || !body.field.trim()) return 'field is required';
+  if (typeof body.instruction !== 'string' || !body.instruction.trim()) return 'instruction is required';
+  if (body.currentValue !== undefined && typeof body.currentValue !== 'string') return 'currentValue must be a string';
+  return null;
+}
+
+export function validateDeployWebhookInput(body: any): string | null {
+  if (!body || typeof body.organizationId !== 'string' || !body.organizationId.trim()) {
+    return 'organizationId is required';
+  }
+  if (typeof body.title !== 'string' || !body.title.trim()) return 'title is required';
+  if (typeof body.html !== 'string' || !body.html.trim()) return 'html is required';
+  return null;
+}
+
 const PRIVATE_HOSTNAMES = new Set(['localhost', '0.0.0.0', '::1']);
 
 function isPrivateIpLiteral(hostname: string): boolean {

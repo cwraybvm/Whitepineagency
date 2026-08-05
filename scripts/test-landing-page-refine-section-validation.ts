@@ -1,4 +1,4 @@
-import { validateRefineSectionInput } from '../src/app/api/sandbox/landing-page/refine-section/route';
+import { validateRefineSectionInput } from '../src/lib/sandboxPrompts';
 
 const cases: { body: any; expectError: boolean }[] = [
   { body: {}, expectError: true },

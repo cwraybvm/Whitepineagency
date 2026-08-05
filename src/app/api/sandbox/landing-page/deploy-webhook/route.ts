@@ -1,14 +1,6 @@
 import { NextResponse } from 'next/server';
 import { dispatchWebhookEvent } from '@/lib/webhooks';
-
-export function validateDeployWebhookInput(body: any): string | null {
-  if (!body || typeof body.organizationId !== 'string' || !body.organizationId.trim()) {
-    return 'organizationId is required';
-  }
-  if (typeof body.title !== 'string' || !body.title.trim()) return 'title is required';
-  if (typeof body.html !== 'string' || !body.html.trim()) return 'html is required';
-  return null;
-}
+import { validateDeployWebhookInput } from '@/lib/sandboxPrompts';
 
 export async function POST(req: Request) {
   try {
