@@ -94,6 +94,24 @@ export const CampaignBatchSchema = z.object({
   drip: DripSchema.catch(DEFAULT_DRAFT),
 });
 
+const GoogleSearchAdSchema = z
+  .object({ headline: z.string().catch(''), description: z.string().catch('') })
+  .catch({ headline: '', description: '' });
+
+const GoogleBusinessPostSchema = z
+  .object({ title: z.string().catch(''), content: z.string().catch('') })
+  .catch({ title: '', content: '' });
+
+export const MasterCampaignPackageSchema = z.object({
+  metaAds: z.array(AdBuilderSchema.catch(DEFAULT_DRAFT)).catch([]),
+  googleSearchAds: z.array(GoogleSearchAdSchema).catch([]),
+  googleBusinessPosts: z.array(GoogleBusinessPostSchema).catch([]),
+  videoScripts: z.array(VideoLabSchema.catch(DEFAULT_DRAFT)).catch([]),
+  emailSmsBlasts: z.array(DripStepSchema).catch([]),
+});
+
+export type MasterCampaignPackage = z.infer<typeof MasterCampaignPackageSchema>;
+
 export const SwipeInsightSchema = z.object({
   hookPattern: z.string().catch(''),
   visualStyle: z.string().catch(''),
@@ -964,5 +982,55 @@ export function mockImagePrompt(): { prompt: string } {
   return {
     prompt:
       '[MOCK — set OPENAI_API_KEY for real output] A product hero shot, soft studio lighting, clean neutral background, confident brand tone, warm color palette --ar 16:9 --style raw',
+  };
+}
+
+export const MASTER_CAMPAIGN_PROMPT =
+  'You are an expert local-service marketing agency building a 30-day multi-channel launch bundle for a client promotion. ' +
+  'Given a location and a promo offer, produce ready-to-run assets for every channel: ' +
+  '3 Meta ad variants (headline, body, CTA); 3 Google Search ad variants (short headline under 30 chars, description under 90 chars); ' +
+  '4 Google Business Profile posts (weekly cadence, local and offer-specific); 2 short video ad scripts with shot-by-shot beats; ' +
+  'and 3 to 5 email/SMS follow-up touches spaced across the 30-day window (day, channel, content). ' +
+  'Every asset should be geo-targeted to the given location and built around the given promo offer. ' +
+  'Return a valid JSON object matching this structure exactly: {"metaAds": [{"title": "internal label", "content": "ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "call-to-action button text"}}], ' +
+  '"googleSearchAds": [{"headline": "short headline, under 30 chars", "description": "description, under 90 chars"}], ' +
+  '"googleBusinessPosts": [{"title": "short internal label", "content": "the post copy"}], ' +
+  '"videoScripts": [{"title": "internal label", "content": "one-line summary", "metadata": {"beats": [{"scene": "scene number", "shot": "visual direction", "line": "voiceover line"}]}}], ' +
+  '"emailSmsBlasts": [{"day": "e.g. Day 3", "channel": "Email or SMS", "content": "the message copy"}]} ' +
+  'with exactly 3 metaAds, 3 googleSearchAds, 4 googleBusinessPosts, 2 videoScripts, and 3 to 5 emailSmsBlasts.';
+
+export function mockMasterCampaignPackage(location: string, promoOffer: string): MasterCampaignPackage {
+  const offer = promoOffer.slice(0, 80);
+  return {
+    metaAds: [1, 2, 3].map((n) => ({
+      title: `[MOCK] Meta Ad ${n} — ${location}`,
+      content: `[MOCK] ${offer} — now available in ${location}. Limited slots, book today.`,
+      metadata: { headline: `[MOCK] ${offer}`.slice(0, 40), cta: 'Get a Free Quote' },
+    })),
+    googleSearchAds: [1, 2, 3].map((n) => ({
+      headline: `[MOCK] ${offer}`.slice(0, 30),
+      description: `[MOCK] Serving ${location}. ${offer}. Call now.`.slice(0, 90),
+    })),
+    googleBusinessPosts: [1, 2, 3, 4].map((n) => ({
+      title: `[MOCK] Week ${n} Update`,
+      content: `[MOCK] ${offer} is live for ${location} customers this week. Message us to claim your spot.`,
+    })),
+    videoScripts: [1, 2].map((n) => ({
+      title: `[MOCK] ${location} Promo Script ${n}`,
+      content: `[MOCK] 15-second local promo for: ${offer}`,
+      metadata: {
+        beats: [
+          { scene: '1', shot: 'Local storefront or service vehicle establishing shot', line: `${offer}?` },
+          { scene: '2', shot: 'Problem/solution visual', line: `That's exactly what we do in ${location}.` },
+          { scene: '3', shot: 'Logo + CTA card', line: 'Book your spot today.' },
+        ],
+      },
+    })),
+    emailSmsBlasts: [
+      { day: 'Day 1', channel: 'Email', content: `[MOCK] Introducing: ${offer} for ${location} customers.` },
+      { day: 'Day 7', channel: 'SMS', content: `[MOCK] Reminder — ${offer} is still available. Reply YES to book.` },
+      { day: 'Day 15', channel: 'Email', content: `[MOCK] Halfway through the month — don't miss ${offer}.` },
+      { day: 'Day 28', channel: 'SMS', content: `[MOCK] Last call — ${offer} ends soon.` },
+    ],
   };
 }
