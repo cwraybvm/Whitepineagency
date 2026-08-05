@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, ImageUp, RefreshCw } from 'lucide-react';
+import { Wand2, Save, Loader2, ImageUp, RefreshCw, History as HistoryIcon } from 'lucide-react';
 import { TONE_OPTIONS, ASPECT_RATIOS, type Tone, type AspectRatioId, type OrgBrand } from './types';
 import ScoreBadge from './ScoreBadge';
 import AdMockupCard from './AdMockupCard';
+import HistoryDrawer from './HistoryDrawer';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
+import { useSandboxHistory } from '@/hooks/useSandboxHistory';
 
 const PLATFORMS = ['Meta', 'Google', 'LinkedIn'] as const;
 type Platform = (typeof PLATFORMS)[number];
@@ -18,6 +20,15 @@ type AdDraft = {
 };
 
 const FALLBACK_BRAND_COLOR = '#059669';
+
+type AdBuilderSnapshot = {
+  prompt: string;
+  tone: Tone;
+  platform: Platform;
+  imageUrl: string;
+  aspectRatio: AspectRatioId;
+  draft: AdDraft | null;
+};
 
 export default function AdBuilderPanel() {
   const [prompt, setPrompt] = useState('Roof inspection special for a residential roofing company');
@@ -33,6 +44,9 @@ export default function AdBuilderPanel() {
   const [imageUrl, setImageUrl] = useState('');
   const [aspectRatio, setAspectRatio] = useState<AspectRatioId>('1:1');
   const [dragOver, setDragOver] = useState(false);
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const history = useSandboxHistory<AdBuilderSnapshot>('ad', organizationId);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -61,13 +75,24 @@ export default function AdBuilderPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'ad', prompt, tone, platform }),
       });
-      setDraft({ title: data.title, content: data.content, metadata: data.metadata });
+      const newDraft = { title: data.title, content: data.content, metadata: data.metadata };
+      setDraft(newDraft);
+      history.add(`[${platform}] ${prompt.slice(0, 60)}`, { prompt, tone, platform, imageUrl, aspectRatio, draft: newDraft });
     } catch (err: any) {
       setGenerationFailed(true);
       toast.error(err.message || 'Failed to generate ad');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const restoreFromHistory = (snapshot: AdBuilderSnapshot) => {
+    setPrompt(snapshot.prompt);
+    setTone(snapshot.tone);
+    setPlatform(snapshot.platform);
+    setImageUrl(snapshot.imageUrl);
+    setAspectRatio(snapshot.aspectRatio);
+    setDraft(snapshot.draft);
   };
 
   const saveToStaged = async () => {
@@ -98,7 +123,21 @@ export default function AdBuilderPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
-        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Ad Builder Controls</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Ad Builder Controls</h2>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
+            title="Generation history"
+          >
+            <HistoryIcon className="w-4 h-4" />
+            {history.items.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                {history.items.length}
+              </span>
+            )}
+          </button>
+        </div>
 
         <div className="space-y-1.5">
           <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Client (for Brand Overlay)</label>
@@ -255,6 +294,14 @@ export default function AdBuilderPanel() {
           </>
         )}
       </div>
+
+      <HistoryDrawer
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        items={history.items}
+        onRestore={restoreFromHistory}
+        onClear={history.clear}
+      />
     </div>
   );
 }
