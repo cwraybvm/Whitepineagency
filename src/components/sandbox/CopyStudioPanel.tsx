@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Sparkles, Pencil, Grid3x3, MapPinned, Rocket, RefreshCw } from 'lucide-react';
+import { Wand2, Save, Loader2, Sparkles, Pencil, Grid3x3, MapPinned, Rocket, RefreshCw, History as HistoryIcon } from 'lucide-react';
 import { TONE_OPTIONS, type Tone, type GeneratedDraft, type AngleDraft, type BrandDna, type CopyStudioMode, type DcoVariant } from './types';
 import CharLimitBadges from './CharLimitBadges';
 import BrandDnaDrawer from './BrandDnaDrawer';
 import ScoreBadge from './ScoreBadge';
 import CopyButton from './CopyButton';
+import HistoryDrawer from './HistoryDrawer';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
+import { useSandboxHistory } from '@/hooks/useSandboxHistory';
 
 const MODES: { id: CopyStudioMode; label: string; icon: React.ElementType }[] = [
   { id: 'single', label: 'Single', icon: Wand2 },
@@ -29,6 +31,17 @@ function GenerationFailedNotice({ onRetry }: { onRetry: () => void }) {
     </div>
   );
 }
+
+type CopyStudioSnapshot = {
+  mode: CopyStudioMode;
+  prompt: string;
+  tone: Tone;
+  locations: string;
+  audienceSegments: string;
+  draft: GeneratedDraft | null;
+  angleDrafts: AngleDraft[];
+  dcoVariants: DcoVariant[];
+};
 
 export default function CopyStudioPanel() {
   const [prompt, setPrompt] = useState('$79 Spring AC Tune-Up promo for a local HVAC company');
@@ -52,6 +65,9 @@ export default function CopyStudioPanel() {
   const [dcoVariants, setDcoVariants] = useState<DcoVariant[]>([]);
   const [savingDco, setSavingDco] = useState<number | null>(null);
   const [stagingDco, setStagingDco] = useState(false);
+
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const history = useSandboxHistory<CopyStudioSnapshot>('copy', organizationId);
 
   useEffect(() => {
     fetchJsonArray<{ id: string; name: string }>('/api/sandbox/organizations').then(setOrgs);
@@ -102,6 +118,10 @@ export default function CopyStudioPanel() {
           }),
         });
         setDcoVariants(data.variants);
+        history.add(`[DCO] ${prompt.slice(0, 60)}`, {
+          mode, prompt, tone, locations, audienceSegments,
+          draft: null, angleDrafts: [], dcoVariants: data.variants,
+        });
         return;
       }
 
@@ -118,8 +138,17 @@ export default function CopyStudioPanel() {
       });
       if (mode === 'matrix') {
         setAngleDrafts(data.angles);
+        history.add(`[Matrix] ${prompt.slice(0, 60)}`, {
+          mode, prompt, tone, locations, audienceSegments,
+          draft: null, angleDrafts: data.angles, dcoVariants: [],
+        });
       } else {
-        setDraft({ title: data.title, content: data.content });
+        const singleDraft = { title: data.title, content: data.content };
+        setDraft(singleDraft);
+        history.add(`[Single] ${prompt.slice(0, 60)}`, {
+          mode, prompt, tone, locations, audienceSegments,
+          draft: singleDraft, angleDrafts: [], dcoVariants: [],
+        });
       }
     } catch (err: any) {
       setGenerationFailed(true);
@@ -127,6 +156,17 @@ export default function CopyStudioPanel() {
     } finally {
       setGenerating(false);
     }
+  };
+
+  const restoreFromHistory = (snapshot: CopyStudioSnapshot) => {
+    setMode(snapshot.mode);
+    setPrompt(snapshot.prompt);
+    setTone(snapshot.tone);
+    setLocations(snapshot.locations);
+    setAudienceSegments(snapshot.audienceSegments);
+    setDraft(snapshot.draft);
+    setAngleDrafts(snapshot.angleDrafts);
+    setDcoVariants(snapshot.dcoVariants);
   };
 
   const saveAsset = async (title: string, content: string, metadata: any) => {
@@ -197,7 +237,21 @@ export default function CopyStudioPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
-        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Copy Studio Controls</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Copy Studio Controls</h2>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
+            title="Generation history"
+          >
+            <HistoryIcon className="w-4 h-4" />
+            {history.items.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                {history.items.length}
+              </span>
+            )}
+          </button>
+        </div>
 
         <div className="space-y-1.5">
           <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Client (for Brand DNA)</label>
@@ -473,6 +527,14 @@ export default function CopyStudioPanel() {
           onSaved={() => loadBrandDna(organizationId)}
         />
       )}
+
+      <HistoryDrawer
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        items={history.items}
+        onRestore={restoreFromHistory}
+        onClear={history.clear}
+      />
     </div>
   );
 }
