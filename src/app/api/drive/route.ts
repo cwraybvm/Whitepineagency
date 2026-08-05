@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { google } from 'googleapis';
 import { Readable } from 'stream';
 import { prisma } from '@/lib/prisma';
+import { extractBrandFromUrl } from '@/lib/brandExtractor';
+import { toBrandDna, type BrandDna, type MasterCampaignPackage } from '@/lib/sandboxPrompts';
+import { generateMasterCampaign } from '@/lib/masterCampaign';
 
 const INTAKE_SLA_HOURS = 48;
 
@@ -26,6 +29,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const clientName = (formData.get('clientName') as string) || 'New Client';
     const offerDetails = (formData.get('offerDetails') as string) || '';
+    const websiteUrl = (formData.get('websiteUrl') as string) || '';
+    const location = (formData.get('location') as string) || '';
     const files = formData.getAll('files') as File[];
 
     const parentFolderId = process.env.GOOGLE_DRIVE_PARENT_FOLDER_ID;
@@ -99,11 +104,35 @@ export async function POST(req: NextRequest) {
       console.error('Fulfillment task creation failed (Drive upload still succeeded):', dbError);
     }
 
+    // 4. Mine Brand DNA from the client's site and draft their 30-Day Master
+    // Campaign. Both are soft-fail: the Drive upload above already succeeded,
+    // so an LLM/network hiccup here must not turn a successful intake into an
+    // error response.
+    let brandDna: BrandDna | undefined;
+    if (websiteUrl) {
+      try {
+        brandDna = toBrandDna(await extractBrandFromUrl(websiteUrl));
+      } catch (brandError) {
+        console.error('Brand extraction failed (Drive upload still succeeded):', brandError);
+      }
+    }
+
+    let campaignPackage: MasterCampaignPackage | null = null;
+    if (location && offerDetails) {
+      try {
+        campaignPackage = await generateMasterCampaign(location, offerDetails, brandDna);
+      } catch (campaignError) {
+        console.error('Master campaign generation failed (Drive upload still succeeded):', campaignError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       folderId: clientFolderId,
       folderUrl: folderViewLink,
+      portalUrl: new URL('/admin', req.url).toString(),
       uploadedCount: uploadedFileIds.length,
+      campaignPackage,
     });
   } catch (error: any) {
     console.error('Google Drive Upload Error:', error);
