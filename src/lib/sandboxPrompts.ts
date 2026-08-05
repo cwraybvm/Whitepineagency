@@ -1,27 +1,204 @@
+import { z } from 'zod';
+import AnthropicSDK, { RateLimitError as AnthropicRateLimitError, InternalServerError as AnthropicInternalServerError, APIConnectionError as AnthropicAPIConnectionError } from '@anthropic-ai/sdk';
+import { GoogleGenAI, ApiError as GeminiApiError } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import type { ScorableType } from '@/lib/creativeScore';
 
+// Leaf fields carry their own `.catch()` fallback, so a missing or
+// wrong-typed key is silently repaired. The object schemas themselves are
+// left un-caught at their own top level so `parseWithSchema` can actually
+// detect and log the case that matters: the AI response wasn't the expected
+// object shape at all (e.g. it returned a bare string or array). Wherever
+// one of these schemas is embedded as a required field inside another (see
+// CampaignBatchSchema, SwipeRemixSchema), it's wrapped in `.catch()` at the
+// embed site so a missing nested key still recovers instead of failing the
+// whole parent parse.
+const DEFAULT_DRAFT = { title: '', content: '' };
+
+export const AssetDraftSchema = z.object({
+  title: z.string().catch(''),
+  content: z.string().catch(''),
+  metadata: z.record(z.string(), z.any()).optional().catch(undefined),
+});
+
+const AdMetadataSchema = z
+  .object({ headline: z.string().catch(''), cta: z.string().catch('') })
+  .catch({ headline: '', cta: '' });
+
+export const AdBuilderSchema = z.object({
+  title: z.string().catch(''),
+  content: z.string().catch(''),
+  metadata: AdMetadataSchema.optional().catch(undefined),
+});
+
+const VideoBeatSchema = z
+  .object({ scene: z.string().catch(''), shot: z.string().catch(''), line: z.string().catch('') })
+  .catch({ scene: '', shot: '', line: '' });
+
+const VideoMetadataSchema = z.object({ beats: z.array(VideoBeatSchema).catch([]) }).catch({ beats: [] });
+
+export const VideoLabSchema = z.object({
+  title: z.string().catch(''),
+  content: z.string().catch(''),
+  metadata: VideoMetadataSchema.optional().catch(undefined),
+});
+
+const AngleDraftSchema = z
+  .object({ angle: z.string().catch(''), title: z.string().catch(''), content: z.string().catch('') })
+  .catch({ angle: '', title: '', content: '' });
+
+const CopyMatrixSchema = z.object({ angles: z.array(AngleDraftSchema).catch([]) });
+
+const DcoVariantSchema = z
+  .object({
+    location: z.string().catch(''),
+    segment: z.string().catch(''),
+    title: z.string().catch(''),
+    content: z.string().catch(''),
+  })
+  .catch({ location: '', segment: '', title: '', content: '' });
+
+const CopyDcoSchema = z.object({ variants: z.array(DcoVariantSchema).catch([]) });
+
+// The copy tool's callOpenAiJson response is one of three shapes depending on
+// mode (single draft / matrix of angle drafts / DCO variant list) — the
+// caller already knows which mode it's in, so it picks the matching key
+// rather than this trying to auto-detect the shape.
+export const CopyStudioSchema = { draft: AssetDraftSchema, matrix: CopyMatrixSchema, dco: CopyDcoSchema };
+
+const DripStepSchema = z
+  .object({ day: z.string().catch(''), channel: z.string().catch(''), content: z.string().catch('') })
+  .catch({ day: '', channel: '', content: '' });
+
+const DripMetadataSchema = z.object({ steps: z.array(DripStepSchema).catch([]) }).catch({ steps: [] });
+
+export const DripSchema = z.object({
+  title: z.string().catch(''),
+  content: z.string().catch(''),
+  metadata: DripMetadataSchema.optional().catch(undefined),
+});
+
+export const CampaignBatchSchema = z.object({
+  angles: z.array(AngleDraftSchema).catch([]),
+  ad: AdBuilderSchema.catch(DEFAULT_DRAFT),
+  video: VideoLabSchema.catch(DEFAULT_DRAFT),
+  drip: DripSchema.catch(DEFAULT_DRAFT),
+});
+
+export const SwipeInsightSchema = z.object({
+  hookPattern: z.string().catch(''),
+  visualStyle: z.string().catch(''),
+  targetAudience: z.string().catch(''),
+  emotionalTrigger: z.string().catch(''),
+});
+
+export const SwipeRemixSchema = z.object({
+  angles: z.array(z.object({ title: z.string().catch(''), content: z.string().catch('') }).catch({ title: '', content: '' })).catch([]),
+  adPreset: AdBuilderSchema.catch(DEFAULT_DRAFT),
+});
+
+const LandingPageMetadataSchema = z
+  .object({
+    heroHeadline: z.string().catch(''),
+    subheadline: z.string().catch(''),
+    primaryCta: z.string().catch(''),
+    valueProps: z.array(z.string()).catch([]),
+    testimonial: z.string().catch(''),
+  })
+  .catch({ heroHeadline: '', subheadline: '', primaryCta: '', valueProps: [], testimonial: '' });
+
+export const LandingPageSchema = z.object({
+  title: z.string().catch(''),
+  content: z.string().catch(''),
+  metadata: LandingPageMetadataSchema.optional().catch(undefined),
+});
+
+export const BrandExtractSchema = z.object({
+  brandVoice: z.string().catch(''),
+  valueProp: z.string().catch(''),
+  targetAudience: z.string().catch(''),
+  accentColors: z.array(z.string()).catch([]),
+});
+
+function parseWithSchema<T>(schema: z.ZodType<T>, raw: unknown, context: string): T {
+  const result = schema.safeParse(raw);
+  if (result.success) return result.data;
+  console.warn(`[sandboxPrompts] ${context} returned a response that failed schema validation; using safe defaults.`, result.error.flatten());
+  return schema.parse({});
+}
+
 export type SandboxGenTool = 'copy' | 'ad' | 'video';
 
+const FRAMEWORKS_BLOCK = `<frameworks>
+Build the copy using ONE of these direct-response frameworks, whichever best fits the angle:
+- PAS: Problem -> Agitate -> Solution
+- AIDA: Attention -> Interest -> Desire -> Action
+- BAB: Before -> After -> Bridge
+- Pattern Interrupt: open with a counter-intuitive claim or a shocking industry stat
+</frameworks>`;
+
+const RULES_BLOCK = `<rules>
+- Short, punchy sentences.
+- Conversational tone, never a wall-of-text paragraph.
+- One idea per line/sentence.
+</rules>`;
+
 export const SYSTEM_PROMPTS: Record<SandboxGenTool, string> = {
-  copy: 'You are an expert direct-response copywriter for a local-service marketing agency. Write copy in the requested tone. Return a valid JSON object matching this structure exactly: {"title": "short internal label for this asset", "content": "the generated copy"}.',
-  ad: 'You are an expert paid-ads creative writer for a local-service marketing agency. Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "short call-to-action button text"}}.',
-  video: 'You are an expert video script/storyboard writer for short social ads. Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full script as readable text", "metadata": {"beats": [{"scene": "scene number or name", "shot": "shot/visual direction", "line": "voiceover or on-screen line"}]}}.',
+  copy: `<role>You are a world-class direct-response copywriter specializing in high-ROAS digital campaigns for a local-service marketing agency.</role>
+
+${FRAMEWORKS_BLOCK}
+
+${RULES_BLOCK}
+
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label for this asset", "content": "the generated copy"}.</output_format>`,
+  ad: `<role>You are a world-class paid-ads creative writer specializing in high-ROAS digital campaigns for a local-service marketing agency.</role>
+
+${FRAMEWORKS_BLOCK}
+
+${RULES_BLOCK}
+
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "short call-to-action button text"}}.</output_format>`,
+  video: `<role>You are a world-class video script/storyboard writer specializing in high-ROAS short social ads.</role>
+
+${FRAMEWORKS_BLOCK}
+
+${RULES_BLOCK}
+
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full script as readable text", "metadata": {"beats": [{"scene": "scene number or name", "shot": "shot/visual direction", "line": "voiceover or on-screen line"}]}}.</output_format>`,
 };
 
 export const ANGLES = ['Fear/Urgency', 'Value/Savings', 'Social Proof', 'Scarcity', 'Direct/No-BS'];
 
-export const MATRIX_PROMPT =
-  'You are an expert direct-response copywriter for a local-service marketing agency. ' +
-  `Write 5 distinct marketing hooks for the same offer, one for each of these angles in this exact order: ${ANGLES.join(', ')}. ` +
-  'Each hook should read like a different ad, not a variation of the same sentence. ' +
-  'Return a valid JSON object matching this structure exactly: {"angles": [{"angle": "one of the 5 angle names above", "title": "short internal label", "content": "the generated copy for this angle"}]} with exactly 5 entries in the array, in the order given.';
+export const MATRIX_PROMPT = `<role>You are a world-class direct-response copywriter specializing in high-ROAS digital campaigns for a local-service marketing agency.</role>
 
-export const DRIP_PROMPT =
-  'You are an expert lifecycle/retention copywriter for a local-service marketing agency. ' +
-  'Write a 3-step follow-up drip sequence (Day 1, Day 3, Day 7) for a lead who requested a quote but has not yet responded. ' +
-  'Each step should escalate gently — reminder, value-add, final nudge — and specify SMS or Email as the channel. ' +
-  'Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full sequence as readable text", "metadata": {"steps": [{"day": "Day 1", "channel": "SMS or Email", "content": "the message text"}]}} with exactly 3 entries in the steps array, in order.';
+${FRAMEWORKS_BLOCK}
+
+<framework_angles>
+Write 5 distinct marketing hooks for the same offer, one for each angle below, in this exact order. Pair each angle with the framework that fits it best so the 5 hooks read as 5 different ads, not 5 phrasings of the same sentence:
+Fear/Urgency -> Pattern Interrupt or PAS
+Value/Savings -> BAB
+Social Proof -> AIDA
+Scarcity -> Pattern Interrupt
+Direct/No-BS -> PAS, blunt
+</framework_angles>
+
+${RULES_BLOCK}
+
+<output_format>Return a valid JSON object matching this structure exactly: {"angles": [{"angle": "one of the 5 angle names above", "title": "short internal label", "content": "the generated copy for this angle"}]} with exactly 5 entries in the array, in the order given.</output_format>`;
+
+export const DRIP_PROMPT = `<role>You are a world-class lifecycle/retention copywriter specializing in high-ROAS digital campaigns for a local-service marketing agency.</role>
+
+${FRAMEWORKS_BLOCK}
+Apply a framework only where it fits the escalation stage below — the 3-step reminder -> value-add -> final-nudge structure is fixed and takes priority over framework choice.
+
+<rules>
+- Write a 3-step follow-up drip sequence (Day 1, Day 3, Day 7) for a lead who requested a quote but has not yet responded.
+- Each step should escalate gently: reminder, value-add, final nudge.
+- Specify SMS or Email as the channel for each step.
+- Short, punchy sentences. Conversational tone, never a wall-of-text paragraph.
+</rules>
+
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full sequence as readable text", "metadata": {"steps": [{"day": "Day 1", "channel": "SMS or Email", "content": "the message text"}]}} with exactly 3 entries in the steps array, in order.</output_format>`;
 
 export const SWIPE_VISION_PROMPT =
   'You are an expert direct-response ad analyst. Look at this competitor ad image and deconstruct it. ' +
@@ -49,11 +226,18 @@ export function refineInstructions(feedback: string[]): string {
   );
 }
 
-export const DCO_PROMPT =
-  'You are an expert direct-response copywriter running a Dynamic Creative Optimization campaign. ' +
-  'You will be given a base offer/hook, a list of locations, and a list of audience segments. ' +
-  "For EVERY combination of location and segment, write one distinct copy variant that naturally swaps in that location's geo-reference and that segment's demographic trigger/pain-point — same base offer, localized and personalized language. " +
-  'Return a valid JSON object matching this structure exactly: {"variants": [{"location": "the location", "segment": "the audience segment", "title": "short internal label", "content": "the generated copy for this location+segment combination"}]} with one entry for every location × segment combination, covering all combinations.';
+export const DCO_PROMPT = `<role>You are a world-class direct-response copywriter running a Dynamic Creative Optimization campaign for a local-service marketing agency.</role>
+
+${FRAMEWORKS_BLOCK}
+
+<rules>
+- You will be given a base offer/hook, a list of locations, and a list of audience segments.
+- For EVERY combination of location and segment, write one distinct copy variant that naturally swaps in that location's geo-reference and that segment's demographic trigger/pain-point.
+- Same base offer, localized and personalized language.
+- Short, punchy sentences. Conversational tone, never a wall-of-text paragraph.
+</rules>
+
+<output_format>Return a valid JSON object matching this structure exactly: {"variants": [{"location": "the location", "segment": "the audience segment", "title": "short internal label", "content": "the generated copy for this location+segment combination"}]} with one entry for every location x segment combination, covering all combinations.</output_format>`;
 
 const DEFAULT_BRAND_CLAUSE =
   'Brand voice: write in a professional, trustworthy tone typical of a well-run local home-service business. No specific brand guidelines are on file for this client.';
@@ -86,74 +270,218 @@ export class OpenAiNotConfiguredError extends Error {
   }
 }
 
-export async function callOpenAiJson(systemPrompt: string, userContext: string, mockFallback?: () => any): Promise<any> {
-  if (!process.env.OPENAI_API_KEY) {
-    if (mockFallback) return mockFallback();
-    throw new OpenAiNotConfiguredError();
+// Thrown when every configured LLM provider in the fallback chain has been
+// exhausted (or none are configured) and the caller supplied no mockFallback.
+export class AllProvidersUnavailableError extends Error {
+  constructor() {
+    super('AI generation is unavailable — no configured provider (OpenAI, Anthropic, Gemini) succeeded.');
+    this.name = 'AllProvidersUnavailableError';
+  }
+}
+
+// Marks a provider failure as an infrastructure problem (5xx, 429, network,
+// timeout) — the only class of failure that should trigger failover to the
+// next provider in the chain. Anything else (bad request, auth, content
+// policy) is a caller/config bug and should surface immediately rather than
+// silently retrying against a different model.
+class RetryableProviderError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RetryableProviderError';
+  }
+}
+
+function isRetryableHttpStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+type ProviderAttempt = { name: string; enabled: boolean; run: () => Promise<any> };
+
+async function runProviderChain(providers: ProviderAttempt[], mockFallback?: () => any): Promise<any> {
+  for (const provider of providers) {
+    if (!provider.enabled) continue;
+    try {
+      return await provider.run();
+    } catch (err) {
+      if (err instanceof RetryableProviderError) {
+        console.warn(`[LLM Fallback] ${provider.name} failed (${err.message}). Failing over to the next provider...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  if (mockFallback) return mockFallback();
+  throw new AllProvidersUnavailableError();
+}
+
+async function openAiJsonAttempt(systemPrompt: string, userContext: string, temperature: number, model: string, vision?: string): Promise<any> {
+  let aiResponse: Response;
+  try {
+    aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        response_format: { type: 'json_object' },
+        temperature,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          vision
+            ? {
+                role: 'user',
+                content: [
+                  { type: 'text', text: 'Analyze this competitor ad image.' },
+                  { type: 'image_url', image_url: { url: vision } },
+                ],
+              }
+            : { role: 'user', content: userContext },
+        ],
+      }),
+    });
+  } catch {
+    throw new RetryableProviderError('OpenAI network error');
   }
 
-  const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContext },
-      ],
-    }),
-  });
-
-  const aiData = await aiResponse.json();
   if (!aiResponse.ok) {
+    const aiData = await aiResponse.json().catch(() => ({}));
+    if (isRetryableHttpStatus(aiResponse.status)) {
+      throw new RetryableProviderError(`OpenAI HTTP ${aiResponse.status}`);
+    }
     throw new Error(aiData?.error?.message || 'OpenAI request failed');
   }
+  const aiData = await aiResponse.json();
   return JSON.parse(aiData.choices[0].message.content);
 }
 
-export async function callOpenAiVisionJson(systemPrompt: string, imageUrl: string, mockFallback?: () => any): Promise<any> {
-  if (!process.env.OPENAI_API_KEY) {
-    if (mockFallback) return mockFallback();
-    throw new OpenAiNotConfiguredError();
-  }
+// claude-3-5-haiku-20241022 (the model this fallback was originally specced
+// against) retired 2026-02-19 — claude-haiku-4-5 is its direct replacement.
+const ANTHROPIC_FALLBACK_MODEL = 'claude-haiku-4-5';
 
-  const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
+async function anthropicJsonAttempt(systemPrompt: string, userContext: string, temperature: number, vision?: string): Promise<any> {
+  try {
+    const anthropic = new AnthropicSDK({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const response = await anthropic.messages.create({
+      model: ANTHROPIC_FALLBACK_MODEL,
+      max_tokens: 4096,
+      temperature,
+      system: systemPrompt,
       messages: [
-        { role: 'system', content: systemPrompt },
         {
           role: 'user',
-          content: [
-            { type: 'text', text: 'Analyze this competitor ad image.' },
-            { type: 'image_url', image_url: { url: imageUrl } },
-          ],
+          content: vision
+            ? [
+                { type: 'text', text: 'Analyze this competitor ad image.' },
+                { type: 'image', source: { type: 'url', url: vision } },
+              ]
+            : userContext,
         },
       ],
-    }),
-  });
-
-  const aiData = await aiResponse.json();
-  if (!aiResponse.ok) {
-    throw new Error(aiData?.error?.message || 'OpenAI request failed');
+    });
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') throw new Error('Anthropic response contained no text block');
+    return JSON.parse(textBlock.text);
+  } catch (err) {
+    if (
+      err instanceof AnthropicRateLimitError ||
+      err instanceof AnthropicInternalServerError ||
+      err instanceof AnthropicAPIConnectionError
+    ) {
+      throw new RetryableProviderError(`Anthropic ${err.name}`);
+    }
+    throw err;
   }
-  return JSON.parse(aiData.choices[0].message.content);
+}
+
+// gemini-1.5-flash (the model this fallback was originally specced against)
+// is superseded — gemini-2.0-flash matches the model already used elsewhere
+// in this codebase (src/app/api/ai/generate-content/route.ts).
+const GEMINI_FALLBACK_MODEL = 'gemini-2.0-flash';
+
+function geminiApiKey(): string | undefined {
+  return process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+}
+
+async function fetchImageAsInlineData(imageUrl: string): Promise<{ data: string; mimeType: string }> {
+  const res = await fetch(imageUrl);
+  if (!res.ok) throw new RetryableProviderError(`Gemini: failed to fetch image (HTTP ${res.status})`);
+  const mimeType = res.headers.get('content-type') || 'image/jpeg';
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return { data: buffer.toString('base64'), mimeType };
+}
+
+async function geminiJsonAttempt(systemPrompt: string, userContext: string, temperature: number, vision?: string): Promise<any> {
+  try {
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey() });
+    const contents = vision
+      ? [{ role: 'user' as const, parts: [{ text: 'Analyze this competitor ad image.' }, { inlineData: await fetchImageAsInlineData(vision) }] }]
+      : userContext;
+    const response = await ai.models.generateContent({
+      model: GEMINI_FALLBACK_MODEL,
+      contents,
+      config: {
+        systemInstruction: systemPrompt,
+        responseMimeType: 'application/json',
+        temperature,
+      },
+    });
+    if (!response.text) throw new Error('Gemini returned an empty response');
+    return JSON.parse(response.text);
+  } catch (err) {
+    if (err instanceof RetryableProviderError) throw err;
+    if (err instanceof GeminiApiError && isRetryableHttpStatus(err.status)) {
+      throw new RetryableProviderError(`Gemini HTTP ${err.status}`);
+    }
+    if (!(err instanceof GeminiApiError)) {
+      // Network/transport failure below the API layer — no status to inspect.
+      throw new RetryableProviderError('Gemini network error');
+    }
+    throw err;
+  }
+}
+
+export async function callOpenAiJson(
+  systemPrompt: string,
+  userContext: string,
+  mockFallback?: () => any,
+  temperature = 0.7,
+  schema?: z.ZodTypeAny,
+): Promise<any> {
+  const parsed = await runProviderChain(
+    [
+      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(systemPrompt, userContext, temperature, 'gpt-4o-mini') },
+      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(systemPrompt, userContext, temperature) },
+      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(systemPrompt, userContext, temperature) },
+    ],
+    mockFallback,
+  );
+  return schema ? parseWithSchema(schema, parsed, 'callOpenAiJson') : parsed;
+}
+
+export async function callOpenAiVisionJson(
+  systemPrompt: string,
+  imageUrl: string,
+  mockFallback?: () => any,
+  temperature = 0.7,
+  schema?: z.ZodTypeAny,
+): Promise<any> {
+  const parsed = await runProviderChain(
+    [
+      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(systemPrompt, '', temperature, 'gpt-4o', imageUrl) },
+      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(systemPrompt, '', temperature, imageUrl) },
+      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(systemPrompt, '', temperature, imageUrl) },
+    ],
+    mockFallback,
+  );
+  return schema ? parseWithSchema(schema, parsed, 'callOpenAiVisionJson') : parsed;
 }
 
 export const VOICE_PERSONAS: Record<'Energetic' | 'Professional' | 'Warm', { voice: string; instructions: string }> = {
-  Energetic: { voice: 'onyx', instructions: 'Deliver with upbeat, high energy, fast-paced enthusiasm.' },
+  Energetic: { voice: 'alloy', instructions: 'Deliver with upbeat, high energy, fast-paced enthusiasm.' },
   Professional: { voice: 'onyx', instructions: 'Deliver clear, confident, measured, corporate-neutral.' },
-  Warm: { voice: 'onyx', instructions: 'Deliver friendly, reassuring, at a relaxed conversational pace.' },
+  Warm: { voice: 'nova', instructions: 'Deliver friendly, reassuring, at a relaxed conversational pace.' },
 };
 
 export function validateVoiceGenInput(body: any): string | null {
