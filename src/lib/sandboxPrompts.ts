@@ -1035,6 +1035,59 @@ export function mockMasterCampaignPackage(location: string, promoOffer: string):
   };
 }
 
+const LocalizedAdVariationSchema = z
+  .object({
+    location: z.string().catch(''),
+    googleHeadlines: z.array(z.string()).catch([]),
+    googleDescriptions: z.array(z.string()).catch([]),
+    metaHooks: z.array(z.string()).catch([]),
+    landingPageH1: z.string().catch(''),
+  })
+  .catch({ location: '', googleHeadlines: [], googleDescriptions: [], metaHooks: [], landingPageH1: '' });
+
+export const GeoExpansionPackageSchema = z.object({
+  variations: z.array(LocalizedAdVariationSchema).catch([]),
+});
+
+export type GeoExpansionPackage = z.infer<typeof GeoExpansionPackageSchema>;
+
+export const GEO_EXPANSION_PROMPT =
+  'You are an expert local-service marketing agency expanding one core offer across multiple sub-market locations. ' +
+  'Given a core service, a promo offer, and a list of target locations, produce localized ad copy for every location: ' +
+  '3 Google RSA headlines (each under 30 characters); 2 Google RSA descriptions (each under 90 characters); ' +
+  '2 Meta ad hooks (short, scroll-stopping opening lines); and 1 landing page H1. ' +
+  'Every asset must be genuinely tailored to its specific location — reference the location by name and vary the ' +
+  'phrasing across locations rather than reusing the same copy with the location name swapped in. ' +
+  'Return a valid JSON object matching this structure exactly: {"variations": [{"location": "the location name", ' +
+  '"googleHeadlines": ["headline under 30 chars", "headline under 30 chars", "headline under 30 chars"], ' +
+  '"googleDescriptions": ["description under 90 chars", "description under 90 chars"], ' +
+  '"metaHooks": ["hook 1", "hook 2"], "landingPageH1": "the landing page H1"}]} ' +
+  'with exactly one object in "variations" per location given, each with exactly 3 googleHeadlines, 2 googleDescriptions, and 2 metaHooks.';
+
+export function mockGeoExpansionPackage(locations: string[], coreService: string, offer: string): GeoExpansionPackage {
+  const service = coreService.slice(0, 60);
+  const dealOffer = offer.slice(0, 60);
+  return {
+    variations: locations.map((location) => ({
+      location,
+      googleHeadlines: [
+        `[MOCK] ${dealOffer}`.slice(0, 30),
+        `[MOCK] ${service} in ${location}`.slice(0, 30),
+        `[MOCK] Book ${service} Today`.slice(0, 30),
+      ],
+      googleDescriptions: [
+        `[MOCK] ${service} serving ${location}. ${dealOffer}. Call now.`.slice(0, 90),
+        `[MOCK] Trusted ${service} pros in ${location}. Limited-time offer.`.slice(0, 90),
+      ],
+      metaHooks: [
+        `[MOCK] ${location} — ${dealOffer}?`,
+        `[MOCK] ${service} just got easier in ${location}.`,
+      ],
+      landingPageH1: `[MOCK] ${service} in ${location}`,
+    })),
+  };
+}
+
 const ComplianceViolationSchema = z
   .object({
     policy: z.string().catch(''),
