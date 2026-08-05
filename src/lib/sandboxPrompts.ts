@@ -1081,6 +1081,50 @@ export function mockGeoExpansionPackage(locations: string[], coreService: string
   };
 }
 
+export const GbpReviewResponseSchema = z.object({
+  replyText: z.string().catch(''),
+  seoKeywordsIncluded: z.array(z.string()).catch([]),
+  sentiment: z.enum(['POSITIVE', 'NEUTRAL', 'NEGATIVE']).catch('NEUTRAL'),
+  recommendedAction: z.string().catch(''),
+});
+
+export type GbpReviewResponse = z.infer<typeof GbpReviewResponseSchema>;
+
+export const GBP_REVIEW_RESPONDER_PROMPT =
+  'You are a Google Business Profile review response specialist for a local-service marketing agency. ' +
+  'Given a customer review, its star rating, and optionally a location and a core service keyword, write a public reply. ' +
+  'Naturally weave in the location name and service keyword where they genuinely fit, for local SEO benefit — never force ' +
+  'a keyword in if it reads unnaturally. List whichever of those keywords actually ended up in the reply as seoKeywordsIncluded. ' +
+  'Judge sentiment from the review text itself, not just the star rating — a 5-star review can still read sarcastic or lukewarm; ' +
+  'a 3-star review can be genuinely warm. For 1-3 star reviews: reply with empathy, professionalism, and no defensiveness — ' +
+  'acknowledge the concern specifically, and invite the customer to resolve it offline (e.g. a phone number or email), ' +
+  'without ever admitting fault or legal liability. For 4-5 star reviews: give genuine, specific thanks that references ' +
+  'something concrete from their review — avoid generic boilerplate like "Thank you for your feedback!". Also produce ' +
+  'recommendedAction: brief internal guidance for the business owner, e.g. "No follow-up needed" for glowing reviews, or ' +
+  '"Escalate to manager for a phone call" for serious complaints. ' +
+  'Return a valid JSON object matching this structure exactly: {"replyText": "the public reply", ' +
+  '"seoKeywordsIncluded": ["keyword actually used in the reply"], "sentiment": "POSITIVE" | "NEUTRAL" | "NEGATIVE", ' +
+  '"recommendedAction": "brief internal guidance for the business owner"}.';
+
+export function mockGbpReviewResponse(
+  reviewText: string,
+  starRating: number,
+  location?: string,
+  serviceKeyword?: string,
+): GbpReviewResponse {
+  const positive = starRating >= 4;
+  const loc = location || 'your area';
+  const service = serviceKeyword || 'our service';
+  return {
+    replyText: positive
+      ? `[MOCK] Thank you so much for the kind words! We're thrilled we could help with ${service} in ${loc}. It means a lot to our team.`
+      : `[MOCK] We're sorry to hear about your experience with ${service} in ${loc}. This isn't the standard we hold ourselves to — please reach out to us directly so we can make it right.`,
+    seoKeywordsIncluded: [location, serviceKeyword].filter((v): v is string => Boolean(v)),
+    sentiment: positive ? 'POSITIVE' : starRating === 3 ? 'NEUTRAL' : 'NEGATIVE',
+    recommendedAction: positive ? 'No follow-up needed' : 'Escalate to manager for a phone call',
+  };
+}
+
 const ComplianceViolationSchema = z
   .object({
     policy: z.string().catch(''),
