@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Mail, Loader2, Sparkles, Plus, X } from 'lucide-react';
+import { Mail, Loader2, Sparkles, Plus, X, FileImage, FileText, FileJson } from 'lucide-react';
 import type { OrgBrand } from './types';
 import type { BrandDna, DirectMailPackage, FormFactor } from '@/lib/sandboxPrompts';
 import { FormFactorOptions } from '@/lib/sandboxPrompts';
@@ -27,6 +27,7 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const letterRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState<'png' | 'pdf' | 'json' | null>(null);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -79,6 +80,96 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
       toast.error(err.message || 'Failed to generate direct mail package');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const captureCanvas = async (el: HTMLDivElement | null) => {
+    if (!el) throw new Error('Mockup not ready');
+    const html2canvas = (await import('html2canvas-pro')).default;
+    return html2canvas(el, { scale: 3, useCORS: true });
+  };
+
+  const slugify = (value: string) => (value || 'direct-mail').replace(/\s+/g, '-').toLowerCase();
+
+  const activeVariant = pkg?.variants[activeVariantIndex];
+
+  const downloadPng = async () => {
+    if (!pkg || !activeVariant) return;
+    setExporting('png');
+    try {
+      const base = slugify(activeVariant.audienceName);
+      if (pkg.formFactor === 'postcard') {
+        const front = await captureCanvas(frontRef.current);
+        const link1 = document.createElement('a');
+        link1.download = `${base}-postcard-front.png`;
+        link1.href = front.toDataURL('image/png');
+        link1.click();
+        const back = await captureCanvas(backRef.current);
+        const link2 = document.createElement('a');
+        link2.download = `${base}-postcard-back.png`;
+        link2.href = back.toDataURL('image/png');
+        link2.click();
+      } else {
+        const letter = await captureCanvas(letterRef.current);
+        const link = document.createElement('a');
+        link.download = `${base}-letter.png`;
+        link.href = letter.toDataURL('image/png');
+        link.click();
+      }
+      toast.success('PNG exported');
+    } catch (err) {
+      console.error('PNG export failed:', err);
+      toast.error('Failed to export PNG');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const downloadPdf = async () => {
+    if (!pkg || !activeVariant) return;
+    setExporting('pdf');
+    try {
+      const { jsPDF } = await import('jspdf');
+      const base = slugify(activeVariant.audienceName);
+      if (pkg.formFactor === 'postcard') {
+        const front = await captureCanvas(frontRef.current);
+        const back = await captureCanvas(backRef.current);
+        const pdf = new jsPDF({ unit: 'in', format: [6, 4] });
+        pdf.addImage(front.toDataURL('image/png'), 'PNG', 0, 0, 6, 4);
+        pdf.addPage([6, 4]);
+        pdf.addImage(back.toDataURL('image/png'), 'PNG', 0, 0, 6, 4);
+        pdf.save(`${base}-postcard.pdf`);
+      } else {
+        const letter = await captureCanvas(letterRef.current);
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        pdf.addImage(letter.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);
+        pdf.save(`${base}-letter.pdf`);
+      }
+      toast.success('PDF exported');
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to export PDF');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const downloadJson = () => {
+    if (!pkg) return;
+    setExporting('json');
+    try {
+      const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `direct-mail-${pkg.formFactor}-package.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Copy package exported');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -209,6 +300,30 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
                   {variant.audienceName || `Variant ${i + 1}`}
                 </button>
               ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={downloadPng}
+                disabled={exporting !== null}
+                className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-60 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                <FileImage className="w-3.5 h-3.5" /> {exporting === 'png' ? 'Exporting…' : 'Download PNG'}
+              </button>
+              <button
+                onClick={downloadPdf}
+                disabled={exporting !== null}
+                className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-60 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" /> {exporting === 'pdf' ? 'Exporting…' : 'Download PDF'}
+              </button>
+              <button
+                onClick={downloadJson}
+                disabled={exporting !== null}
+                className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-60 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                <FileJson className="w-3.5 h-3.5" /> Export All Copy (JSON)
+              </button>
             </div>
 
             {pkg.variants[activeVariantIndex] &&
