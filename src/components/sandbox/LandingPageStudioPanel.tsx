@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Quote, CheckCircle2, ArrowRight, LayoutPanelTop } from 'lucide-react';
+import { Wand2, Save, Loader2, Quote, CheckCircle2, ArrowRight, LayoutPanelTop, RefreshCw } from 'lucide-react';
 import type { LandingPageDraft, OrgBrand } from './types';
 import ScoreBadge from './ScoreBadge';
+import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 
 type SourceMode = 'asset' | 'brief';
 
@@ -26,12 +27,13 @@ export default function LandingPageStudioPanel() {
   const [orgs, setOrgs] = useState<OrgBrand[]>([]);
   const [organizationId, setOrganizationId] = useState('');
   const [generating, setGenerating] = useState(false);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<LandingPageDraft | null>(null);
 
   useEffect(() => {
-    fetch('/api/sandbox/assets').then((res) => res.json()).then(setAssets).catch(() => {});
-    fetch('/api/sandbox/organizations').then((res) => res.json()).then(setOrgs).catch(() => {});
+    fetchJsonArray<{ id: string; title: string; type: string }>('/api/sandbox/assets').then(setAssets);
+    fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
   }, []);
 
   const updateField = (patch: Partial<LandingPageDraft['metadata']>) => {
@@ -57,20 +59,20 @@ export default function LandingPageStudioPanel() {
       return;
     }
     setGenerating(true);
+    setGenerationFailed(false);
     try {
       const body =
         sourceMode === 'asset'
           ? { mode: 'asset', assetId, organizationId: organizationId || undefined }
           : { mode: 'brief', prompt, organizationId: organizationId || undefined };
-      const res = await fetch('/api/sandbox/landing-page', {
+      const data = await fetchGenerationJson('/api/sandbox/landing-page', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
       setDraft({ title: data.title, content: data.content, metadata: normalizeMetadata(data.metadata) });
     } catch (err: any) {
+      setGenerationFailed(true);
       toast.error(err.message || 'Failed to generate landing page');
     } finally {
       setGenerating(false);
@@ -104,16 +106,16 @@ export default function LandingPageStudioPanel() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Landing Page Studio Controls</h2>
+      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
+        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Landing Page Studio Controls</h2>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-slate-500 font-mono uppercase">Source</label>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Source</label>
           <div className="flex gap-2">
             <button
               onClick={() => setSourceMode('brief')}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                sourceMode === 'brief' ? 'bg-sky-600 text-white' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'
+                sourceMode === 'brief' ? 'bg-emerald-600 text-white dark:bg-emerald-500' : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               From Brief
@@ -121,7 +123,7 @@ export default function LandingPageStudioPanel() {
             <button
               onClick={() => setSourceMode('asset')}
               className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                sourceMode === 'asset' ? 'bg-sky-600 text-white' : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'
+                sourceMode === 'asset' ? 'bg-emerald-600 text-white dark:bg-emerald-500' : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
               }`}
             >
               From Staged Asset
@@ -131,21 +133,21 @@ export default function LandingPageStudioPanel() {
 
         {sourceMode === 'brief' ? (
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-mono uppercase">Brief</label>
+            <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Brief</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={4}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 resize-none"
+              className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
             />
           </div>
         ) : (
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-mono uppercase">Staged Asset to Match</label>
+            <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Staged Asset to Match</label>
             <select
               value={assetId}
               onChange={(e) => setAssetId(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+              className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
             >
               <option value="">Select an asset…</option>
               {assets.map((a) => (
@@ -156,11 +158,11 @@ export default function LandingPageStudioPanel() {
         )}
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-slate-500 font-mono uppercase">Client (for Brand DNA)</label>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Client (for Brand DNA)</label>
           <select
             value={organizationId}
             onChange={(e) => setOrganizationId(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+            className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
           >
             <option value="">No client selected (default tone)</option>
             {orgs.map((org) => (
@@ -172,7 +174,7 @@ export default function LandingPageStudioPanel() {
         <button
           onClick={generate}
           disabled={generating}
-          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
         >
           {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
           {generating ? 'Generating…' : 'Generate Landing Page'}
@@ -180,10 +182,10 @@ export default function LandingPageStudioPanel() {
       </div>
 
       {/* RIGHT: Section previews */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 min-h-[360px] flex flex-col">
+      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[360px] flex flex-col">
         {draft ? (
           <div className="flex-1 flex flex-col space-y-5">
-            <div className="flex items-center gap-2 text-slate-500">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <LayoutPanelTop className="w-4 h-4" />
               <span className="text-[10px] font-mono uppercase">{draft.title}</span>
             </div>
@@ -191,36 +193,36 @@ export default function LandingPageStudioPanel() {
             <input
               value={draft.metadata.heroHeadline}
               onChange={(e) => updateField({ heroHeadline: e.target.value })}
-              className="w-full bg-transparent text-2xl font-black text-white leading-tight focus:outline-none border-b border-transparent focus:border-sky-500 pb-1"
+              className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white leading-tight focus:outline-none border-b border-transparent focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 pb-1"
             />
             <textarea
               value={draft.metadata.subheadline}
               onChange={(e) => updateField({ subheadline: e.target.value })}
               rows={2}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-sky-500 resize-none"
+              className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
             />
 
             <div className="space-y-2">
-              <label className="text-[10px] text-slate-500 font-mono uppercase">Value Propositions</label>
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Value Propositions</label>
               {draft.metadata.valueProps.map((vp, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <input
                     value={vp}
                     onChange={(e) => updateValueProp(i, e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-sky-500"
+                    className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all duration-200"
                   />
                 </div>
               ))}
             </div>
 
-            <div className="bg-slate-950 border border-slate-800 rounded-lg p-4 space-y-1.5">
-              <Quote className="w-4 h-4 text-slate-500" />
+            <div className="bg-slate-100 border border-slate-300 dark:bg-slate-950 dark:border-slate-800 rounded-lg p-4 space-y-1.5">
+              <Quote className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               <textarea
                 value={draft.metadata.testimonial}
                 onChange={(e) => updateField({ testimonial: e.target.value })}
                 rows={2}
-                className="w-full bg-transparent text-sm text-slate-300 italic focus:outline-none resize-none"
+                className="w-full bg-transparent text-sm text-slate-600 dark:text-slate-300 italic focus:outline-none resize-none"
               />
             </div>
 
@@ -243,15 +245,27 @@ export default function LandingPageStudioPanel() {
             <button
               onClick={saveToStaged}
               disabled={saving}
-              className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 mt-auto"
+              className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2 mt-auto"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               {saving ? 'Saving…' : 'Save to Staged Assets'}
             </button>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-center text-slate-500 text-sm">
-            Pick a source and generate to see the landing page sections here.
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center text-slate-500 dark:text-slate-400 text-sm">
+            {generationFailed ? (
+              <>
+                <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
+                <button
+                  onClick={generate}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </button>
+              </>
+            ) : (
+              'Pick a source and generate to see the landing page sections here.'
+            )}
           </div>
         )}
       </div>
