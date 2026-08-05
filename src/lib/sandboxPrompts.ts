@@ -140,6 +140,38 @@ Build the copy using ONE of these direct-response frameworks, whichever best fit
 const NEGATIVE_RULES_BLOCK = `- Never use any of these words/phrases or generic corporate jargon like them: elevated, revolutionary, seamless, game-changer, unlock your potential, dive into, nestle, hassle-free, synergy, delve, testament, beacon, supercharge, tapestry, spearhead.
 - Use clear, grounded, everyday language a real direct-response copywriter would actually write.`;
 
+const COPY_AD_EXEMPLARS_BLOCK = `<exemplars>
+Use these gold-standard examples as reference for pacing, punchy sentence structure, and tone execution, but do not copy their specific industry facts or product names.
+
+<example>
+<context>HVAC company, offer: same-day AC repair during a heatwave.</context>
+<framework>Pattern Interrupt</framework>
+<output>Your AC picked the worst week to die. 97 degrees this weekend, and half the neighborhood already called. We've got same-day slots left today. One call, cold air by tonight. Book your slot.</output>
+</example>
+
+<example>
+<context>Dental practice, offer: free whitening with a new-patient exam.</context>
+<framework>AIDA</framework>
+<output>Notice the gap between your smile and your photos? Fixable, this month. Full exam, cleaning, and whitening on us if you're new here before the 30th. Six new-patient slots left. Grab one.</output>
+</example>
+</exemplars>`;
+
+const VIDEO_EXEMPLARS_BLOCK = `<exemplars>
+Use these gold-standard examples as reference for pacing, punchy sentence structure, and tone execution, but do not copy their specific industry facts or product names.
+
+<example>
+<context>Roofing company, offer: free storm-damage inspection.</context>
+<framework>PAS</framework>
+<output>Hook (0-3s): close-up on a hail-dented shingle -- "That's not cosmetic. That's a leak in six months." Agitate: water stain spreading across a ceiling. Solution: inspector on the roof, pointing out damage on a clipboard. CTA: "Free storm inspection -- before your insurance window closes."</output>
+</example>
+
+<example>
+<context>Landscaping company, offer: fall cleanup package.</context>
+<framework>Pattern Interrupt</framework>
+<output>Hook (0-3s): close-up on dead, patchy grass -- "Your lawn is dying and it's not even your fault." Agitate: reveal the real cause, city water restrictions cutting into normal mowing. Solution: crew aerating and overseeding the lawn. CTA: "Book your fall reset -- spots close October 1st."</output>
+</example>
+</exemplars>`;
+
 const RULES_BLOCK = `<rules>
 - Short, punchy sentences.
 - Conversational tone, never a wall-of-text paragraph.
@@ -152,6 +184,8 @@ export const SYSTEM_PROMPTS: Record<SandboxGenTool, string> = {
 
 ${FRAMEWORKS_BLOCK}
 
+${COPY_AD_EXEMPLARS_BLOCK}
+
 ${RULES_BLOCK}
 
 <output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label for this asset", "content": "the generated copy"}.</output_format>`,
@@ -159,12 +193,16 @@ ${RULES_BLOCK}
 
 ${FRAMEWORKS_BLOCK}
 
+${COPY_AD_EXEMPLARS_BLOCK}
+
 ${RULES_BLOCK}
 
 <output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "short call-to-action button text"}}.</output_format>`,
   video: `<role>You are a world-class video script/storyboard writer specializing in high-ROAS short social ads.</role>
 
 ${FRAMEWORKS_BLOCK}
+
+${VIDEO_EXEMPLARS_BLOCK}
 
 ${RULES_BLOCK}
 
@@ -176,6 +214,8 @@ export const ANGLES = ['Fear/Urgency', 'Value/Savings', 'Social Proof', 'Scarcit
 export const MATRIX_PROMPT = `<role>You are a world-class direct-response copywriter specializing in high-ROAS digital campaigns for a local-service marketing agency.</role>
 
 ${FRAMEWORKS_BLOCK}
+
+${COPY_AD_EXEMPLARS_BLOCK}
 
 <framework_angles>
 Write 5 distinct marketing hooks for the same offer, one for each angle below, in this exact order. Pair each angle with the framework that fits it best so the 5 hooks read as 5 different ads, not 5 phrasings of the same sentence:
