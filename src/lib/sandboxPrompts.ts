@@ -137,10 +137,14 @@ Build the copy using ONE of these direct-response frameworks, whichever best fit
 - Pattern Interrupt: open with a counter-intuitive claim or a shocking industry stat
 </frameworks>`;
 
+const NEGATIVE_RULES_BLOCK = `- Never use any of these words/phrases or generic corporate jargon like them: elevated, revolutionary, seamless, game-changer, unlock your potential, dive into, nestle, hassle-free, synergy, delve, testament, beacon, supercharge, tapestry, spearhead.
+- Use clear, grounded, everyday language a real direct-response copywriter would actually write.`;
+
 const RULES_BLOCK = `<rules>
 - Short, punchy sentences.
 - Conversational tone, never a wall-of-text paragraph.
 - One idea per line/sentence.
+${NEGATIVE_RULES_BLOCK}
 </rules>`;
 
 export const SYSTEM_PROMPTS: Record<SandboxGenTool, string> = {
@@ -196,6 +200,7 @@ Apply a framework only where it fits the escalation stage below — the 3-step r
 - Each step should escalate gently: reminder, value-add, final nudge.
 - Specify SMS or Email as the channel for each step.
 - Short, punchy sentences. Conversational tone, never a wall-of-text paragraph.
+${NEGATIVE_RULES_BLOCK}
 </rules>
 
 <output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full sequence as readable text", "metadata": {"steps": [{"day": "Day 1", "channel": "SMS or Email", "content": "the message text"}]}} with exactly 3 entries in the steps array, in order.</output_format>`;
@@ -235,6 +240,7 @@ ${FRAMEWORKS_BLOCK}
 - For EVERY combination of location and segment, write one distinct copy variant that naturally swaps in that location's geo-reference and that segment's demographic trigger/pain-point.
 - Same base offer, localized and personalized language.
 - Short, punchy sentences. Conversational tone, never a wall-of-text paragraph.
+${NEGATIVE_RULES_BLOCK}
 </rules>
 
 <output_format>Return a valid JSON object matching this structure exactly: {"variants": [{"location": "the location", "segment": "the audience segment", "title": "short internal label", "content": "the generated copy for this location+segment combination"}]} with one entry for every location x segment combination, covering all combinations.</output_format>`;
