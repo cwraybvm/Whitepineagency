@@ -22,7 +22,11 @@ export const AssetDraftSchema = z.object({
 });
 
 const AdMetadataSchema = z
-  .object({ headline: z.string().catch(''), cta: z.string().catch('') })
+  .object({
+    headline: z.string().catch(''),
+    cta: z.string().catch(''),
+    imagePrompt: z.string().optional().catch(undefined),
+  })
   .catch({ headline: '', cta: '' });
 
 export const AdBuilderSchema = z.object({
@@ -32,7 +36,12 @@ export const AdBuilderSchema = z.object({
 });
 
 const VideoBeatSchema = z
-  .object({ scene: z.string().catch(''), shot: z.string().catch(''), line: z.string().catch('') })
+  .object({
+    scene: z.string().catch(''),
+    shot: z.string().catch(''),
+    line: z.string().catch(''),
+    audioCues: z.string().optional().catch(undefined),
+  })
   .catch({ scene: '', shot: '', line: '' });
 
 const VideoMetadataSchema = z.object({ beats: z.array(VideoBeatSchema).catch([]) }).catch({ beats: [] });
@@ -113,6 +122,17 @@ export const LandingPageSchema = z.object({
   metadata: LandingPageMetadataSchema.optional().catch(undefined),
 });
 
+export const CriticReviewSchema = z.object({
+  overallScore: z.number().min(1).max(100).catch(50),
+  hookStrengthScore: z.number().min(1).max(10).catch(5),
+  clarityScore: z.number().min(1).max(10).catch(5),
+  fluffDetected: z.boolean().catch(false),
+  criticFeedback: z.array(z.string()).catch([]),
+  polishedCopy: z.string().optional().catch(undefined),
+});
+
+export type CriticReview = z.infer<typeof CriticReviewSchema>;
+
 export const BrandExtractSchema = z.object({
   brandVoice: z.string().catch(''),
   valueProp: z.string().catch(''),
@@ -125,6 +145,46 @@ function parseWithSchema<T>(schema: z.ZodType<T>, raw: unknown, context: string)
   if (result.success) return result.data;
   console.warn(`[sandboxPrompts] ${context} returned a response that failed schema validation; using safe defaults.`, result.error.flatten());
   return schema.parse({});
+}
+
+export interface BrandDna {
+  brandName?: string;
+  toneOfVoice?: string;
+  targetAudience?: string;
+  coreValueProp?: string;
+  competitorDifferentiator?: string;
+  customBannedWords?: string[];
+}
+
+export function formatBrandDnaBlock(dna?: BrandDna): string {
+  if (!dna) return '';
+  const fields: [string, string | undefined][] = [
+    ['brand_name', dna.brandName],
+    ['tone_of_voice', dna.toneOfVoice],
+    ['target_audience', dna.targetAudience],
+    ['core_value_prop', dna.coreValueProp],
+    ['competitor_differentiator', dna.competitorDifferentiator],
+  ];
+  const lines = fields.filter(([, v]) => v?.trim()).map(([tag, v]) => `<${tag}>${v}</${tag}>`);
+  if (dna.customBannedWords?.length) {
+    lines.push(`<banned_words>Never use: ${dna.customBannedWords.join(', ')}</banned_words>`);
+  }
+  if (!lines.length) return '';
+  return `<brand_dna>
+The rules in this block are specific to this client and OVERRIDE any generic tone, audience, or word-choice assumptions elsewhere in this prompt when they conflict.
+${lines.join('\n')}
+</brand_dna>`;
+}
+
+// Single insertion point so every caller through callOpenAiJson/callOpenAiVisionJson
+// gets brand DNA spliced in right after <role> without each prompt template or
+// route needing to know about it.
+function injectBrandDna(systemPrompt: string, dna?: BrandDna): string {
+  const block = formatBrandDnaBlock(dna);
+  if (!block) return systemPrompt;
+  return systemPrompt.includes('</role>')
+    ? systemPrompt.replace('</role>', `</role>\n\n${block}`)
+    : `${block}\n\n${systemPrompt}`;
 }
 
 export type SandboxGenTool = 'copy' | 'ad' | 'video';
@@ -172,6 +232,14 @@ Use these gold-standard examples as reference for pacing, punchy sentence struct
 </example>
 </exemplars>`;
 
+const AD_VISUAL_PRODUCTION_BLOCK = `<visual_production>
+Also generate a hyper-detailed AI image-generation prompt for this ad's visual, written for Midjourney/FLUX. Cover: subject and composition, lighting, camera/lens style, mood, an aspect ratio flag (e.g. --ar 16:9), and a style flag (e.g. --style raw). One dense paragraph, not a list. Put this in metadata.imagePrompt.
+</visual_production>`;
+
+const VIDEO_AUDIO_PRODUCTION_BLOCK = `<audio_production>
+For every beat, also specify audio direction: the background music style/energy and how it shifts across the video, plus any SFX with an explicit timing trigger (e.g. "SFX: metallic clank at 0:02"). Put this in that beat's audioCues field.
+</audio_production>`;
+
 const RULES_BLOCK = `<rules>
 - Short, punchy sentences.
 - Conversational tone, never a wall-of-text paragraph.
@@ -195,18 +263,22 @@ ${FRAMEWORKS_BLOCK}
 
 ${COPY_AD_EXEMPLARS_BLOCK}
 
+${AD_VISUAL_PRODUCTION_BLOCK}
+
 ${RULES_BLOCK}
 
-<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "short call-to-action button text"}}.</output_format>`,
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the ad body copy", "metadata": {"headline": "short punchy headline, under 40 chars", "cta": "short call-to-action button text", "imagePrompt": "hyper-detailed Midjourney/FLUX image generation prompt: composition, lighting, camera/lens, mood, aspect ratio flag, and style flag"}}.</output_format>`,
   video: `<role>You are a world-class video script/storyboard writer specializing in high-ROAS short social ads.</role>
 
 ${FRAMEWORKS_BLOCK}
 
 ${VIDEO_EXEMPLARS_BLOCK}
 
+${VIDEO_AUDIO_PRODUCTION_BLOCK}
+
 ${RULES_BLOCK}
 
-<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full script as readable text", "metadata": {"beats": [{"scene": "scene number or name", "shot": "shot/visual direction", "line": "voiceover or on-screen line"}]}}.</output_format>`,
+<output_format>Return a valid JSON object matching this structure exactly: {"title": "short internal label", "content": "the full script as readable text", "metadata": {"beats": [{"scene": "scene number or name", "shot": "shot/visual direction", "line": "voiceover or on-screen line", "audioCues": "background music dynamics for this beat plus any SFX with an explicit timing trigger"}]}}.</output_format>`,
 };
 
 export const ANGLES = ['Fear/Urgency', 'Value/Savings', 'Social Proof', 'Scarcity', 'Direct/No-BS'];
@@ -284,6 +356,16 @@ ${NEGATIVE_RULES_BLOCK}
 </rules>
 
 <output_format>Return a valid JSON object matching this structure exactly: {"variants": [{"location": "the location", "segment": "the audience segment", "title": "short internal label", "content": "the generated copy for this location+segment combination"}]} with one entry for every location x segment combination, covering all combinations.</output_format>`;
+
+export const CRITIC_PROMPT = `<role>You are an elite direct-response copy critic and conversion optimization specialist. You have reviewed thousands of ads and know exactly what separates copy that converts from copy that just sounds nice.</role>
+
+<task>
+Evaluate the given copy against direct-response principles: hook power, directness, clarity, fluff, and psychological leverage (does it use PAS, AIDA, BAB, or a comparable framework effectively?). Be harsh but fair.
+${NEGATIVE_RULES_BLOCK}
+If overallScore is below 80, rewrite the copy into a punchier, more direct version and return it as polishedCopy. If overallScore is 80 or above, omit polishedCopy.
+</task>
+
+<output_format>Return a valid JSON object matching this structure exactly: {"overallScore": "1-100 overall quality score", "hookStrengthScore": "1-10 score for how strong the opening hook is", "clarityScore": "1-10 score for clarity and directness", "fluffDetected": "true if the copy contains vague corporate fluff or filler", "criticFeedback": ["specific, actionable weaknesses or improvements, one per string"], "polishedCopy": "a punchier rewritten version, only included if overallScore is below 80"}.</output_format>`;
 
 const DEFAULT_BRAND_CLAUSE =
   'Brand voice: write in a professional, trustworthy tone typical of a well-run local home-service business. No specific brand guidelines are on file for this client.';
@@ -494,12 +576,14 @@ export async function callOpenAiJson(
   mockFallback?: () => any,
   temperature = 0.7,
   schema?: z.ZodTypeAny,
+  brandDna?: BrandDna,
 ): Promise<any> {
+  const finalPrompt = injectBrandDna(systemPrompt, brandDna);
   const parsed = await runProviderChain(
     [
-      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(systemPrompt, userContext, temperature, 'gpt-4o-mini') },
-      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(systemPrompt, userContext, temperature) },
-      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(systemPrompt, userContext, temperature) },
+      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(finalPrompt, userContext, temperature, 'gpt-4o-mini') },
+      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(finalPrompt, userContext, temperature) },
+      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(finalPrompt, userContext, temperature) },
     ],
     mockFallback,
   );
@@ -512,12 +596,14 @@ export async function callOpenAiVisionJson(
   mockFallback?: () => any,
   temperature = 0.7,
   schema?: z.ZodTypeAny,
+  brandDna?: BrandDna,
 ): Promise<any> {
+  const finalPrompt = injectBrandDna(systemPrompt, brandDna);
   const parsed = await runProviderChain(
     [
-      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(systemPrompt, '', temperature, 'gpt-4o', imageUrl) },
-      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(systemPrompt, '', temperature, imageUrl) },
-      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(systemPrompt, '', temperature, imageUrl) },
+      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(finalPrompt, '', temperature, 'gpt-4o', imageUrl) },
+      { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(finalPrompt, '', temperature, imageUrl) },
+      { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(finalPrompt, '', temperature, imageUrl) },
     ],
     mockFallback,
   );
@@ -711,6 +797,25 @@ export function mockDrip(hookInput: string): any {
   };
 }
 
+export function mockCriticReview(draftText: string): CriticReview {
+  return {
+    overallScore: 62,
+    hookStrengthScore: 5,
+    clarityScore: 6,
+    fluffDetected: true,
+    criticFeedback: [
+      '[MOCK] Opening line buries the hook — lead with the strongest claim first.',
+      '[MOCK] Contains generic filler language instead of a concrete benefit.',
+    ],
+    polishedCopy: `[MOCK — set OPENAI_API_KEY for real output] ${draftText.slice(0, 120)}`,
+  };
+}
+
+export async function evaluateCopyDraft(draftText: string, context?: string): Promise<CriticReview> {
+  const userContext = ['Copy to evaluate:', draftText, context && `Context: ${context}`].filter(Boolean).join('\n\n');
+  return callOpenAiJson(CRITIC_PROMPT, userContext, () => mockCriticReview(draftText), 0.3, CriticReviewSchema);
+}
+
 export function mockSwipeInsights(): any {
   return {
     hookPattern: '[MOCK] Bold question opener paired with a number-driven claim.',
@@ -795,5 +900,41 @@ export function mockBrandExtraction(url: string): any {
     valueProp: `[MOCK — set OPENAI_API_KEY for real output] Fast, reliable service from the team behind ${url}.`,
     targetAudience: '[MOCK] Local homeowners who want a trustworthy provider.',
     accentColors: ['#2563eb', '#f59e0b'],
+  };
+}
+
+export const ExtractedBrandIdentitySchema = z.object({
+  brandName: z.string().catch(''),
+  colors: z.array(z.string()).catch([]),
+  brandImages: z.array(z.string()).catch([]),
+  keyVerbalTracks: z.array(z.string()).catch([]),
+  activeAdAngles: z.array(z.string()).catch([]),
+  targetAudienceProfile: z.string().catch(''),
+  coreValueProps: z.array(z.string()).catch([]),
+  brandVoice: z.string().catch(''),
+});
+
+export type ExtractedBrandIdentity = z.infer<typeof ExtractedBrandIdentitySchema>;
+
+export const BRAND_IDENTITY_EXTRACT_PROMPT =
+  'You are an expert brand strategist and direct-response copy miner analyzing a business website for a marketing agency. ' +
+  "You are given the page title, the page's visible text, a list of candidate hex colors found in its CSS, and a list of candidate image URLs found on the page. " +
+  'Infer the brand identity: pick up to 6 real hex colors from the candidates when they look like real brand colors (otherwise your best guess); ' +
+  'choose up to 8 image URLs from the candidates that look like logos, hero images, or product visuals — never invent a URL that was not in the candidate list; ' +
+  'mine "keyVerbalTracks" as short verbatim or near-verbatim phrases copied directly from the supplied page text — unique terminology and high-converting copy lines, not paraphrases or summaries; ' +
+  'infer "activeAdAngles" from any offer, promo, or urgency language found in the text; ' +
+  'and produce a brand name, target audience profile, core value props, and brand voice from context. ' +
+  'Return a valid JSON object matching this structure exactly: {"brandName": "the business name", "colors": ["up to 6 hex colors"], "brandImages": ["up to 8 image URLs chosen from the candidates"], "keyVerbalTracks": ["verbatim high-converting phrases mined from the page text"], "activeAdAngles": ["observed offer/promo/urgency angles"], "targetAudienceProfile": "one to two sentences on pain points, demographic, and core desire", "coreValueProps": ["distinct value propositions"], "brandVoice": "a short tone label, e.g. \'Confident, no-fluff, blue-collar friendly\'"}.';
+
+export function mockExtractedBrandIdentity(url: string): ExtractedBrandIdentity {
+  return {
+    brandName: `[MOCK] Brand from ${url}`,
+    colors: ['#2563eb', '#f59e0b'],
+    brandImages: [],
+    keyVerbalTracks: ['[MOCK] "Fast, reliable service you can trust"'],
+    activeAdAngles: ['[MOCK] Limited-time offer urgency'],
+    targetAudienceProfile: '[MOCK — set OPENAI_API_KEY for real output] Local homeowners who want a trustworthy provider.',
+    coreValueProps: ['[MOCK] Licensed and insured', '[MOCK] Same-day availability'],
+    brandVoice: '[MOCK] Confident, no-fluff, customer-first',
   };
 }
