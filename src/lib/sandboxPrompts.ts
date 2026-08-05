@@ -1092,6 +1092,101 @@ export function mockGeoExpansionPackage(locations: string[], coreService: string
   };
 }
 
+export const FormFactorOptions = ['postcard', 'letter'] as const;
+export type FormFactor = (typeof FormFactorOptions)[number];
+
+const PointOfContactSchema = z
+  .object({
+    name: z.string().catch(''),
+    email: z.string().catch(''),
+    phone: z.string().catch(''),
+  })
+  .catch({ name: '', email: '', phone: '' });
+
+const DirectMailVariantSchema = z
+  .object({
+    audienceName: z.string().catch(''),
+    headline: z.string().catch(''),
+    subheadline: z.string().catch(''),
+    bodyCopy: z.string().catch(''),
+    callToAction: z.string().catch(''),
+    urgencyDriver: z.string().catch(''),
+    pointOfContact: PointOfContactSchema,
+    eventDetailsSummary: z.string().catch(''),
+  })
+  .catch({
+    audienceName: '',
+    headline: '',
+    subheadline: '',
+    bodyCopy: '',
+    callToAction: '',
+    urgencyDriver: '',
+    pointOfContact: { name: '', email: '', phone: '' },
+    eventDetailsSummary: '',
+  });
+
+export const DirectMailPackageSchema = z.object({
+  formFactor: z.enum(FormFactorOptions).catch('postcard'),
+  qrUrl: z.string().catch(''),
+  variants: z.array(DirectMailVariantSchema).catch([]),
+});
+
+export type DirectMailPackage = z.infer<typeof DirectMailPackageSchema>;
+export type DirectMailVariant = z.infer<typeof DirectMailVariantSchema>;
+
+export const DIRECT_MAIL_PROMPT =
+  'You are an expert direct-mail fundraising and marketing copywriter for a local-service/nonprofit marketing agency. ' +
+  "You are given a brief (event details, offer, speakers, matching funds, etc.), a physical form factor, a QR code destination URL, and a list of target audiences. " +
+  "Write exactly one variant per audience, in the order given, each genuinely angled to that audience's relationship to the organization " +
+  '(e.g. a "Business Owners" variant leans into a sponsorship/partnership angle; a "Past Individual Donors" variant leans into a renewal/impact angle; a program-specific donor variant references that program directly). ' +
+  'If the form factor is "postcard": headline, subheadline, and body copy must be extremely tight — a postcard is read in a few seconds on the way to the trash or the fridge, so lead with the single strongest claim and keep bodyCopy to 2-3 short sentences. ' +
+  'If the form factor is "letter": write in a warm, personal business-fundraising-letter voice, read at a kitchen table — bodyCopy should be 3-5 short paragraphs that build the case and end on the ask. ' +
+  'Every variant needs a plausible point of contact (name, email, phone) consistent with the organization in the brief, and an eventDetailsSummary that condenses the timeline/location/offer into 1-2 sentences suitable for a small print block. ' +
+  'Return a valid JSON object matching this structure exactly: {"formFactor": "postcard" or "letter", "qrUrl": "the QR destination URL as given", "variants": [{"audienceName": "the audience name as given", "headline": "the headline", "subheadline": "the subheadline", "bodyCopy": "the body copy", "callToAction": "short CTA button/line text", "urgencyDriver": "the urgency angle for this audience", "pointOfContact": {"name": "contact name", "email": "contact email", "phone": "contact phone"}, "eventDetailsSummary": "condensed timeline/location/offer summary"}]} ' +
+  'with exactly one entry in "variants" per audience given, in the same order.';
+
+export function mockDirectMailPackage(
+  briefText: string,
+  formFactor: FormFactor,
+  audiences: string[],
+  qrUrl: string,
+): DirectMailPackage {
+  const hook = cleanHook(briefText, 'Join Us For Our Upcoming Event');
+  return {
+    formFactor,
+    qrUrl,
+    variants: audiences.map((audienceName) => ({
+      audienceName,
+      headline: `[MOCK] ${hook}`,
+      subheadline: `[MOCK — set OPENAI_API_KEY for real output] An invitation for ${audienceName}`,
+      bodyCopy:
+        formFactor === 'postcard'
+          ? `[MOCK] ${hook}. Scan the code to RSVP.`
+          : `[MOCK] Dear Friend,\n\n${hook}. As a valued member of our ${audienceName} community, your support makes a real difference.\n\nWe hope you'll join us.`,
+      callToAction: 'Scan to RSVP',
+      urgencyDriver: '[MOCK] Seats are limited — RSVP before the deadline.',
+      pointOfContact: { name: 'Jordan Lee', email: 'events@example.org', phone: '(555) 010-2200' },
+      eventDetailsSummary: `[MOCK] ${hook} — details and directions available at the link above.`,
+    })),
+  };
+}
+
+export function validateDirectMailInput(body: any): string | null {
+  if (!body || typeof body.briefText !== 'string' || !body.briefText.trim()) {
+    return 'briefText is required';
+  }
+  if (body.formFactor !== 'postcard' && body.formFactor !== 'letter') {
+    return "formFactor must be 'postcard' or 'letter'";
+  }
+  if (!Array.isArray(body.audiences) || body.audiences.length === 0 || !body.audiences.every((a: unknown) => typeof a === 'string' && a.trim())) {
+    return 'audiences must be a non-empty array of non-empty strings';
+  }
+  if (typeof body.qrUrl !== 'string' || !body.qrUrl.trim()) {
+    return 'qrUrl is required';
+  }
+  return null;
+}
+
 export const GbpReviewResponseSchema = z.object({
   replyText: z.string().catch(''),
   seoKeywordsIncluded: z.array(z.string()).catch([]),
