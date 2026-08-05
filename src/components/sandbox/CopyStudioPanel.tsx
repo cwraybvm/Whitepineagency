@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Sparkles, Pencil, Grid3x3, MapPinned, Rocket } from 'lucide-react';
+import { Wand2, Save, Loader2, Sparkles, Pencil, Grid3x3, MapPinned, Rocket, RefreshCw } from 'lucide-react';
 import { TONE_OPTIONS, type Tone, type GeneratedDraft, type AngleDraft, type BrandDna, type CopyStudioMode, type DcoVariant } from './types';
 import CharLimitBadges from './CharLimitBadges';
 import BrandDnaDrawer from './BrandDnaDrawer';
 import ScoreBadge from './ScoreBadge';
+import CopyButton from './CopyButton';
+import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 
 const MODES: { id: CopyStudioMode; label: string; icon: React.ElementType }[] = [
   { id: 'single', label: 'Single', icon: Wand2 },
@@ -14,10 +16,25 @@ const MODES: { id: CopyStudioMode; label: string; icon: React.ElementType }[] = 
   { id: 'dco', label: 'DCO Personalization', icon: MapPinned },
 ];
 
+function GenerationFailedNotice({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center gap-3">
+      <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
+      <button
+        onClick={onRetry}
+        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
+      >
+        <RefreshCw className="w-3.5 h-3.5" /> Retry
+      </button>
+    </div>
+  );
+}
+
 export default function CopyStudioPanel() {
   const [prompt, setPrompt] = useState('$79 Spring AC Tune-Up promo for a local HVAC company');
   const [tone, setTone] = useState<Tone>('Direct Response');
   const [generating, setGenerating] = useState(false);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [draft, setDraft] = useState<GeneratedDraft | null>(null);
   const [savingSingle, setSavingSingle] = useState(false);
 
@@ -37,7 +54,7 @@ export default function CopyStudioPanel() {
   const [stagingDco, setStagingDco] = useState(false);
 
   useEffect(() => {
-    fetch('/api/sandbox/organizations').then((res) => res.json()).then(setOrgs).catch(() => {});
+    fetchJsonArray<{ id: string; name: string }>('/api/sandbox/organizations').then(setOrgs);
   }, []);
 
   const loadBrandDna = (orgId: string) => {
@@ -60,6 +77,7 @@ export default function CopyStudioPanel() {
 
   const generate = async () => {
     setGenerating(true);
+    setGenerationFailed(false);
     setDraft(null);
     setAngleDrafts([]);
     setDcoVariants([]);
@@ -71,7 +89,7 @@ export default function CopyStudioPanel() {
           toast.error('Add at least one location and one audience segment');
           return;
         }
-        const res = await fetch('/api/sandbox/generate', {
+        const data = await fetchGenerationJson('/api/sandbox/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -83,13 +101,11 @@ export default function CopyStudioPanel() {
             audienceSegments: segmentList,
           }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Generation failed');
         setDcoVariants(data.variants);
         return;
       }
 
-      const res = await fetch('/api/sandbox/generate', {
+      const data = await fetchGenerationJson('/api/sandbox/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -100,14 +116,13 @@ export default function CopyStudioPanel() {
           mode: mode === 'matrix' ? 'matrix' : 'single',
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
       if (mode === 'matrix') {
         setAngleDrafts(data.angles);
       } else {
         setDraft({ title: data.title, content: data.content });
       }
     } catch (err: any) {
+      setGenerationFailed(true);
       toast.error(err.message || 'Failed to generate copy');
     } finally {
       setGenerating(false);
@@ -181,15 +196,15 @@ export default function CopyStudioPanel() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider font-mono">Copy Studio Controls</h2>
+      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
+        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Copy Studio Controls</h2>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-slate-500 font-mono uppercase">Client (for Brand DNA)</label>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Client (for Brand DNA)</label>
           <select
             value={organizationId}
             onChange={(e) => setOrganizationId(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+            className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
           >
             <option value="">No client selected (default tone)</option>
             {orgs.map((org) => (
@@ -197,9 +212,9 @@ export default function CopyStudioPanel() {
             ))}
           </select>
           {organizationId && (
-            <div className="flex items-start gap-2 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2">
+            <div className="flex items-start gap-2 bg-slate-100 border border-slate-300 dark:bg-slate-950 dark:border-slate-800 rounded-lg px-3 py-2">
               <Sparkles className="w-3.5 h-3.5 text-sky-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] text-slate-400 flex-1">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex-1">
                 {!brandDna
                   ? 'Loading…'
                   : brandDna.brandVoice || brandDna.brandGuidelines
@@ -208,7 +223,7 @@ export default function CopyStudioPanel() {
               </p>
               <button
                 onClick={() => setDrawerOpen(true)}
-                className="text-slate-400 hover:text-white shrink-0"
+                className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white shrink-0"
                 title="Edit Brand DNA"
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -218,17 +233,17 @@ export default function CopyStudioPanel() {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-slate-500 font-mono uppercase">{mode === 'dco' ? 'Base Offer / Hook' : 'Brief'}</label>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">{mode === 'dco' ? 'Base Offer / Hook' : 'Brief'}</label>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             rows={4}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 resize-none"
+            className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-[10px] text-slate-500 font-mono uppercase">Mode</label>
+          <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Mode</label>
           <div className="flex flex-col gap-1.5">
             {MODES.map((m) => {
               const Icon = m.icon;
@@ -239,7 +254,7 @@ export default function CopyStudioPanel() {
                   className={`w-full py-2 rounded-lg text-xs font-bold text-left px-3 flex items-center gap-2 transition-all ${
                     mode === m.id
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'
+                      : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" /> {m.label}
@@ -252,19 +267,19 @@ export default function CopyStudioPanel() {
         {mode === 'dco' && (
           <>
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-500 font-mono uppercase">Locations (comma-separated)</label>
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Locations (comma-separated)</label>
               <input
                 value={locations}
                 onChange={(e) => setLocations(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-[10px] text-slate-500 font-mono uppercase">Audience Segments (comma-separated)</label>
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Audience Segments (comma-separated)</label>
               <input
                 value={audienceSegments}
                 onChange={(e) => setAudienceSegments(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500"
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
               />
             </div>
           </>
@@ -272,7 +287,7 @@ export default function CopyStudioPanel() {
 
         {mode === 'single' && (
           <div className="space-y-1.5">
-            <label className="text-[10px] text-slate-500 font-mono uppercase">Tone</label>
+            <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Tone</label>
             <div className="flex flex-col gap-1.5">
               {TONE_OPTIONS.map((t) => (
                 <button
@@ -280,8 +295,8 @@ export default function CopyStudioPanel() {
                   onClick={() => setTone(t)}
                   className={`w-full py-2 rounded-lg text-xs font-bold text-left px-3 transition-all ${
                     tone === t
-                      ? 'bg-sky-600 text-white'
-                      : 'bg-slate-950 border border-slate-800 text-slate-400 hover:text-slate-200'
+                      ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                      : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
                 >
                   {t}
@@ -294,7 +309,7 @@ export default function CopyStudioPanel() {
         <button
           onClick={generate}
           disabled={generating || !prompt}
-          className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
         >
           {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
           {generating
@@ -312,7 +327,8 @@ export default function CopyStudioPanel() {
         angleDrafts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {angleDrafts.map((a, i) => (
-              <div key={a.angle} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+              <div key={a.angle} className="relative group bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-3">
+                <CopyButton text={a.content} />
                 <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-400">{a.angle}</span>
                 <textarea
                   value={a.content}
@@ -322,7 +338,7 @@ export default function CopyStudioPanel() {
                     setAngleDrafts(next);
                   }}
                   rows={5}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 resize-none"
+                  className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
                 />
                 <CharLimitBadges text={a.content} />
                 <ScoreBadge
@@ -338,7 +354,7 @@ export default function CopyStudioPanel() {
                 <button
                   onClick={() => saveAngle(i)}
                   disabled={savingAngle === a.angle}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-lg text-[11px] flex items-center justify-center gap-1.5"
                 >
                   {savingAngle === a.angle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   Save to Staged Assets
@@ -347,8 +363,8 @@ export default function CopyStudioPanel() {
             ))}
           </div>
         ) : (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 min-h-[360px] flex items-center justify-center text-center text-slate-500 text-sm">
-            Set your brief, then generate to see all 5 angles here.
+          <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[360px] flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
+            {generationFailed ? <GenerationFailedNotice onRetry={generate} /> : 'Set your brief, then generate to see all 5 angles here.'}
           </div>
         )
       ) : mode === 'dco' ? (
@@ -356,7 +372,8 @@ export default function CopyStudioPanel() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {dcoVariants.map((v, i) => (
-                <div key={i} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <div key={i} className="relative group bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-3">
+                  <CopyButton text={v.content} />
                   <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-sky-400 bg-sky-500/10 border border-sky-500/30 rounded-full px-2 py-0.5">{v.location}</span>
                     <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-indigo-400 bg-indigo-500/10 border border-indigo-500/30 rounded-full px-2 py-0.5">{v.segment}</span>
@@ -369,7 +386,7 @@ export default function CopyStudioPanel() {
                       setDcoVariants(next);
                     }}
                     rows={5}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 resize-none"
+                    className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
                   />
                   <CharLimitBadges text={v.content} />
                   <ScoreBadge
@@ -385,7 +402,7 @@ export default function CopyStudioPanel() {
                   <button
                     onClick={() => saveDcoVariant(i)}
                     disabled={savingDco === i}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[11px] transition-all flex items-center justify-center gap-1.5"
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-lg text-[11px] flex items-center justify-center gap-1.5"
                   >
                     {savingDco === i ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     Save to Staged Assets
@@ -396,28 +413,29 @@ export default function CopyStudioPanel() {
             <button
               onClick={stageAllDco}
               disabled={stagingDco}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-sm flex items-center justify-center gap-2"
             >
               {stagingDco ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
               {stagingDco ? 'Staging…' : `Batch Stage All ${dcoVariants.length} Variants`}
             </button>
           </div>
         ) : (
-          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 min-h-[360px] flex items-center justify-center text-center text-slate-500 text-sm">
-            Set your base offer, locations, and audience segments, then generate the personalization matrix here.
+          <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[360px] flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
+            {generationFailed ? <GenerationFailedNotice onRetry={generate} /> : 'Set your base offer, locations, and audience segments, then generate the personalization matrix here.'}
           </div>
         )
       ) : (
-        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 min-h-[360px] flex flex-col">
+        <div className="relative group bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[360px] flex flex-col">
           {draft ? (
             <div className="flex-1 flex flex-col space-y-4">
+              <CopyButton text={draft.content} />
               <div className="space-y-2">
-                <span className="text-[10px] text-slate-500 font-mono uppercase">{draft.title}</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">{draft.title}</span>
                 <textarea
                   value={draft.content}
                   onChange={(e) => setDraft({ ...draft, content: e.target.value })}
                   rows={6}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-sky-500 resize-none"
+                  className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
                 />
                 <CharLimitBadges text={draft.content} />
                 <ScoreBadge
@@ -427,11 +445,11 @@ export default function CopyStudioPanel() {
                   onOptimized={(r) => setDraft({ title: r.title || draft.title, content: r.content })}
                 />
               </div>
-              <div className="pt-4 border-t border-slate-800 mt-auto">
+              <div className="pt-4 border-t border-slate-200 dark:border-slate-800 mt-auto">
                 <button
                   onClick={saveSingle}
                   disabled={savingSingle}
-                  className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                  className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
                 >
                   {savingSingle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingSingle ? 'Saving…' : 'Save to Staged Assets'}
@@ -439,8 +457,8 @@ export default function CopyStudioPanel() {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-center text-slate-500 text-sm">
-              Set your brief and tone, then generate to see the draft here.
+            <div className="flex-1 flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
+              {generationFailed ? <GenerationFailedNotice onRetry={generate} /> : 'Set your brief and tone, then generate to see the draft here.'}
             </div>
           )}
         </div>
