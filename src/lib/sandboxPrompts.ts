@@ -151,13 +151,6 @@ export const CriticReviewSchema = z.object({
 
 export type CriticReview = z.infer<typeof CriticReviewSchema>;
 
-export const BrandExtractSchema = z.object({
-  brandVoice: z.string().catch(''),
-  valueProp: z.string().catch(''),
-  targetAudience: z.string().catch(''),
-  accentColors: z.array(z.string()).catch([]),
-});
-
 function parseWithSchema<T>(schema: z.ZodType<T>, raw: unknown, context: string): T {
   const result = schema.safeParse(raw);
   if (result.success) return result.data;
@@ -905,20 +898,6 @@ export function validateExtractBrandUrl(url: unknown): string | null {
     return 'url may not target a local or private address';
   }
   return null;
-}
-
-export const BRAND_EXTRACT_PROMPT =
-  'You are an expert brand strategist analyzing a business website to extract its brand identity for a marketing agency. ' +
-  "Given the page's visible text and a list of candidate accent colors found in its CSS, infer the brand. " +
-  'Return a valid JSON object matching this structure exactly: {"brandVoice": "a short tone label, e.g. \'Confident, no-fluff, blue-collar friendly\'", "valueProp": "one sentence describing what makes this business worth choosing", "targetAudience": "one sentence describing who this business serves", "accentColors": ["up to 3 hex colors, chosen from the candidates when they look like real brand colors, otherwise your best guess"]}.';
-
-export function mockBrandExtraction(url: string): any {
-  return {
-    brandVoice: '[MOCK] Confident, no-fluff, customer-first',
-    valueProp: `[MOCK — set OPENAI_API_KEY for real output] Fast, reliable service from the team behind ${url}.`,
-    targetAudience: '[MOCK] Local homeowners who want a trustworthy provider.',
-    accentColors: ['#2563eb', '#f59e0b'],
-  };
 }
 
 export const ExtractedBrandIdentitySchema = z.object({

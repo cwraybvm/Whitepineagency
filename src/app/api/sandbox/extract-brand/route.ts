@@ -1,77 +1,31 @@
 import { NextResponse } from 'next/server';
-import { validateExtractBrandUrl, BRAND_EXTRACT_PROMPT, callOpenAiJson, mockBrandExtraction, BrandExtractSchema } from '@/lib/sandboxPrompts';
-import { stripToPlainText, extractHexColors, MAX_EXTRACT_CHARS } from '@/lib/htmlExtract';
-
-const FETCH_TIMEOUT_MS = 8000;
-const MAX_BYTES = 300_000;
-
-async function fetchPageWithLimits(url: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'WhitePinePortal-BrandDNA/1.0' },
-    });
-    if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
-
-    const reader = res.body?.getReader();
-    if (!reader) return await res.text();
-
-    const decoder = new TextDecoder();
-    let html = '';
-    let bytesRead = 0;
-    while (bytesRead < MAX_BYTES) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      bytesRead += value.length;
-      html += decoder.decode(value, { stream: true });
-    }
-    reader.cancel().catch(() => {});
-    return html;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
+import { extractBrandFromUrl } from '@/lib/brandExtractor';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const validationError = validateExtractBrandUrl(body?.url);
-    if (validationError) {
-      return NextResponse.json({ error: validationError }, { status: 400 });
-    }
-    const { url } = body as { url: string };
+    const { url } = body as { url?: string };
 
-    let html: string;
+    let identity;
     try {
-      html = await fetchPageWithLimits(url);
+      identity = await extractBrandFromUrl(url as string);
     } catch (err: any) {
+      const status = err?.name === 'AbortError' ? 502 : /url/i.test(err.message || '') ? 400 : 502;
       const message = err?.name === 'AbortError' ? 'Timed out fetching the URL' : err.message || 'Failed to fetch URL';
-      return NextResponse.json({ error: message }, { status: 502 });
+      return NextResponse.json({ error: message }, { status });
     }
-
-    const pageText = stripToPlainText(html).slice(0, MAX_EXTRACT_CHARS);
-    const candidateColors = extractHexColors(html);
-
-    const userContext = [
-      `Page text extracted from ${url}:`,
-      pageText,
-      candidateColors.length ? `Candidate accent colors found in the page's CSS: ${candidateColors.join(', ')}` : '',
-    ].filter(Boolean).join('\n\n');
-
-    const result = await callOpenAiJson(BRAND_EXTRACT_PROMPT, userContext, () => mockBrandExtraction(url), 0.7, BrandExtractSchema);
 
     const brandGuidelines = [
-      result.valueProp && `Value Proposition: ${result.valueProp}`,
-      result.targetAudience && `Target Audience: ${result.targetAudience}`,
+      identity.coreValueProps.length && `Value Proposition: ${identity.coreValueProps.join('; ')}`,
+      identity.targetAudienceProfile && `Target Audience: ${identity.targetAudienceProfile}`,
     ].filter(Boolean).join('\n');
 
     return NextResponse.json({
       success: true,
-      brandVoice: result.brandVoice || '',
+      brandVoice: identity.brandVoice || '',
       brandGuidelines,
-      accentColors: Array.isArray(result.accentColors) ? result.accentColors.slice(0, 6) : [],
+      accentColors: identity.colors.slice(0, 6),
+      brandImages: identity.brandImages.slice(0, 6),
     });
   } catch (err: any) {
     console.error('Sandbox extract-brand error:', err);

@@ -21,12 +21,14 @@ export default function BrandDnaDrawer({ isOpen, onClose, organizationId, organi
   const [extracting, setExtracting] = useState(false);
   const [accentColors, setAccentColors] = useState<string[]>([]);
   const [primaryColor, setPrimaryColor] = useState<string | null>(null);
+  const [brandImages, setBrandImages] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen && organizationId) {
       setUrl('');
       setAccentColors([]);
       setPrimaryColor(null);
+      setBrandImages([]);
       fetch(`/api/sandbox/brand?organizationId=${organizationId}`)
         .then((res) => res.json())
         .then((data) => {
@@ -51,6 +53,7 @@ export default function BrandDnaDrawer({ isOpen, onClose, organizationId, organi
       setBrandVoice(data.brandVoice || brandVoice);
       setBrandGuidelines((prev) => [data.brandGuidelines, prev].filter(Boolean).join('\n\n'));
       setAccentColors(data.accentColors || []);
+      setBrandImages(data.brandImages || []);
       toast.success('Brand DNA extracted — review before saving');
     } catch (err: any) {
       toast.error(err.message || 'Failed to extract brand DNA');
@@ -154,6 +157,22 @@ export default function BrandDnaDrawer({ isOpen, onClose, organizationId, organi
                         }`}
                         style={{ backgroundColor: color }}
                       />
+                    ))}
+                  </div>
+                )}
+                {brandImages.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <span className="text-slate-500 dark:text-gray-400 text-[9px] font-sans w-full">Discovered images:</span>
+                    {brandImages.map((imgUrl) => (
+                      <button
+                        key={imgUrl}
+                        type="button"
+                        onClick={() => window.open(imgUrl, '_blank', 'noopener,noreferrer')}
+                        title={imgUrl}
+                        className="w-9 h-9 rounded-lg border border-slate-300 dark:border-slate-700 overflow-hidden bg-slate-100 dark:bg-slate-900 shrink-0"
+                      >
+                        <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                      </button>
                     ))}
                   </div>
                 )}
