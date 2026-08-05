@@ -3,6 +3,7 @@ import AnthropicSDK, { RateLimitError as AnthropicRateLimitError, InternalServer
 import { GoogleGenAI, ApiError as GeminiApiError } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import type { ScorableType } from '@/lib/creativeScore';
+import { FormFactorOptions, type FormFactor } from '@/components/sandbox/types';
 
 // Leaf fields carry their own `.catch()` fallback, so a missing or
 // wrong-typed key is silently repaired. The object schemas themselves are
@@ -1091,9 +1092,6 @@ export function mockGeoExpansionPackage(locations: string[], coreService: string
     })),
   };
 }
-
-export const FormFactorOptions = ['postcard', 'letter'] as const;
-export type FormFactor = (typeof FormFactorOptions)[number];
 
 const PointOfContactSchema = z
   .object({

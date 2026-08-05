@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop, Fingerprint, Calendar, ShieldCheck } from 'lucide-react';
+import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop, Fingerprint, Calendar, ShieldCheck, Mail } from 'lucide-react';
 import CopyStudioPanel from '@/components/sandbox/CopyStudioPanel';
 import AdBuilderPanel from '@/components/sandbox/AdBuilderPanel';
 import VideoLabPanel from '@/components/sandbox/VideoLabPanel';
@@ -11,6 +11,7 @@ import LandingPageStudioPanel from '@/components/sandbox/LandingPageStudioPanel'
 import BrandIdentityPanel from '@/components/sandbox/BrandIdentityPanel';
 import MasterCampaignPanel from '@/components/sandbox/MasterCampaignPanel';
 import ComplianceAuditPanel from '@/components/sandbox/ComplianceAuditPanel';
+import DirectMailPanel from '@/components/sandbox/DirectMailPanel';
 import StagedAssetsList from '@/components/sandbox/StagedAssetsList';
 import BrandDnaHud from '@/components/sandbox/BrandDnaHud';
 import type { SandboxTool } from '@/components/sandbox/types';
@@ -26,6 +27,7 @@ const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
   { id: 'brand-identity', label: 'Brand Identity', icon: Fingerprint },
   { id: 'master-campaign', label: '30-Day Campaign', icon: Calendar },
   { id: 'compliance-audit', label: 'Policy & Competitor Audit', icon: ShieldCheck },
+  { id: 'direct-mail', label: 'Direct Mail Studio', icon: Mail },
 ];
 
 export default function SandboxPage() {
@@ -142,6 +144,7 @@ export default function SandboxPage() {
               }}
             />
           )}
+          {activeTool === 'direct-mail' && <DirectMailPanel activeBrandDna={activeBrandDna} />}
         </>
       ) : (
         <StagedAssetsList activeTool={activeTool} />

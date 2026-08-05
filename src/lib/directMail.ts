@@ -4,9 +4,9 @@ import {
   mockDirectMailPackage,
   DirectMailPackageSchema,
   type DirectMailPackage,
-  type FormFactor,
   type BrandDna,
 } from '@/lib/sandboxPrompts';
+import type { FormFactor } from '@/components/sandbox/types';
 
 export async function generateDirectMailPackage(
   briefText: string,

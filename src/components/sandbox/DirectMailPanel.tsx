@@ -3,9 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Mail, Loader2, Sparkles, Plus, X, FileImage, FileText, FileJson } from 'lucide-react';
-import type { OrgBrand } from './types';
-import type { BrandDna, DirectMailPackage, FormFactor } from '@/lib/sandboxPrompts';
-import { FormFactorOptions } from '@/lib/sandboxPrompts';
+import { FormFactorOptions, type OrgBrand, type FormFactor } from './types';
+import type { BrandDna, DirectMailPackage } from '@/lib/sandboxPrompts';
 import { fetchJsonArray } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import DirectMailPostcardMockup from './DirectMailPostcardMockup';
