@@ -2,16 +2,25 @@
 
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic, RefreshCw } from 'lucide-react';
+import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic, RefreshCw, History as HistoryIcon } from 'lucide-react';
 import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, VOICE_PERSONA_OPTIONS, type Tone, type Beat, type ShotDuration, type CameraMovement, type VoicePersona } from './types';
 import ScoreBadge from './ScoreBadge';
 import CopyButton from './CopyButton';
+import HistoryDrawer from './HistoryDrawer';
 import { fetchGenerationJson } from '@/lib/sandboxClientFetch';
+import { useSandboxHistory } from '@/hooks/useSandboxHistory';
 
 type VideoDraft = {
   title: string;
   content: string;
   metadata: { beats: Beat[] };
+};
+
+type VideoLabSnapshot = {
+  prompt: string;
+  tone: Tone;
+  lengthSeconds: number;
+  draft: VideoDraft | null;
 };
 
 function formatTimecode(totalSeconds: number): string {
@@ -50,6 +59,9 @@ export default function VideoLabPanel() {
   const [draft, setDraft] = useState<VideoDraft | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState<Record<number, boolean>>({});
 
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const history = useSandboxHistory<VideoLabSnapshot>('video', null);
+
   const generate = async () => {
     setGenerating(true);
     setGenerationFailed(false);
@@ -64,13 +76,22 @@ export default function VideoLabPanel() {
         duration: b.duration || '3s',
         cameraMovement: b.cameraMovement || 'Static',
       }));
-      setDraft({ title: data.title, content: data.content, metadata: { beats } });
+      const newDraft = { title: data.title, content: data.content, metadata: { beats } };
+      setDraft(newDraft);
+      history.add(`${lengthSeconds}s — ${prompt.slice(0, 60)}`, { prompt, tone, lengthSeconds, draft: newDraft });
     } catch (err: any) {
       setGenerationFailed(true);
       toast.error(err.message || 'Failed to generate script');
     } finally {
       setGenerating(false);
     }
+  };
+
+  const restoreFromHistory = (snapshot: VideoLabSnapshot) => {
+    setPrompt(snapshot.prompt);
+    setTone(snapshot.tone);
+    setLengthSeconds(snapshot.lengthSeconds);
+    setDraft(snapshot.draft);
   };
 
   const updateBeat = (index: number, patch: Partial<Beat>) => {
@@ -164,7 +185,21 @@ export default function VideoLabPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
-        <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Video Lab Controls</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Video Lab Controls</h2>
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="relative text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white p-1"
+            title="Generation history"
+          >
+            <HistoryIcon className="w-4 h-4" />
+            {history.items.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-emerald-600 text-white text-[9px] font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                {history.items.length}
+              </span>
+            )}
+          </button>
+        </div>
 
         <div className="space-y-1.5">
           <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Brief</label>
@@ -395,6 +430,14 @@ export default function VideoLabPanel() {
           </div>
         )}
       </div>
+
+      <HistoryDrawer
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        items={history.items}
+        onRestore={restoreFromHistory}
+        onClear={history.clear}
+      />
     </div>
   );
 }
