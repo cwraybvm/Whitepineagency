@@ -613,6 +613,12 @@ export default function UltimateFulfillmentPage() {
                                 Geo
                               </button>
                               <button
+                                onClick={() => router.push('/admin/quote?client=' + encodeURIComponent(task.clientName))}
+                                className="text-slate-400 hover:text-slate-200 font-mono"
+                              >
+                                Proposal
+                              </button>
+                              <button
                                 onClick={() => router.push('/admin/onboarding')}
                                 className="text-slate-400 hover:text-slate-200 font-mono"
                               >
