@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { Mail, Loader2, Sparkles, Plus, X } from 'lucide-react';
 import type { OrgBrand } from './types';
@@ -8,6 +8,8 @@ import type { BrandDna, DirectMailPackage, FormFactor } from '@/lib/sandboxPromp
 import { FormFactorOptions } from '@/lib/sandboxPrompts';
 import { fetchJsonArray } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
+import DirectMailPostcardMockup from './DirectMailPostcardMockup';
+import DirectMailLetterMockup from './DirectMailLetterMockup';
 
 const FALLBACK_BRAND_COLOR = '#059669';
 const DEFAULT_AUDIENCES = ['Business Owners', 'Past Individual Donors', 'Reach Program Donors'];
@@ -22,6 +24,9 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
   const [generating, setGenerating] = useState(false);
   const [pkg, setPkg] = useState<DirectMailPackage | null>(null);
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
+  const frontRef = useRef<HTMLDivElement>(null);
+  const backRef = useRef<HTMLDivElement>(null);
+  const letterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -182,13 +187,53 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
         </button>
       </div>
 
-      {/* RIGHT: Results (Task 6 fills this in) */}
+      {/* RIGHT: Results */}
       <div className="space-y-4">
         {!pkg ? (
           <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[200px] flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
             Fill in a brief and Generate Direct Mail Variants to see the mockups here.
           </div>
-        ) : null}
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-1.5 bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 rounded-xl p-1.5">
+              {pkg.variants.map((variant, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveVariantIndex(i)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                    activeVariantIndex === i
+                      ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {variant.audienceName || `Variant ${i + 1}`}
+                </button>
+              ))}
+            </div>
+
+            {pkg.variants[activeVariantIndex] &&
+              (pkg.formFactor === 'postcard' ? (
+                <DirectMailPostcardMockup
+                  variant={pkg.variants[activeVariantIndex]}
+                  brandColor={brandColor}
+                  logoUrl={selectedOrg?.logoUrl}
+                  orgName={selectedOrg?.name}
+                  qrUrl={pkg.qrUrl}
+                  frontRef={frontRef}
+                  backRef={backRef}
+                />
+              ) : (
+                <DirectMailLetterMockup
+                  variant={pkg.variants[activeVariantIndex]}
+                  brandColor={brandColor}
+                  logoUrl={selectedOrg?.logoUrl}
+                  orgName={selectedOrg?.name}
+                  qrUrl={pkg.qrUrl}
+                  letterRef={letterRef}
+                />
+              ))}
+          </>
+        )}
       </div>
     </div>
   );
