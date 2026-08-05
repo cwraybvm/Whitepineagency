@@ -1,9 +1,24 @@
 import { NextResponse } from 'next/server';
-import { SYSTEM_PROMPTS, MATRIX_PROMPT, DRIP_PROMPT, brandClauseFor, callOpenAiJson } from '@/lib/sandboxPrompts';
+import {
+  SYSTEM_PROMPTS,
+  MATRIX_PROMPT,
+  DRIP_PROMPT,
+  brandClauseFor,
+  callOpenAiJson,
+  mockCopyMatrix,
+  mockAd,
+  mockVideo,
+  mockDrip,
+  CopyStudioSchema,
+  AdBuilderSchema,
+  VideoLabSchema,
+  DripSchema,
+  CampaignBatchSchema,
+} from '@/lib/sandboxPrompts';
 
 export async function POST(req: Request) {
   try {
-    const { organizationId, campaignGoal, targetAudience } = await req.json();
+    const { organizationId, campaignGoal, targetAudience, activeBrandDna } = await req.json();
 
     if (!campaignGoal) {
       return NextResponse.json({ error: 'campaignGoal is required' }, { status: 400 });
@@ -16,19 +31,15 @@ export async function POST(req: Request) {
     ].join('\n');
 
     const [angles, ad, video, drip] = await Promise.all([
-      callOpenAiJson(`${MATRIX_PROMPT}\n\n${brandClause}`, userContext),
-      callOpenAiJson(`${SYSTEM_PROMPTS.ad}\n\n${brandClause}`, userContext),
-      callOpenAiJson(`${SYSTEM_PROMPTS.video}\n\n${brandClause}`, userContext),
-      callOpenAiJson(`${DRIP_PROMPT}\n\n${brandClause}`, userContext),
+      callOpenAiJson(`${MATRIX_PROMPT}\n\n${brandClause}`, userContext, () => mockCopyMatrix(campaignGoal), 0.7, CopyStudioSchema.matrix, activeBrandDna),
+      callOpenAiJson(`${SYSTEM_PROMPTS.ad}\n\n${brandClause}`, userContext, () => mockAd(campaignGoal), 0.7, AdBuilderSchema, activeBrandDna),
+      callOpenAiJson(`${SYSTEM_PROMPTS.video}\n\n${brandClause}`, userContext, () => mockVideo(campaignGoal), 0.7, VideoLabSchema, activeBrandDna),
+      callOpenAiJson(`${DRIP_PROMPT}\n\n${brandClause}`, userContext, () => mockDrip(campaignGoal), 0.7, DripSchema, activeBrandDna),
     ]);
 
-    return NextResponse.json({
-      success: true,
-      angles: angles.angles,
-      ad: { title: ad.title, content: ad.content, metadata: ad.metadata },
-      video: { title: video.title, content: video.content, metadata: video.metadata },
-      drip: { title: drip.title, content: drip.content, metadata: drip.metadata },
-    });
+    const batch = CampaignBatchSchema.parse({ angles: angles.angles, ad, video, drip });
+
+    return NextResponse.json({ success: true, ...batch });
   } catch (err: any) {
     console.error('Sandbox campaign-batch error:', err);
     return NextResponse.json({ error: err.message || 'Campaign generation failed' }, { status: 500 });

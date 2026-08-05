@@ -3,18 +3,31 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Wand2, Loader2, Rocket, Clapperboard, MessageSquareText, RefreshCw, FileArchive } from 'lucide-react';
-import type { CampaignBatch, OrgBrand } from './types';
+import type { CampaignBatch, OrgBrand, SandboxTool } from './types';
 import { ASPECT_RATIOS } from './types';
+import type { BrandDna } from '@/lib/sandboxPrompts';
 import ScoreBadge from './ScoreBadge';
 import AdMockupCard from './AdMockupCard';
+import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
+import { useAbortController } from '@/hooks/useAbortController';
 
 const FALLBACK_BRAND_COLOR = '#059669';
 
-export default function CampaignBatchPanel() {
+export default function CampaignBatchPanel({
+  activeBrandDna,
+  pendingInsert,
+  onInsertConsumed,
+}: {
+  activeBrandDna?: BrandDna | null;
+  pendingInsert?: { tool: SandboxTool; text: string } | null;
+  onInsertConsumed?: () => void;
+} = {}) {
   const [orgs, setOrgs] = useState<OrgBrand[]>([]);
   const [organizationId, setOrganizationId] = useState('');
-  const [campaignGoal, setCampaignGoal] = useState('Fill 10 spring AC tune-up slots this month');
+  const [campaignGoal, setCampaignGoal] = useState(() =>
+    pendingInsert?.tool === 'campaign' ? pendingInsert.text : 'Fill 10 spring AC tune-up slots this month',
+  );
   const [targetAudience, setTargetAudience] = useState('Homeowners with AC units older than 8 years');
   const [generating, setGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
@@ -22,11 +35,19 @@ export default function CampaignBatchPanel() {
   const [exporting, setExporting] = useState(false);
   const [batch, setBatch] = useState<CampaignBatch | null>(null);
 
+  const { start, cancel } = useAbortController();
+
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
   }, []);
 
+  useEffect(() => {
+    if (pendingInsert?.tool === 'campaign') onInsertConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const generate = async () => {
+    const signal = start();
     setGenerating(true);
     setGenerationFailed(false);
     setBatch(null);
@@ -34,15 +55,25 @@ export default function CampaignBatchPanel() {
       const data = await fetchGenerationJson('/api/sandbox/campaign-batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ organizationId: organizationId || undefined, campaignGoal, targetAudience }),
+        body: JSON.stringify({ organizationId: organizationId || undefined, campaignGoal, targetAudience, activeBrandDna: activeBrandDna || undefined }),
+        signal,
       });
       setBatch(data);
     } catch (err: any) {
-      setGenerationFailed(true);
-      toast.error(err.message || 'Failed to generate campaign');
+      if (err.name === 'AbortError') {
+        toast.info('Generation canceled');
+      } else {
+        setGenerationFailed(true);
+        toast.error(err.message || 'Failed to generate campaign');
+      }
     } finally {
       setGenerating(false);
     }
+  };
+
+  const cancelGeneration = () => {
+    cancel();
+    setGenerating(false);
   };
 
   const optimizeAngle = (i: number, content: string, title?: string) => {
@@ -142,6 +173,7 @@ export default function CampaignBatchPanel() {
     <div className="space-y-6">
       {/* Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
+        {activeBrandDna && <ActiveBrandDnaBadge brandDna={activeBrandDna} />}
         <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Campaign Batch Engine</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
@@ -174,14 +206,30 @@ export default function CampaignBatchPanel() {
             />
           </div>
         </div>
-        <button
-          onClick={generate}
-          disabled={generating || !campaignGoal}
-          className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
-        >
-          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-          {generating ? 'Generating full campaign…' : 'Generate Full Campaign'}
-        </button>
+        {generating ? (
+          <div className="flex gap-2">
+            <button
+              disabled
+              className="py-2.5 px-5 bg-emerald-600 opacity-60 text-white font-medium rounded-xl text-xs flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating full campaign…
+            </button>
+            <button
+              onClick={cancelGeneration}
+              className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={generate}
+            disabled={!campaignGoal}
+            className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
+          >
+            <Wand2 className="w-3.5 h-3.5" /> Generate Full Campaign
+          </button>
+        )}
       </div>
 
       {generationFailed && !batch && (

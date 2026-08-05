@@ -2,8 +2,12 @@ import {
   validateExtractBrandUrl,
   BRAND_IDENTITY_EXTRACT_PROMPT,
   callOpenAiJson,
+  callOpenAiVisionJson,
   mockExtractedBrandIdentity,
   ExtractedBrandIdentitySchema,
+  IMAGE_PROMPT_VISION_PROMPT,
+  ImagePromptSchema,
+  mockImagePrompt,
   type ExtractedBrandIdentity,
 } from '@/lib/sandboxPrompts';
 import { fetchHtmlWithLimits, stripToPlainText, extractHexColors, extractImageUrls, extractPageTitle, MAX_EXTRACT_CHARS } from '@/lib/htmlExtract';
@@ -34,4 +38,9 @@ export async function extractBrandFromUrl(url: string): Promise<ExtractedBrandId
     0.7,
     ExtractedBrandIdentitySchema,
   );
+}
+
+export async function generateMidjourneyPromptFromImage(imageUrl: string): Promise<string> {
+  const result = await callOpenAiVisionJson(IMAGE_PROMPT_VISION_PROMPT, imageUrl, () => mockImagePrompt(), 0.7, ImagePromptSchema);
+  return result.prompt;
 }

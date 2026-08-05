@@ -938,3 +938,31 @@ export function mockExtractedBrandIdentity(url: string): ExtractedBrandIdentity 
     brandVoice: '[MOCK] Confident, no-fluff, customer-first',
   };
 }
+
+// keyVerbalTracks/activeAdAngles are copy material for a brief, not
+// tone/audience override rules — they're deliberately left out of the
+// <brand_dna> block and instead flow through the verbal-track insertion
+// action in BrandIdentityPanel.
+export function toBrandDna(identity: ExtractedBrandIdentity): BrandDna {
+  return {
+    brandName: identity.brandName || undefined,
+    toneOfVoice: identity.brandVoice || undefined,
+    targetAudience: identity.targetAudienceProfile || undefined,
+    coreValueProp: identity.coreValueProps.length ? identity.coreValueProps.join('; ') : undefined,
+  };
+}
+
+export const ImagePromptSchema = z.object({ prompt: z.string().catch('') });
+
+export const IMAGE_PROMPT_VISION_PROMPT =
+  'You are an expert Midjourney/FLUX prompt engineer. Look at this image and write one detailed, single-paragraph ' +
+  'text-to-image prompt that would recreate its composition, subject, lighting, mood, and color palette. ' +
+  'End the prompt with style parameters: --ar 16:9 --style raw. ' +
+  'Return a valid JSON object matching this structure exactly: {"prompt": "the full generated prompt text"}.';
+
+export function mockImagePrompt(): { prompt: string } {
+  return {
+    prompt:
+      '[MOCK — set OPENAI_API_KEY for real output] A product hero shot, soft studio lighting, clean neutral background, confident brand tone, warm color palette --ar 16:9 --style raw',
+  };
+}

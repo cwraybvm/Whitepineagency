@@ -7,6 +7,15 @@ import {
   callOpenAiJson,
   basePromptForType,
   refineInstructions,
+  mockCopy,
+  mockCopyMatrix,
+  mockAd,
+  mockVideo,
+  mockDcoVariants,
+  AssetDraftSchema,
+  AdBuilderSchema,
+  VideoLabSchema,
+  CopyStudioSchema,
   type SandboxGenTool,
 } from '@/lib/sandboxPrompts';
 import type { ScorableType } from '@/lib/creativeScore';
@@ -34,7 +43,13 @@ export async function POST(req: Request) {
         metadata && `Existing metadata: ${JSON.stringify(metadata)}`,
       ].filter(Boolean).join('\n');
 
-      const result = await callOpenAiJson(systemPrompt, userContext);
+      const result = await callOpenAiJson(
+        systemPrompt,
+        userContext,
+        () => ({ title: '[MOCK REFINED]', content: `[MOCK REFINED] ${content}`, metadata }),
+        0.7,
+        AssetDraftSchema,
+      );
       return NextResponse.json({ success: true, ...result });
     }
 
@@ -58,12 +73,18 @@ export async function POST(req: Request) {
         `Audience segments: ${audienceSegments.join(', ')}`,
       ].join('\n');
 
-      const result = await callOpenAiJson(systemPrompt, userContext);
+      const result = await callOpenAiJson(
+        systemPrompt,
+        userContext,
+        () => mockDcoVariants(prompt, locations, audienceSegments),
+        0.7,
+        CopyStudioSchema.dco,
+      );
       return NextResponse.json({ success: true, ...result });
     }
 
     // Default: single / matrix copy-ad-video generation
-    const { tool, prompt, tone, platform, lengthSeconds } = body;
+    const { tool, prompt, tone, platform, lengthSeconds, activeBrandDna } = body;
 
     if (!tool || !SYSTEM_PROMPTS[tool as SandboxGenTool]) {
       return NextResponse.json({ error: 'Invalid tool' }, { status: 400 });
@@ -86,7 +107,23 @@ export async function POST(req: Request) {
       lengthSeconds && `Target length: ~${lengthSeconds} seconds`,
     ].filter(Boolean).join('\n');
 
-    const result = await callOpenAiJson(systemPrompt, userContext);
+    const mockFallback = isMatrix
+      ? () => mockCopyMatrix(prompt)
+      : tool === 'ad'
+        ? () => mockAd(prompt)
+        : tool === 'video'
+          ? () => mockVideo(prompt)
+          : () => mockCopy(prompt);
+
+    const schema = isMatrix
+      ? CopyStudioSchema.matrix
+      : tool === 'ad'
+        ? AdBuilderSchema
+        : tool === 'video'
+          ? VideoLabSchema
+          : CopyStudioSchema.draft;
+
+    const result = await callOpenAiJson(systemPrompt, userContext, mockFallback, 0.7, schema, activeBrandDna);
 
     return NextResponse.json({ success: true, ...result });
   } catch (err: any) {

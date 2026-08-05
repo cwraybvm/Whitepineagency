@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic, RefreshCw, History as HistoryIcon } from 'lucide-react';
-import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, VOICE_PERSONA_OPTIONS, type Tone, type Beat, type ShotDuration, type CameraMovement, type VoicePersona } from './types';
+import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, VOICE_PERSONA_OPTIONS, type Tone, type Beat, type ShotDuration, type CameraMovement, type VoicePersona, type SandboxTool } from './types';
+import type { BrandDna } from '@/lib/sandboxPrompts';
 import ScoreBadge from './ScoreBadge';
 import CopyButton from './CopyButton';
 import HistoryDrawer from './HistoryDrawer';
+import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import { fetchGenerationJson } from '@/lib/sandboxClientFetch';
 import { useSandboxHistory } from '@/hooks/useSandboxHistory';
+import { useAbortController } from '@/hooks/useAbortController';
 
 type VideoDraft = {
   title: string;
@@ -49,27 +52,45 @@ function shotPromptsText(title: string, beats: Beat[]): string {
   ].join('\n');
 }
 
-export default function VideoLabPanel() {
-  const [prompt, setPrompt] = useState('15-second social ad for a plumbing company\'s emergency service');
+export default function VideoLabPanel({
+  activeBrandDna,
+  pendingInsert,
+  onInsertConsumed,
+}: {
+  activeBrandDna?: BrandDna | null;
+  pendingInsert?: { tool: SandboxTool; text: string } | null;
+  onInsertConsumed?: () => void;
+} = {}) {
+  const [prompt, setPrompt] = useState(() =>
+    pendingInsert?.tool === 'video' ? pendingInsert.text : '15-second social ad for a plumbing company\'s emergency service',
+  );
   const [tone, setTone] = useState<Tone>('Urgent');
   const [lengthSeconds, setLengthSeconds] = useState(15);
   const [generating, setGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<VideoDraft | null>(null);
+
+  useEffect(() => {
+    if (pendingInsert?.tool === 'video') onInsertConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [generatingAudio, setGeneratingAudio] = useState<Record<number, boolean>>({});
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const history = useSandboxHistory<VideoLabSnapshot>('video', null);
+  const { start, cancel } = useAbortController();
 
   const generate = async () => {
+    const signal = start();
     setGenerating(true);
     setGenerationFailed(false);
     try {
       const data = await fetchGenerationJson('/api/sandbox/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tool: 'video', prompt, tone, lengthSeconds }),
+        body: JSON.stringify({ tool: 'video', prompt, tone, lengthSeconds, activeBrandDna: activeBrandDna || undefined }),
+        signal,
       });
       const beats: Beat[] = (data.metadata.beats || []).map((b: Beat) => ({
         ...b,
@@ -80,11 +101,20 @@ export default function VideoLabPanel() {
       setDraft(newDraft);
       history.add(`${lengthSeconds}s — ${prompt.slice(0, 60)}`, { prompt, tone, lengthSeconds, draft: newDraft });
     } catch (err: any) {
-      setGenerationFailed(true);
-      toast.error(err.message || 'Failed to generate script');
+      if (err.name === 'AbortError') {
+        toast.info('Generation canceled');
+      } else {
+        setGenerationFailed(true);
+        toast.error(err.message || 'Failed to generate script');
+      }
     } finally {
       setGenerating(false);
     }
+  };
+
+  const cancelGeneration = () => {
+    cancel();
+    setGenerating(false);
   };
 
   const restoreFromHistory = (snapshot: VideoLabSnapshot) => {
@@ -185,6 +215,7 @@ export default function VideoLabPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
+        {activeBrandDna && <ActiveBrandDnaBadge brandDna={activeBrandDna} />}
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Video Lab Controls</h2>
           <button
@@ -242,14 +273,30 @@ export default function VideoLabPanel() {
           </div>
         </div>
 
-        <button
-          onClick={generate}
-          disabled={generating || !prompt}
-          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
-        >
-          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-          {generating ? 'Generating…' : 'Generate Storyboard'}
-        </button>
+        {generating ? (
+          <div className="flex gap-2">
+            <button
+              disabled
+              className="flex-1 py-2.5 bg-emerald-600 opacity-60 text-white font-medium rounded-xl text-xs flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…
+            </button>
+            <button
+              onClick={cancelGeneration}
+              className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={generate}
+            disabled={!prompt}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
+          >
+            <Wand2 className="w-3.5 h-3.5" /> Generate Storyboard
+          </button>
+        )}
       </div>
 
       {/* RIGHT: Scene-by-scene storyboard */}

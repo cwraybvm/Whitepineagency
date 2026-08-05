@@ -12,6 +12,7 @@ import BrandIdentityPanel from '@/components/sandbox/BrandIdentityPanel';
 import StagedAssetsList from '@/components/sandbox/StagedAssetsList';
 import BrandDnaHud from '@/components/sandbox/BrandDnaHud';
 import type { SandboxTool } from '@/components/sandbox/types';
+import type { BrandDna } from '@/lib/sandboxPrompts';
 
 const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
   { id: 'copy', label: 'Copy Studio', icon: PenTool },
@@ -26,6 +27,8 @@ const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
 export default function SandboxPage() {
   const [activeTool, setActiveTool] = useState<SandboxTool>('copy');
   const [view, setView] = useState<'draft' | 'staged'>('draft');
+  const [activeBrandDna, setActiveBrandDna] = useState<BrandDna | null>(null);
+  const [pendingInsert, setPendingInsert] = useState<{ tool: SandboxTool; text: string } | null>(null);
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-900 dark:text-slate-100">
@@ -86,13 +89,45 @@ export default function SandboxPage() {
 
       {view === 'draft' ? (
         <>
-          {activeTool === 'copy' && <CopyStudioPanel />}
-          {activeTool === 'ad' && <AdBuilderPanel />}
-          {activeTool === 'video' && <VideoLabPanel />}
+          {activeTool === 'copy' && (
+            <CopyStudioPanel
+              activeBrandDna={activeBrandDna}
+              pendingInsert={pendingInsert?.tool === 'copy' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+            />
+          )}
+          {activeTool === 'ad' && (
+            <AdBuilderPanel
+              activeBrandDna={activeBrandDna}
+              pendingInsert={pendingInsert?.tool === 'ad' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+            />
+          )}
+          {activeTool === 'video' && (
+            <VideoLabPanel
+              activeBrandDna={activeBrandDna}
+              pendingInsert={pendingInsert?.tool === 'video' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+            />
+          )}
           {activeTool === 'landing-page' && <LandingPageStudioPanel />}
-          {activeTool === 'campaign' && <CampaignBatchPanel />}
+          {activeTool === 'campaign' && (
+            <CampaignBatchPanel
+              activeBrandDna={activeBrandDna}
+              pendingInsert={pendingInsert?.tool === 'campaign' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+            />
+          )}
           {activeTool === 'swipe' && <SwipeAnalyzerPanel />}
-          {activeTool === 'brand-identity' && <BrandIdentityPanel />}
+          {activeTool === 'brand-identity' && (
+            <BrandIdentityPanel
+              onApplyBrandDna={setActiveBrandDna}
+              onInsertPhrase={(tool, text) => {
+                setPendingInsert({ tool, text });
+                setActiveTool(tool);
+              }}
+            />
+          )}
         </>
       ) : (
         <StagedAssetsList activeTool={activeTool} />

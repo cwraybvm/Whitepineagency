@@ -3,14 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Wand2, Save, Loader2, Sparkles, Pencil, Grid3x3, MapPinned, Rocket, RefreshCw, History as HistoryIcon } from 'lucide-react';
-import { TONE_OPTIONS, type Tone, type GeneratedDraft, type AngleDraft, type BrandDna, type CopyStudioMode, type DcoVariant } from './types';
+import { TONE_OPTIONS, type Tone, type GeneratedDraft, type AngleDraft, type BrandDna, type CopyStudioMode, type DcoVariant, type SandboxTool } from './types';
+import type { BrandDna as ActiveBrandDna } from '@/lib/sandboxPrompts';
 import CharLimitBadges from './CharLimitBadges';
 import BrandDnaDrawer from './BrandDnaDrawer';
 import ScoreBadge from './ScoreBadge';
 import CopyButton from './CopyButton';
 import HistoryDrawer from './HistoryDrawer';
+import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 import { useSandboxHistory } from '@/hooks/useSandboxHistory';
+import { useAbortController } from '@/hooks/useAbortController';
 
 const MODES: { id: CopyStudioMode; label: string; icon: React.ElementType }[] = [
   { id: 'single', label: 'Single', icon: Wand2 },
@@ -43,8 +46,18 @@ type CopyStudioSnapshot = {
   dcoVariants: DcoVariant[];
 };
 
-export default function CopyStudioPanel() {
-  const [prompt, setPrompt] = useState('$79 Spring AC Tune-Up promo for a local HVAC company');
+export default function CopyStudioPanel({
+  activeBrandDna,
+  pendingInsert,
+  onInsertConsumed,
+}: {
+  activeBrandDna?: ActiveBrandDna | null;
+  pendingInsert?: { tool: SandboxTool; text: string } | null;
+  onInsertConsumed?: () => void;
+} = {}) {
+  const [prompt, setPrompt] = useState(() =>
+    pendingInsert?.tool === 'copy' ? pendingInsert.text : '$79 Spring AC Tune-Up promo for a local HVAC company',
+  );
   const [tone, setTone] = useState<Tone>('Direct Response');
   const [generating, setGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
@@ -68,9 +81,15 @@ export default function CopyStudioPanel() {
 
   const [historyOpen, setHistoryOpen] = useState(false);
   const history = useSandboxHistory<CopyStudioSnapshot>('copy', organizationId);
+  const { start, cancel } = useAbortController();
 
   useEffect(() => {
     fetchJsonArray<{ id: string; name: string }>('/api/sandbox/organizations').then(setOrgs);
+  }, []);
+
+  useEffect(() => {
+    if (pendingInsert?.tool === 'copy') onInsertConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadBrandDna = (orgId: string) => {
@@ -92,6 +111,7 @@ export default function CopyStudioPanel() {
   const selectedOrg = orgs.find((o) => o.id === organizationId);
 
   const generate = async () => {
+    const signal = start();
     setGenerating(true);
     setGenerationFailed(false);
     setDraft(null);
@@ -116,6 +136,7 @@ export default function CopyStudioPanel() {
             locations: locationList,
             audienceSegments: segmentList,
           }),
+          signal,
         });
         setDcoVariants(data.variants);
         history.add(`[DCO] ${prompt.slice(0, 60)}`, {
@@ -134,7 +155,9 @@ export default function CopyStudioPanel() {
           tone,
           organizationId: organizationId || undefined,
           mode: mode === 'matrix' ? 'matrix' : 'single',
+          activeBrandDna: activeBrandDna || undefined,
         }),
+        signal,
       });
       if (mode === 'matrix') {
         setAngleDrafts(data.angles);
@@ -151,11 +174,20 @@ export default function CopyStudioPanel() {
         });
       }
     } catch (err: any) {
-      setGenerationFailed(true);
-      toast.error(err.message || 'Failed to generate copy');
+      if (err.name === 'AbortError') {
+        toast.info('Generation canceled');
+      } else {
+        setGenerationFailed(true);
+        toast.error(err.message || 'Failed to generate copy');
+      }
     } finally {
       setGenerating(false);
     }
+  };
+
+  const cancelGeneration = () => {
+    cancel();
+    setGenerating(false);
   };
 
   const restoreFromHistory = (snapshot: CopyStudioSnapshot) => {
@@ -237,6 +269,7 @@ export default function CopyStudioPanel() {
     <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
       {/* LEFT: Controls */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
+        {activeBrandDna && <ActiveBrandDnaBadge brandDna={activeBrandDna} />}
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Copy Studio Controls</h2>
           <button
@@ -360,20 +393,31 @@ export default function CopyStudioPanel() {
           </div>
         )}
 
-        <button
-          onClick={generate}
-          disabled={generating || !prompt}
-          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
-        >
-          {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-          {generating
-            ? 'Generating…'
-            : mode === 'matrix'
-              ? 'Generate 5-Angle Matrix'
-              : mode === 'dco'
-                ? 'Generate DCO Matrix'
-                : 'Generate Copy'}
-        </button>
+        {generating ? (
+          <div className="flex gap-2">
+            <button
+              disabled
+              className="flex-1 py-2.5 bg-emerald-600 opacity-60 text-white font-medium rounded-xl text-xs flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating…
+            </button>
+            <button
+              onClick={cancelGeneration}
+              className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={generate}
+            disabled={!prompt}
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            {mode === 'matrix' ? 'Generate 5-Angle Matrix' : mode === 'dco' ? 'Generate DCO Matrix' : 'Generate Copy'}
+          </button>
+        )}
       </div>
 
       {/* RIGHT: Draft Canvas */}
