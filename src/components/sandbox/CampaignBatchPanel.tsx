@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Loader2, Rocket, Clapperboard, MessageSquareText, RefreshCw } from 'lucide-react';
+import { Wand2, Loader2, Rocket, Clapperboard, MessageSquareText, RefreshCw, FileArchive } from 'lucide-react';
 import type { CampaignBatch, OrgBrand } from './types';
 import { ASPECT_RATIOS } from './types';
 import ScoreBadge from './ScoreBadge';
@@ -19,6 +19,7 @@ export default function CampaignBatchPanel() {
   const [generating, setGenerating] = useState(false);
   const [generationFailed, setGenerationFailed] = useState(false);
   const [staging, setStaging] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [batch, setBatch] = useState<CampaignBatch | null>(null);
 
   useEffect(() => {
@@ -98,6 +99,42 @@ export default function CampaignBatchPanel() {
       toast.error(err.message || 'Failed to stage campaign');
     } finally {
       setStaging(false);
+    }
+  };
+
+  const exportPack = async () => {
+    if (!batch) return;
+    setExporting(true);
+    try {
+      const res = await fetch('/api/sandbox/export-pack', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          organizationId: organizationId || undefined,
+          organizationName: selectedOrg?.name,
+          campaignGoal,
+          targetAudience,
+          copyVariations: batch.angles,
+          ad: batch.ad,
+          video: batch.video,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Export failed');
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'campaign-pack.zip';
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Campaign pack downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export campaign pack');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -251,14 +288,24 @@ export default function CampaignBatchPanel() {
             </div>
           </div>
 
-          <button
-            onClick={stage}
-            disabled={staging}
-            className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-sm flex items-center justify-center gap-2"
-          >
-            {staging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-            {staging ? 'Staging campaign…' : 'Batch Stage Campaign'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={stage}
+              disabled={staging}
+              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-sm flex items-center justify-center gap-2"
+            >
+              {staging ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+              {staging ? 'Staging campaign…' : 'Batch Stage Campaign'}
+            </button>
+            <button
+              onClick={exportPack}
+              disabled={exporting}
+              className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-60 text-white font-medium shadow-md transition-all duration-200 rounded-xl text-sm flex items-center justify-center gap-2"
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileArchive className="w-4 h-4" />}
+              {exporting ? 'Compiling pack…' : 'Export Pack (.zip)'}
+            </button>
+          </div>
         </div>
       )}
     </div>
