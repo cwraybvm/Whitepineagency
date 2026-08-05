@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Quote, CheckCircle2, ArrowRight, LayoutPanelTop, RefreshCw } from 'lucide-react';
+import { Wand2, Save, Loader2, Quote, CheckCircle2, LayoutPanelTop, RefreshCw } from 'lucide-react';
 import type { LandingPageDraft, OrgBrand } from './types';
 import ScoreBadge from './ScoreBadge';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
+import { renderLandingPageHtml } from './landingPageHtml';
 
 type SourceMode = 'asset' | 'brief';
 
@@ -16,6 +17,7 @@ function normalizeMetadata(metadata: any): LandingPageDraft['metadata'] {
     primaryCta: metadata?.primaryCta || '',
     valueProps: Array.isArray(metadata?.valueProps) ? metadata.valueProps : [],
     testimonial: metadata?.testimonial || '',
+    guaranteeBadge: metadata?.guaranteeBadge || undefined,
   };
 }
 
@@ -30,11 +32,20 @@ export default function LandingPageStudioPanel() {
   const [generationFailed, setGenerationFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<LandingPageDraft | null>(null);
+  const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  const [refiningField, setRefiningField] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJsonArray<{ id: string; title: string; type: string }>('/api/sandbox/assets').then(setAssets);
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
   }, []);
+
+  const selectedOrg = orgs.find((o) => o.id === organizationId);
+  const previewHtml = useMemo(
+    () => (draft ? renderLandingPageHtml(draft, selectedOrg?.primaryColor) : ''),
+    [draft, selectedOrg?.primaryColor],
+  );
+  const viewportWidth = viewport === 'mobile' ? '375px' : viewport === 'tablet' ? '768px' : '100%';
 
   const updateField = (patch: Partial<LandingPageDraft['metadata']>) => {
     setDraft((prev) => (prev ? { ...prev, metadata: { ...prev.metadata, ...patch } } : prev));
@@ -103,9 +114,26 @@ export default function LandingPageStudioPanel() {
     }
   };
 
+  const refineSection = async (field: string, currentValue: string, instruction: string) => {
+    setRefiningField(field);
+    try {
+      const data = await fetchGenerationJson('/api/sandbox/landing-page/refine-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field, currentValue, instruction, organizationId: organizationId || undefined }),
+      });
+      updateField({ [field]: data.text } as Partial<LandingPageDraft['metadata']>);
+      toast.success('Section updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to refine section');
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-6 items-start">
-      {/* LEFT: Controls */}
+    <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-6 items-start">
+      {/* LEFT: Controls & Inspector */}
       <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-5 space-y-4">
         <h2 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider font-mono">Landing Page Studio Controls</h2>
 
@@ -179,28 +207,52 @@ export default function LandingPageStudioPanel() {
           {generating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
           {generating ? 'Generating…' : 'Generate Landing Page'}
         </button>
-      </div>
 
-      {/* RIGHT: Section previews */}
-      <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 border-t-white/80 dark:border-t-white/10 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[360px] flex flex-col">
-        {draft ? (
-          <div className="flex-1 flex flex-col space-y-5">
+        {draft && (
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <LayoutPanelTop className="w-4 h-4" />
               <span className="text-[10px] font-mono uppercase">{draft.title}</span>
             </div>
 
-            <input
-              value={draft.metadata.heroHeadline}
-              onChange={(e) => updateField({ heroHeadline: e.target.value })}
-              className="w-full bg-transparent text-2xl font-black text-slate-900 dark:text-white leading-tight focus:outline-none border-b border-transparent focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 pb-1"
-            />
-            <textarea
-              value={draft.metadata.subheadline}
-              onChange={(e) => updateField({ subheadline: e.target.value })}
-              rows={2}
-              className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
-            />
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Hero Headline</label>
+                <button
+                  onClick={() => refineSection('heroHeadline', draft.metadata.heroHeadline, 'Rewrite this hero headline to be punchier and more compelling')}
+                  disabled={refiningField === 'heroHeadline'}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                >
+                  {refiningField === 'heroHeadline' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Rewrite
+                </button>
+              </div>
+              <input
+                value={draft.metadata.heroHeadline}
+                onChange={(e) => updateField({ heroHeadline: e.target.value })}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Subheadline</label>
+                <button
+                  onClick={() => refineSection('subheadline', draft.metadata.subheadline, 'Rewrite this to increase urgency using scarcity or timeliness language, keep roughly the same length')}
+                  disabled={refiningField === 'subheadline'}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                >
+                  {refiningField === 'subheadline' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Increase Urgency
+                </button>
+              </div>
+              <textarea
+                value={draft.metadata.subheadline}
+                onChange={(e) => updateField({ subheadline: e.target.value })}
+                rows={2}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
+              />
+            </div>
 
             <div className="space-y-2">
               <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Value Propositions</label>
@@ -216,24 +268,33 @@ export default function LandingPageStudioPanel() {
               ))}
             </div>
 
-            <div className="bg-slate-100 border border-slate-300 dark:bg-slate-950 dark:border-slate-800 rounded-lg p-4 space-y-1.5">
-              <Quote className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <div className="bg-slate-100 border border-slate-300 dark:bg-slate-950 dark:border-slate-800 rounded-lg p-3 space-y-1.5">
+              <Quote className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
               <textarea
                 value={draft.metadata.testimonial}
                 onChange={(e) => updateField({ testimonial: e.target.value })}
                 rows={2}
-                className="w-full bg-transparent text-sm text-slate-600 dark:text-slate-300 italic focus:outline-none resize-none"
+                className="w-full bg-transparent text-xs text-slate-600 dark:text-slate-300 italic focus:outline-none resize-none"
               />
             </div>
 
-            <div className="w-full py-2.5 rounded-lg text-white text-xs font-bold flex items-center justify-center gap-1.5 bg-indigo-600">
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Primary CTA</label>
               <input
                 value={draft.metadata.primaryCta}
                 onChange={(e) => updateField({ primaryCta: e.target.value })}
-                className="bg-transparent text-center focus:outline-none w-full"
+                className="w-full bg-indigo-600 text-white text-center text-xs font-bold rounded-lg py-2.5 focus:outline-none"
               />
-              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
             </div>
+
+            <button
+              onClick={() => refineSection('guaranteeBadge', draft.metadata.guaranteeBadge || '', 'Write a short trust or risk-reversal guarantee badge line for this business, e.g. "100% Satisfaction Guaranteed"')}
+              disabled={refiningField === 'guaranteeBadge'}
+              className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 disabled:opacity-60 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              {refiningField === 'guaranteeBadge' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+              {draft.metadata.guaranteeBadge ? 'Regenerate Guarantee Badge' : 'Add Guarantee Badge'}
+            </button>
 
             <ScoreBadge
               content={draft.content}
@@ -245,29 +306,57 @@ export default function LandingPageStudioPanel() {
             <button
               onClick={saveToStaged}
               disabled={saving}
-              className="py-2.5 px-5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2 mt-auto"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
               {saving ? 'Saving…' : 'Save to Staged Assets'}
             </button>
           </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center text-slate-500 dark:text-slate-400 text-sm">
-            {generationFailed ? (
-              <>
-                <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
-                <button
-                  onClick={generate}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Retry
-                </button>
-              </>
-            ) : (
-              'Pick a source and generate to see the landing page sections here.'
-            )}
-          </div>
         )}
+      </div>
+
+      {/* RIGHT: Live Preview */}
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          {(['mobile', 'tablet', 'desktop'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setViewport(v)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
+                viewport === v
+                  ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                  : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              {v === 'mobile' ? 'Mobile 375px' : v === 'tablet' ? 'Tablet 768px' : 'Desktop 100%'}
+            </button>
+          ))}
+        </div>
+        <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-4 min-h-[500px] flex items-center justify-center overflow-auto">
+          {draft ? (
+            <iframe
+              srcDoc={previewHtml}
+              sandbox="allow-scripts"
+              title="Landing page preview"
+              style={{ width: viewportWidth, height: '640px', border: 'none', background: 'white' }}
+              className="rounded-lg shadow-lg shrink-0"
+            />
+          ) : generationFailed ? (
+            <div className="flex flex-col items-center gap-3 text-center">
+              <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
+              <button
+                onClick={generate}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Retry
+              </button>
+            </div>
+          ) : (
+            <div className="text-center text-slate-500 dark:text-slate-400 text-sm">
+              Pick a source and generate to see the live preview here.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
