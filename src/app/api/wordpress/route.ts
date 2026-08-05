@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
   try {
-    const { wpUrl, wpUsername, wpAppPassword, title, content } = await req.json();
+    const { wpUrl, wpUsername, wpAppPassword, title, content, postType } = await req.json();
 
     if (!wpUrl || !wpUsername || !wpAppPassword) {
       return NextResponse.json({ error: 'Missing WordPress API Credentials' }, { status: 400 });
@@ -10,8 +10,9 @@ export async function POST(req: Request) {
 
     const cleanUrl = wpUrl.replace(/\/$/, '');
     const authHeader = Buffer.from(`${wpUsername}:${wpAppPassword}`).toString('base64');
+    const resourcePath = postType === 'pages' ? 'pages' : 'posts';
 
-    const res = await fetch(`${cleanUrl}/wp-json/wp/v2/posts`, {
+    const res = await fetch(`${cleanUrl}/wp-json/wp/v2/${resourcePath}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
