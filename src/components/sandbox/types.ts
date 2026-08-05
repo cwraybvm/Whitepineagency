@@ -1,4 +1,4 @@
-export type SandboxTool = 'copy' | 'ad' | 'video' | 'campaign' | 'swipe' | 'landing-page' | 'brand-identity' | 'master-campaign';
+export type SandboxTool = 'copy' | 'ad' | 'video' | 'campaign' | 'swipe' | 'landing-page' | 'brand-identity' | 'master-campaign' | 'compliance-audit';
 
 export const TONE_OPTIONS = ['Direct Response', 'Urgent', 'Friendly'] as const;
 export type Tone = (typeof TONE_OPTIONS)[number];

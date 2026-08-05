@@ -1034,3 +1034,50 @@ export function mockMasterCampaignPackage(location: string, promoOffer: string):
     ],
   };
 }
+
+const ComplianceViolationSchema = z
+  .object({
+    policy: z.string().catch(''),
+    severity: z.enum(['LOW', 'MEDIUM', 'HIGH']).catch('LOW'),
+    flagReason: z.string().catch(''),
+    suggestedRewrite: z.string().catch(''),
+  })
+  .catch({ policy: '', severity: 'LOW', flagReason: '', suggestedRewrite: '' });
+
+export const ComplianceReportSchema = z.object({
+  complianceScore: z.number().min(0).max(100).catch(100),
+  status: z.enum(['PASSED', 'WARNING', 'CRITICAL_RISK']).catch('PASSED'),
+  violations: z.array(ComplianceViolationSchema).catch([]),
+  cleanCopy: z.string().catch(''),
+});
+
+export type ComplianceReport = z.infer<typeof ComplianceReportSchema>;
+
+export const COMPLIANCE_AUDITOR_PROMPT =
+  'You are a strict ad policy compliance auditor for a marketing agency. Evaluate the given ad copy against ' +
+  "Meta Ad Policy patterns (personal attributes — implying you know the reader's race, religion, health, financial, or other personal traits; " +
+  'before/after or unrealistic-outcome claims; unsubstantiated financial claims or guarantees) and Google Search ad policy patterns ' +
+  '(misleading claims, prohibited or restricted content, unsubstantiated superlatives). ' +
+  'Score the copy from 0 (severe violations) to 100 (fully compliant). Set status from the score: PASSED for 80 or above, ' +
+  'WARNING for 50-79, CRITICAL_RISK below 50. List every violation found, each with the specific policy it breaks, a severity ' +
+  '(LOW/MEDIUM/HIGH), why it was flagged, and a suggested rewrite of just that portion. ' +
+  'Finally produce cleanCopy: the full input rewritten so every flagged violation is resolved, keeping the original intent and tone otherwise intact. ' +
+  'Return a valid JSON object matching this structure exactly: {"complianceScore": 0-100, "status": "PASSED" | "WARNING" | "CRITICAL_RISK", ' +
+  '"violations": [{"policy": "the specific policy broken", "severity": "LOW" | "MEDIUM" | "HIGH", "flagReason": "why this was flagged", "suggestedRewrite": "a corrected version of just this portion"}], ' +
+  '"cleanCopy": "the full corrected copy"}.';
+
+export function mockComplianceReport(): ComplianceReport {
+  return {
+    complianceScore: 62,
+    status: 'WARNING',
+    violations: [
+      {
+        policy: '[MOCK] Meta — Before/After & Unrealistic Outcomes',
+        severity: 'MEDIUM',
+        flagReason: '[MOCK] Copy implies a guaranteed result without qualification.',
+        suggestedRewrite: '[MOCK] Reframe as a typical range of outcomes rather than a guarantee.',
+      },
+    ],
+    cleanCopy: '[MOCK — set OPENAI_API_KEY for real output] A corrected, policy-safe version of the submitted copy.',
+  };
+}
