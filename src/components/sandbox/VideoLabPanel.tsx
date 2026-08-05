@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { toast } from 'sonner';
-import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic } from 'lucide-react';
+import { Wand2, Save, Loader2, Clapperboard, Copy, Download, Mic, RefreshCw } from 'lucide-react';
 import { TONE_OPTIONS, SHOT_DURATIONS, CAMERA_MOVEMENTS, VOICE_PERSONA_OPTIONS, type Tone, type Beat, type ShotDuration, type CameraMovement, type VoicePersona } from './types';
 import ScoreBadge from './ScoreBadge';
 import CopyButton from './CopyButton';
+import { fetchGenerationJson } from '@/lib/sandboxClientFetch';
 
 type VideoDraft = {
   title: string;
@@ -44,20 +45,20 @@ export default function VideoLabPanel() {
   const [tone, setTone] = useState<Tone>('Urgent');
   const [lengthSeconds, setLengthSeconds] = useState(15);
   const [generating, setGenerating] = useState(false);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<VideoDraft | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState<Record<number, boolean>>({});
 
   const generate = async () => {
     setGenerating(true);
+    setGenerationFailed(false);
     try {
-      const res = await fetch('/api/sandbox/generate', {
+      const data = await fetchGenerationJson('/api/sandbox/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tool: 'video', prompt, tone, lengthSeconds }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Generation failed');
       const beats: Beat[] = (data.metadata.beats || []).map((b: Beat) => ({
         ...b,
         duration: b.duration || '3s',
@@ -65,6 +66,7 @@ export default function VideoLabPanel() {
       }));
       setDraft({ title: data.title, content: data.content, metadata: { beats } });
     } catch (err: any) {
+      setGenerationFailed(true);
       toast.error(err.message || 'Failed to generate script');
     } finally {
       setGenerating(false);
@@ -376,8 +378,20 @@ export default function VideoLabPanel() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
-            Set your brief and length, then generate to see the storyboard here.
+          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center text-slate-500 dark:text-slate-400 text-sm">
+            {generationFailed ? (
+              <>
+                <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
+                <button
+                  onClick={generate}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" /> Retry
+                </button>
+              </>
+            ) : (
+              'Set your brief and length, then generate to see the storyboard here.'
+            )}
           </div>
         )}
       </div>
