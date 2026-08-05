@@ -11,8 +11,9 @@ export async function POST(req: Request) {
       identity = await extractBrandFromUrl(url as string);
     } catch (err: any) {
       const status = err?.name === 'AbortError' ? 502 : /url/i.test(err.message || '') ? 400 : 502;
-      const message = err?.name === 'AbortError' ? 'Timed out fetching the URL' : err.message || 'Failed to fetch URL';
-      return NextResponse.json({ error: message }, { status });
+      const details = err?.name === 'AbortError' ? 'Timed out fetching the URL' : err.message || 'Failed to fetch URL';
+      const error = status === 400 ? details : 'OpenAI Key Missing or Scrape Failed';
+      return NextResponse.json({ error, details }, { status });
     }
 
     const brandGuidelines = [

@@ -14,8 +14,8 @@ export async function POST(req: Request) {
       const identity = await extractBrandFromUrl(body.url);
       return NextResponse.json({ success: true, ...identity });
     } catch (err: any) {
-      const message = err?.name === 'AbortError' ? 'Timed out fetching the URL' : err.message || 'Failed to fetch URL';
-      return NextResponse.json({ error: message }, { status: 502 });
+      const details = err?.name === 'AbortError' ? 'Timed out fetching the URL' : err.message || 'Failed to fetch URL';
+      return NextResponse.json({ error: 'OpenAI Key Missing or Scrape Failed', details }, { status: 502 });
     }
   } catch (err: any) {
     console.error('Sandbox brand-identity error:', err);

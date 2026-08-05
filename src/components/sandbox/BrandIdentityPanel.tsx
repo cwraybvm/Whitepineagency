@@ -63,15 +63,22 @@ export default function BrandIdentityPanel({
 
   const mine = async () => {
     if (!url.trim()) return;
+    setIdentity(null);
+    setImagePrompts({});
+    setExportOpen(false);
+    setInsertOpenIndex(null);
     setMining(true);
     try {
       const res = await fetch('/api/sandbox/brand-identity', {
         method: 'POST',
+        cache: 'no-store',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Brand identity extraction failed');
+      if (!res.ok) {
+        throw new Error(data.details ? `${data.error}: ${data.details}` : data.error || 'Brand identity extraction failed');
+      }
       const { success, ...rest } = data;
       setIdentity(rest as ExtractedBrandIdentity);
     } catch (err: any) {

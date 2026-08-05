@@ -11,6 +11,11 @@ export function stripToPlainText(html: string): string {
 const HEX_COLOR_PATTERN = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b/g;
 const EXCLUDED = new Set(['#fff', '#ffffff', '#000', '#000000']);
 
+// A real Chrome UA — some sites serve stripped-down markup (or block outright)
+// to unrecognized bot UAs, which was silently degrading scrape quality.
+export const CHROME_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
 export function extractHexColors(html: string): string[] {
   const $ = cheerio.load(html);
   const colors = new Set<string>();
@@ -28,6 +33,40 @@ export function extractHexColors(html: string): string[] {
   return Array.from(colors).slice(0, 12);
 }
 
+const STYLESHEET_FETCH_TIMEOUT_MS = 4000;
+const MAX_STYLESHEETS = 3;
+
+// Extends extractHexColors with colors pulled from linked <link rel="stylesheet">
+// files — most sites keep their real brand palette there, not inline.
+// Unreachable/blocked stylesheets are skipped rather than failing the whole scrape.
+export async function extractHexColorsWithStylesheets(html: string, baseUrl: string): Promise<string[]> {
+  const colors = new Set<string>(extractHexColors(html));
+  const $ = cheerio.load(html);
+  const hrefs: string[] = [];
+  $('link[rel="stylesheet"]').each((_, el) => {
+    const href = $(el).attr('href');
+    if (href) hrefs.push(href);
+  });
+
+  for (const href of hrefs.slice(0, MAX_STYLESHEETS)) {
+    try {
+      const resolved = new URL(href, baseUrl).toString();
+      const res = await fetch(resolved, {
+        signal: AbortSignal.timeout(STYLESHEET_FETCH_TIMEOUT_MS),
+        headers: { 'User-Agent': CHROME_USER_AGENT },
+      });
+      if (!res.ok) continue;
+      const css = await res.text();
+      for (const m of css.match(HEX_COLOR_PATTERN) || []) colors.add(m.toLowerCase());
+    } catch {
+      // stylesheet unreachable/blocked — skip, don't fail the scrape over it
+    }
+  }
+
+  for (const excluded of EXCLUDED) colors.delete(excluded);
+  return Array.from(colors).slice(0, 12);
+}
+
 const FETCH_TIMEOUT_MS = 8000;
 const MAX_FETCH_BYTES = 300_000;
 
@@ -37,7 +76,7 @@ export async function fetchHtmlWithLimits(url: string): Promise<string> {
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'WhitePinePortal-BrandDNA/1.0' },
+      headers: { 'User-Agent': CHROME_USER_AGENT },
     });
     if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
 
@@ -89,4 +128,24 @@ export function extractImageUrls(html: string, baseUrl: string): string[] {
 export function extractPageTitle(html: string): string {
   const $ = cheerio.load(html);
   return $('title').first().text().trim();
+}
+
+export interface PageMeta {
+  title: string;
+  ogTitle: string;
+  ogImage: string;
+  description: string;
+}
+
+export function extractPageMeta(html: string): PageMeta {
+  const $ = cheerio.load(html);
+  return {
+    title: $('title').first().text().trim(),
+    ogTitle: $('meta[property="og:title"]').attr('content')?.trim() || '',
+    ogImage: $('meta[property="og:image"]').attr('content')?.trim() || '',
+    description:
+      $('meta[name="description"]').attr('content')?.trim() ||
+      $('meta[property="og:description"]').attr('content')?.trim() ||
+      '',
+  };
 }

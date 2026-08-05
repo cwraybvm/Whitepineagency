@@ -588,11 +588,12 @@ export async function callOpenAiJson(
   temperature = 0.7,
   schema?: z.ZodTypeAny,
   brandDna?: BrandDna,
+  openAiModel = 'gpt-4o-mini',
 ): Promise<any> {
   const finalPrompt = injectBrandDna(systemPrompt, brandDna);
   const parsed = await runProviderChain(
     [
-      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(finalPrompt, userContext, temperature, 'gpt-4o-mini') },
+      { name: 'OpenAI', enabled: !!process.env.OPENAI_API_KEY, run: () => openAiJsonAttempt(finalPrompt, userContext, temperature, openAiModel) },
       { name: 'Anthropic', enabled: !!process.env.ANTHROPIC_API_KEY, run: () => anthropicJsonAttempt(finalPrompt, userContext, temperature) },
       { name: 'Gemini', enabled: !!geminiApiKey(), run: () => geminiJsonAttempt(finalPrompt, userContext, temperature) },
     ],
