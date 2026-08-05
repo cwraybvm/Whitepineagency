@@ -733,6 +733,21 @@ export function mockLandingPage(hookInput: string): any {
   };
 }
 
+export const SectionRefineSchema = z.object({
+  text: z.string().catch(''),
+});
+
+export const LANDING_PAGE_SECTION_REFINE_PROMPT =
+  'You are an expert direct-response copywriter making a surgical, targeted edit to one section of an existing landing page. ' +
+  "You will be given the section's current text (which may be empty) and an instruction describing the change to make. " +
+  'Rewrite ONLY that section per the instruction — do not add commentary, labels, or explanation, and keep roughly the same length as the current text unless the instruction says otherwise. ' +
+  'Return a valid JSON object matching this structure exactly: {"text": "the rewritten section text"}.';
+
+export function mockSectionRefine(field: string, currentValue: string): { text: string } {
+  const base = currentValue?.trim() || `${field} content`;
+  return { text: `[MOCK — set OPENAI_API_KEY for real output] ${base}` };
+}
+
 export function mockCopy(hookInput: string): any {
   const hook = cleanHook(hookInput);
   return {

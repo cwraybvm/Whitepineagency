@@ -116,5 +116,6 @@ export type LandingPageDraft = {
     primaryCta: string;
     valueProps: string[];
     testimonial: string;
+    guaranteeBadge?: string;
   };
 };
