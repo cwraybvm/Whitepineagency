@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Fingerprint, Loader2, Sparkles, Download, ChevronDown, FileJson, FileText, Wand2, ArrowRightCircle, ExternalLink, ImagePlus } from 'lucide-react';
 import type { ExtractedBrandIdentity, BrandDna } from '@/lib/sandboxPrompts';
-import { toBrandDna } from '@/lib/sandboxPrompts';
+import { toBrandDna } from '@/lib/brandDna';
 import { buildSwipeFileMarkdown } from '@/lib/swipeFileExport';
 import CopyButton from './CopyButton';
 import type { SandboxTool } from './types';

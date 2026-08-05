@@ -957,18 +957,11 @@ export function mockExtractedBrandIdentity(url: string): ExtractedBrandIdentity 
   };
 }
 
-// keyVerbalTracks/activeAdAngles are copy material for a brief, not
-// tone/audience override rules — they're deliberately left out of the
-// <brand_dna> block and instead flow through the verbal-track insertion
-// action in BrandIdentityPanel.
-export function toBrandDna(identity: ExtractedBrandIdentity): BrandDna {
-  return {
-    brandName: identity.brandName || undefined,
-    toneOfVoice: identity.brandVoice || undefined,
-    targetAudience: identity.targetAudienceProfile || undefined,
-    coreValueProp: identity.coreValueProps.length ? identity.coreValueProps.join('; ') : undefined,
-  };
-}
+// Moved to src/lib/brandDna.ts (kept out of this file so client components
+// can import it without pulling this module's top-level `prisma` import
+// into their bundle). Re-exported here so existing server-side imports
+// from '@/lib/sandboxPrompts' keep working.
+export { toBrandDna } from '@/lib/brandDna';
 
 export const ImagePromptSchema = z.object({ prompt: z.string().catch('') });
 
