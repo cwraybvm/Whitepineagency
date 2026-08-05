@@ -14,6 +14,8 @@ function IntakeFormContent() {
 
   const [clientName, setClientName] = useState('');
   const [offerDetails, setOfferDetails] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [location, setLocation] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadStatus, setUploadStatus] = useState<string>('');
   const [driveFolderUrl, setDriveFolderUrl] = useState<string>('');
@@ -50,6 +52,8 @@ function IntakeFormContent() {
       const formData = new FormData();
       formData.append('clientName', clientName);
       formData.append('offerDetails', offerDetails);
+      formData.append('websiteUrl', websiteUrl);
+      formData.append('location', location);
 
       selectedFiles.forEach((file) => {
         formData.append('files', file);
@@ -156,6 +160,34 @@ function IntakeFormContent() {
               onChange={(e) => setOfferDetails(e.target.value)}
               placeholder="e.g., $79 Seasonal AC Tune-Up Special, or 10% Off First Service Call"
               className="w-full bg-[#0E131F] border border-slate-800 rounded-xl p-3 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500 font-sans"
+            />
+          </div>
+
+          {/* Website URL */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-300 block">
+              Website URL
+            </label>
+            <input
+              type="text"
+              value={websiteUrl}
+              onChange={(e) => setWebsiteUrl(e.target.value)}
+              placeholder="e.g. https://apexmechanical.com"
+              className="w-full bg-[#0E131F] border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500 min-h-[44px]"
+            />
+          </div>
+
+          {/* Location */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-slate-300 block">
+              Location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g. Austin, TX"
+              className="w-full bg-[#0E131F] border border-slate-800 rounded-xl px-3.5 py-2.5 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-blue-500 min-h-[44px]"
             />
           </div>
 
