@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop } from 'lucide-react';
+import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop, Fingerprint } from 'lucide-react';
 import CopyStudioPanel from '@/components/sandbox/CopyStudioPanel';
 import AdBuilderPanel from '@/components/sandbox/AdBuilderPanel';
 import VideoLabPanel from '@/components/sandbox/VideoLabPanel';
 import CampaignBatchPanel from '@/components/sandbox/CampaignBatchPanel';
 import SwipeAnalyzerPanel from '@/components/sandbox/SwipeAnalyzerPanel';
 import LandingPageStudioPanel from '@/components/sandbox/LandingPageStudioPanel';
+import BrandIdentityPanel from '@/components/sandbox/BrandIdentityPanel';
 import StagedAssetsList from '@/components/sandbox/StagedAssetsList';
+import BrandDnaHud from '@/components/sandbox/BrandDnaHud';
 import type { SandboxTool } from '@/components/sandbox/types';
 
 const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
@@ -18,6 +20,7 @@ const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
   { id: 'landing-page', label: 'Landing Page Studio', icon: LayoutPanelTop },
   { id: 'campaign', label: 'Campaign Engine', icon: Rocket },
   { id: 'swipe', label: 'Ad Swipe File', icon: ScanSearch },
+  { id: 'brand-identity', label: 'Brand Identity', icon: Fingerprint },
 ];
 
 export default function SandboxPage() {
@@ -25,20 +28,22 @@ export default function SandboxPage() {
   const [view, setView] = useState<'draft' | 'staged'>('draft');
 
   return (
-    <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-100">
+    <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-900 dark:text-slate-100">
       {/* Header */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-xl">
-        <span className="text-xs font-bold text-sky-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
+      <div className="bg-white/85 border border-white/60 shadow-sm backdrop-blur-md dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-6">
+        <span className="text-xs font-bold text-sky-600 dark:text-sky-400 uppercase tracking-widest font-mono block flex items-center gap-1.5">
           <Sparkles className="w-3.5 h-3.5" /> CREATIVE SANDBOX
         </span>
-        <h1 className="text-2xl font-black text-white tracking-tight">AI Creative Sandbox Workspace</h1>
-        <p className="text-xs text-slate-400">
+        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">AI Creative Sandbox Workspace</h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           Generate, stage, and promote client creative assets straight into production.
         </p>
       </div>
 
+      <BrandDnaHud />
+
       {/* Tabs + Draft/Staged toggle */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 border border-slate-800 rounded-2xl p-2">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white/85 border border-white/60 shadow-sm backdrop-blur-md dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-2">
         <div className="flex gap-1.5">
           {TABS.map((tab) => {
             const Icon = tab.icon;
@@ -47,10 +52,10 @@ export default function SandboxPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTool(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
                   isActive
-                    ? 'bg-indigo-600 text-white shadow-[0_0_15px_rgba(79,70,229,0.3)]'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#059669] text-white border-[#059669] dark:bg-emerald-600 dark:border-emerald-600'
+                    : 'text-slate-500 border-transparent dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-900/5 dark:hover:bg-white/5'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" /> {tab.label}
@@ -59,11 +64,11 @@ export default function SandboxPage() {
           })}
         </div>
 
-        <div className="flex gap-1.5 bg-slate-950 border border-slate-800 rounded-xl p-1">
+        <div className="flex gap-1.5 bg-slate-100 border border-slate-200 dark:bg-slate-950 dark:border-slate-800 rounded-xl p-1">
           <button
             onClick={() => setView('draft')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-              view === 'draft' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              view === 'draft' ? 'bg-emerald-600 text-white dark:bg-emerald-500' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <PenTool className="w-3 h-3" /> Draft Canvas
@@ -71,7 +76,7 @@ export default function SandboxPage() {
           <button
             onClick={() => setView('staged')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-              view === 'staged' ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-slate-200'
+              view === 'staged' ? 'bg-emerald-600 text-white dark:bg-emerald-500' : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
             }`}
           >
             <Archive className="w-3 h-3" /> Staged Assets
@@ -87,6 +92,7 @@ export default function SandboxPage() {
           {activeTool === 'landing-page' && <LandingPageStudioPanel />}
           {activeTool === 'campaign' && <CampaignBatchPanel />}
           {activeTool === 'swipe' && <SwipeAnalyzerPanel />}
+          {activeTool === 'brand-identity' && <BrandIdentityPanel />}
         </>
       ) : (
         <StagedAssetsList activeTool={activeTool} />
