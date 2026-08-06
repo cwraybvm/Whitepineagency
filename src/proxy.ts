@@ -53,6 +53,8 @@ export function proxy(request: NextRequest) {
   // for downstream API routes and Server Components (see TenantTheme).
   const { tenantSlug, tenantDomain } = resolveTenantFromHost(request.headers.get('host'));
   const tenantHeaders = new Headers(request.headers);
+  tenantHeaders.delete('x-tenant-slug');
+  tenantHeaders.delete('x-tenant-domain');
   if (tenantSlug) tenantHeaders.set('x-tenant-slug', tenantSlug);
   if (tenantDomain) tenantHeaders.set('x-tenant-domain', tenantDomain);
 
