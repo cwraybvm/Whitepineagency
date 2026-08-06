@@ -15,9 +15,11 @@ model Organization {
   status            String   @default("ACTIVE") // ACTIVE, SUSPENDED, CANCELED
 
   // Whitelabel Branding — applied to the client's own portal view
-  logoUrl       String?
-  primaryColor  String? // hex, e.g. "#2563EB"
-  customDomain  String?
+  logoUrl          String?
+  primaryColor     String? // hex, e.g. "#2563EB"
+  accentColor      String? // hex, e.g. "#F59E0B" — second brand color, alongside primaryColor
+  customDomain     String?
+  disabledFeatures String[] @default([]) // FeatureKey values (src/config/clientConfig.ts) this tenant has turned off
 
   // Brand DNA — persona/voice notes injected into Creative Sandbox generation
   // prompts. Null on most orgs today; generate falls back to a default tone.
