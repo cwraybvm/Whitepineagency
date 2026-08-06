@@ -1,4 +1,4 @@
-export type ScorableType = 'COPY' | 'AD' | 'VIDEO_SCRIPT' | 'DRIP' | 'LANDING_PAGE';
+export type ScorableType = 'COPY' | 'AD' | 'VIDEO_SCRIPT' | 'DRIP' | 'LANDING_PAGE' | 'BLOG_POST';
 
 export type ScoreResult = { score: number; feedback: string[] };
 
@@ -9,6 +9,11 @@ const URGENCY_WORDS = ['today', 'now', 'limited', 'hurry', 'deadline', 'expires'
 const SMS_LIMIT = 160;
 const GOOGLE_HEADLINE_LIMIT = 30;
 const META_FOLD_LIMIT = 125;
+
+const BLOG_TITLE_MIN = 40;
+const BLOG_TITLE_MAX = 65;
+const BLOG_META_DESC_MIN = 110;
+const BLOG_META_DESC_MAX = 165;
 
 function firstSentence(text: string) {
   const match = text.match(/^[^.!?\n]+[.!?]?/);
@@ -24,6 +29,7 @@ function hookTextFor(type: ScorableType, content: string, metadata: any): string
   if (type === 'AD') return metadata?.headline || firstSentence(content);
   if (type === 'VIDEO_SCRIPT') return metadata?.beats?.[0]?.line || firstSentence(content);
   if (type === 'LANDING_PAGE') return metadata?.heroHeadline || firstSentence(content);
+  if (type === 'BLOG_POST') return metadata?.title || firstSentence(content);
   return firstSentence(content);
 }
 
@@ -32,6 +38,7 @@ function ctaTextFor(type: ScorableType, content: string, metadata: any): string 
   if (type === 'VIDEO_SCRIPT') return metadata?.beats?.[metadata.beats.length - 1]?.line || lastSentence(content);
   if (type === 'DRIP') return metadata?.steps?.[metadata.steps.length - 1]?.content || lastSentence(content);
   if (type === 'LANDING_PAGE') return metadata?.primaryCta || lastSentence(content);
+  if (type === 'BLOG_POST') return metadata?.callToAction || lastSentence(content);
   return lastSentence(content);
 }
 
@@ -62,6 +69,16 @@ function scoreUrgency(fullText: string): { points: number; ok: boolean } {
 function scoreCompliance(type: ScorableType, content: string, metadata: any): { points: number; ok: boolean } {
   if (type === 'VIDEO_SCRIPT' || type === 'LANDING_PAGE') return { points: 25, ok: true };
 
+  if (type === 'BLOG_POST') {
+    const titleLen = (metadata?.title || '').length;
+    const metaDescLen = (metadata?.metaDescription || '').length;
+    const titleOk = titleLen >= BLOG_TITLE_MIN && titleLen <= BLOG_TITLE_MAX;
+    const metaDescOk = metaDescLen >= BLOG_META_DESC_MIN && metaDescLen <= BLOG_META_DESC_MAX;
+    if (titleOk && metaDescOk) return { points: 25, ok: true };
+    if (titleOk || metaDescOk) return { points: 13, ok: false };
+    return { points: 5, ok: false };
+  }
+
   if (type === 'AD') {
     const headlineLen = (metadata?.headline || '').length;
     const bodyLen = content.length;
@@ -91,7 +108,13 @@ export function scoreCreative(content: string, type: ScorableType, metadata?: an
   if (!hook.ok) feedback.push('Open with a question, number, or bold claim to sharpen the hook.');
   if (!cta.ok) feedback.push('Add a clear action verb to the call-to-action (Call, Book, Claim, Schedule).');
   if (!urgency.ok) feedback.push("Add urgency language (today, limited, don't wait) to drive faster response.");
-  if (!compliance.ok) feedback.push('Trim content to fit platform limits (SMS 160 / Google headline 30 / Meta fold ~125).');
+  if (!compliance.ok) {
+    feedback.push(
+      type === 'BLOG_POST'
+        ? 'Adjust title (~50-60 chars) and meta description (~120-160 chars) for better SEO display.'
+        : 'Trim content to fit platform limits (SMS 160 / Google headline 30 / Meta fold ~125).',
+    );
+  }
 
   return { score, feedback };
 }
