@@ -10,6 +10,7 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: '/fulfillment', roles: ['OWNER', 'OPERATOR'] },
   { prefix: '/sandbox', roles: ['OWNER', 'OPERATOR'] },
   { prefix: '/crm', roles: ['OWNER', 'OPERATOR', 'SALES'] },
+  { prefix: '/portal/settings', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER'] },
   { prefix: '/portal', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER', 'CLIENT_MEMBER'] },
 ];
 
