@@ -3,7 +3,7 @@ import AnthropicSDK, { RateLimitError as AnthropicRateLimitError, InternalServer
 import { GoogleGenAI, ApiError as GeminiApiError } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import type { ScorableType } from '@/lib/creativeScore';
-import { FormFactorOptions, type FormFactor } from '@/components/sandbox/types';
+import { FormFactorOptions, type FormFactor, BlogPostToneOptions, type BlogPostTone } from '@/components/sandbox/types';
 
 // Leaf fields carry their own `.catch()` fallback, so a missing or
 // wrong-typed key is silently repaired. The object schemas themselves are
@@ -344,6 +344,7 @@ export function basePromptForType(type: ScorableType): string {
   if (type === 'AD') return SYSTEM_PROMPTS.ad;
   if (type === 'VIDEO_SCRIPT') return SYSTEM_PROMPTS.video;
   if (type === 'LANDING_PAGE') return LANDING_PAGE_PROMPT;
+  if (type === 'BLOG_POST') return BLOG_POST_PROMPT;
   return DRIP_PROMPT;
 }
 
@@ -1274,4 +1275,81 @@ export function mockComplianceReport(): ComplianceReport {
     ],
     cleanCopy: '[MOCK — set OPENAI_API_KEY for real output] A corrected, policy-safe version of the submitted copy.',
   };
+}
+
+const MediaAssetSchema = z.object({
+  type: z.enum(['image', 'video']),
+  url: z.string().catch(''),
+  caption: z.string().catch(''),
+  altText: z.string().catch(''),
+});
+export type MediaAsset = z.infer<typeof MediaAssetSchema>;
+
+export const BlogPostPackageSchema = z.object({
+  title: z.string().catch(''),
+  slug: z.string().catch(''),
+  metaDescription: z.string().catch(''),
+  excerpt: z.string().catch(''),
+  readTimeMinutes: z.number().catch(3),
+  targetKeywords: z.array(z.string()).catch([]),
+  contentMarkdown: z.string().catch(''),
+  suggestedMediaPlacements: z.array(
+    z.object({
+      placementTag: z.string().catch(''),
+      contextNote: z.string().catch(''),
+    })
+  ).catch([]),
+  callToAction: z.string().catch(''),
+});
+export type BlogPostPackage = z.infer<typeof BlogPostPackageSchema>;
+
+export const BLOG_POST_PROMPT =
+  'You are an expert SEO content strategist and blog writer for a local-service/agency marketing team. ' +
+  'You are given an input mode (either raw notes to write a full post from scratch, or an existing draft to restructure and polish), a tone, a numbered list of available reference media (type and caption only, no URLs), and the raw text itself. ' +
+  "If the input mode is notes: write a complete, original, well-structured blog post from those notes. " +
+  "If the input mode is draft: restructure, polish, and SEO-optimize the existing draft — preserve the author's voice, claims, and facts, do not invent new content, only improve structure, clarity, and SEO framing. " +
+  'Write contentMarkdown as well-formed Markdown using headings (##), paragraphs, and lists where appropriate. ' +
+  'Where a piece of the provided reference media would genuinely strengthen a section, insert an inline placement marker in the exact form {{media:<placementTag>}} at that point in contentMarkdown, and add a matching entry to suggestedMediaPlacements with the same placementTag and a contextNote explaining what should go there and why — one marker per suggested placement, tags matching 1:1. Only suggest placements that genuinely help; do not force one if no media fits, and it is fine to suggest zero placements. ' +
+  'Produce a title (ideally 50-60 characters, compelling and keyword-aware), a URL-safe slug (lowercase, hyphenated, derived from the title), a metaDescription (120-160 characters, naturally includes the primary keyword), a one-to-two-sentence excerpt, an estimated readTimeMinutes based on a 200-words-per-minute reading pace, 3 to 6 realistic targetKeywords, and a short callToAction line. ' +
+  'Return a valid JSON object matching this structure exactly: {"title": "the post title", "slug": "url-safe-slug", "metaDescription": "120-160 character meta description", "excerpt": "one to two sentence excerpt", "readTimeMinutes": estimated integer minutes, "targetKeywords": ["3 to 6 target keywords"], "contentMarkdown": "the full post body as Markdown, including {{media:tag}} placement markers where relevant", "suggestedMediaPlacements": [{"placementTag": "tag matching a {{media:tag}} marker in contentMarkdown", "contextNote": "what should go here and why"}], "callToAction": "a short closing call-to-action line"}.';
+
+export function mockBlogPostPackage(text: string, mode: 'notes' | 'draft'): BlogPostPackage {
+  const hook = cleanHook(text, 'A Guide Worth Reading');
+  const slug = hook.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'mock-post';
+  return {
+    title: `[MOCK] ${hook}`,
+    slug,
+    metaDescription: `[MOCK — set OPENAI_API_KEY for real output] A quick, practical look at ${hook.toLowerCase()} and what it means for you.`,
+    excerpt: `[MOCK] Everything you need to know about ${hook.toLowerCase()}, explained simply.`,
+    readTimeMinutes: 4,
+    targetKeywords: [hook.toLowerCase(), 'local service tips', 'how to'],
+    contentMarkdown:
+      `## ${hook}\n\n[MOCK] This ${mode === 'draft' ? 'polished draft' : 'post'} covers ${hook.toLowerCase()} from start to finish.\n\n{{media:after-intro}}\n\n## Why It Matters\n\n[MOCK] A closer look at why ${hook.toLowerCase()} is worth your attention.\n\n## Getting Started\n\n[MOCK] Practical next steps to act on this today.`,
+    suggestedMediaPlacements: [
+      { placementTag: 'after-intro', contextNote: '[MOCK] A relevant photo here helps ground the introduction.' },
+    ],
+    callToAction: '[MOCK] Ready to get started? Reach out to our team today.',
+  };
+}
+
+export function validateBlogPostInput(body: any): string | null {
+  if (!body || (body.mode !== 'notes' && body.mode !== 'draft')) {
+    return "mode must be 'notes' or 'draft'";
+  }
+  const text = body.mode === 'notes' ? body.notes : body.draftCopy;
+  if (typeof text !== 'string' || !text.trim()) {
+    return body.mode === 'notes' ? 'notes is required' : 'draftCopy is required';
+  }
+  if (!BlogPostToneOptions.includes(body.tone)) {
+    return `tone must be one of ${BlogPostToneOptions.join(', ')}`;
+  }
+  if (body.media !== undefined) {
+    const validMedia =
+      Array.isArray(body.media) &&
+      body.media.every((m: any) => m && (m.type === 'image' || m.type === 'video') && typeof m.url === 'string' && m.url.trim());
+    if (!validMedia) {
+      return 'media must be an array of {type: "image"|"video", url: string, caption?: string, altText?: string}';
+    }
+  }
+  return null;
 }
