@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Sparkles, Plus, X, RefreshCw, Save } from 'lucide-react';
+import { FileText, Loader2, Sparkles, Plus, X, RefreshCw, Save, Download, FileCode, FileJson, Globe } from 'lucide-react';
 import { BlogPostToneOptions, type OrgBrand, type BlogPostTone } from './types';
 import type { BrandDna, BlogPostPackage, MediaAsset } from '@/lib/sandboxPrompts';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
@@ -27,6 +27,7 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
   const [placementAssignments, setPlacementAssignments] = useState<Record<string, number | null>>({});
   const [refiningField, setRefiningField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pushingWp, setPushingWp] = useState(false);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -146,6 +147,67 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
       toast.error(err.message || 'Failed to save asset');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const slugify = (value: string) => (value || 'blog-post').replace(/\s+/g, '-').toLowerCase();
+
+  const downloadTextFile = (filename: string, content: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const copyHtml = async () => {
+    if (!pkg) return;
+    try {
+      await navigator.clipboard.writeText(previewHtml);
+      toast.success('Copied HTML to clipboard');
+    } catch {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  const downloadHtml = () => pkg && downloadTextFile(`${slugify(pkg.slug || pkg.title)}.html`, previewHtml, 'text/html');
+  const downloadMarkdown = () => pkg && downloadTextFile(`${slugify(pkg.slug || pkg.title)}.md`, pkg.contentMarkdown, 'text/markdown');
+  const downloadJson = () => pkg && downloadTextFile(`${slugify(pkg.slug || pkg.title)}.json`, JSON.stringify(pkg, null, 2), 'application/json');
+
+  const pushToWordpress = async () => {
+    if (!pkg) return;
+    if (!organizationId) {
+      toast.error('Select a client organization first');
+      return;
+    }
+    setPushingWp(true);
+    try {
+      const credsRes = await fetch(`/api/organizations/credentials?organizationId=${organizationId}`);
+      const creds = await credsRes.json();
+      if (!creds.wordpressUrl || !creds.wordpressUsername || !creds.wordpressAppPass) {
+        throw new Error('Missing WordPress credentials in API Vault for this client');
+      }
+      const res = await fetch('/api/wordpress', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wpUrl: creds.wordpressUrl,
+          wpUsername: creds.wordpressUsername,
+          wpAppPassword: creds.wordpressAppPass,
+          title: pkg.title,
+          content: previewHtml,
+          postType: 'posts',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to publish to WordPress');
+      toast.success('Draft post created on WordPress');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to push to WordPress');
+    } finally {
+      setPushingWp(false);
     }
   };
 
@@ -428,7 +490,42 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
             </button>
           </div>
         )}
-        {/* Task 12 inserts the export row here */}
+        {pkg && (
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 grid grid-cols-2 gap-2">
+            <button
+              onClick={copyHtml}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide"
+            >
+              Copy HTML
+            </button>
+            <button
+              onClick={downloadHtml}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              <FileCode className="w-3 h-3" /> Download HTML
+            </button>
+            <button
+              onClick={downloadMarkdown}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              <Download className="w-3 h-3" /> Download Markdown
+            </button>
+            <button
+              onClick={downloadJson}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              <FileJson className="w-3 h-3" /> Download JSON
+            </button>
+            <button
+              onClick={pushToWordpress}
+              disabled={pushingWp}
+              className="col-span-2 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              {pushingWp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />}
+              Push to WordPress
+            </button>
+          </div>
+        )}
       </div>
 
       {/* RIGHT: Live Preview */}
