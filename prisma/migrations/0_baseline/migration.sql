@@ -14,7 +14,9 @@ CREATE TABLE "Organization" (
     "status" TEXT NOT NULL DEFAULT 'ACTIVE',
     "logoUrl" TEXT,
     "primaryColor" TEXT,
+    "accentColor" TEXT,
     "customDomain" TEXT,
+    "disabledFeatures" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "brandVoice" TEXT,
     "brandGuidelines" TEXT,
     "webhookUrl" TEXT,
@@ -562,3 +564,4 @@ ALTER TABLE "AuditRun" ADD CONSTRAINT "AuditRun_organizationId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "Metric" ADD CONSTRAINT "Metric_auditRunId_fkey" FOREIGN KEY ("auditRunId") REFERENCES "AuditRun"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
