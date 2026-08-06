@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Sparkles, Plus, X, RefreshCw } from 'lucide-react';
+import { FileText, Loader2, Sparkles, Plus, X, RefreshCw, Save } from 'lucide-react';
 import { BlogPostToneOptions, type OrgBrand, type BlogPostTone } from './types';
 import type { BrandDna, BlogPostPackage, MediaAsset } from '@/lib/sandboxPrompts';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
+import ScoreBadge from './ScoreBadge';
 
 type InputMode = 'notes' | 'draft';
 
@@ -24,6 +25,7 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
   const [pkg, setPkg] = useState<BlogPostPackage | null>(null);
   const [placementAssignments, setPlacementAssignments] = useState<Record<string, number | null>>({});
   const [refiningField, setRefiningField] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -118,6 +120,26 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
 
   const assignPlacement = (tag: string, mediaIndex: number | null) => {
     setPlacementAssignments((prev) => ({ ...prev, [tag]: mediaIndex }));
+  };
+
+  const saveToStaged = async () => {
+    if (!pkg) return;
+    setSaving(true);
+    try {
+      const { contentMarkdown, ...metadata } = pkg;
+      const res = await fetch('/api/sandbox/assets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: pkg.title, type: 'BLOG_POST', content: contentMarkdown, metadata }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Save failed');
+      toast.success('Saved to Staged Assets');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save asset');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -377,7 +399,28 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
             )}
           </div>
         )}
-        {/* Task 10 inserts ScoreBadge + Save to Staged Assets here */}
+        {pkg && (
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+            <ScoreBadge
+              content={pkg.contentMarkdown}
+              type="BLOG_POST"
+              metadata={pkg}
+              onOptimized={(r) =>
+                setPkg((prev) =>
+                  prev ? { ...prev, title: r.title || prev.title, contentMarkdown: r.content, ...(r.metadata || {}) } : prev,
+                )
+              }
+            />
+            <button
+              onClick={saveToStaged}
+              disabled={saving}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-medium shadow-md shadow-emerald-900/20 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 rounded-xl text-xs flex items-center justify-center gap-2"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              {saving ? 'Saving…' : 'Save to Staged Assets'}
+            </button>
+          </div>
+        )}
         {/* Task 12 inserts the export row here */}
       </div>
 
