@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PenTool, LayoutTemplate, Clapperboard, Sparkles, Archive, Rocket, ScanSearch, LayoutPanelTop, Fingerprint, Calendar, ShieldCheck, Mail, FileText } from 'lucide-react';
 import CopyStudioPanel from '@/components/sandbox/CopyStudioPanel';
 import AdBuilderPanel from '@/components/sandbox/AdBuilderPanel';
@@ -42,6 +42,12 @@ export default function SandboxPage() {
   const [pendingInsert, setPendingInsert] = useState<{ tool: SandboxTool; text: string } | null>(null);
   const tenant = useTenant();
   const visibleTabs = TABS.filter((tab) => isFeatureEnabled(tenant, tab.id));
+
+  useEffect(() => {
+    if (!visibleTabs.some((tab) => tab.id === activeTool) && visibleTabs.length > 0) {
+      setActiveTool(visibleTabs[0].id);
+    }
+  }, [visibleTabs, activeTool]);
 
   const handleInsertPhrase = (tool: SandboxTool, text: string) => {
     setPendingInsert({ tool, text });
@@ -180,7 +186,9 @@ export default function SandboxPage() {
           )}
         </>
       ) : (
-        <StagedAssetsList activeTool={activeTool} />
+        <FeatureGuard feature={activeTool}>
+          <StagedAssetsList activeTool={activeTool} />
+        </FeatureGuard>
       )}
     </div>
   );

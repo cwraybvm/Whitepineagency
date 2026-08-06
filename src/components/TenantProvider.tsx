@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext } from 'react';
-import type { TenantConfig } from '@/config/clientConfig';
+import type { TenantConfig } from '@/config/tenantFeatures';
 
 const TenantContext = createContext<TenantConfig | null>(null);
 

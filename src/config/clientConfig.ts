@@ -1,7 +1,6 @@
 import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { resolveOrganizationId } from '@/lib/portalOrg';
 import { DEFAULT_TENANT, type FeatureKey, type TenantConfig } from '@/config/tenantFeatures';
 
 // Re-exported for existing consumers (e.g. TenantProvider) that import these
@@ -66,11 +65,13 @@ export const getCurrentTenant = cache(async (): Promise<TenantConfig> => {
   const orgIdCookie = cookieStore.get('org_id')?.value;
   if (!orgIdCookie) return DEFAULT_TENANT;
 
-  const resolvedId = await resolveOrganizationId(orgIdCookie).catch(() => null);
-  if (!resolvedId) return DEFAULT_TENANT;
-
-  const org = await prisma.organization
-    .findUnique({ where: { id: resolvedId }, select: TENANT_SELECT })
+  const byId = await prisma.organization
+    .findUnique({ where: { id: orgIdCookie }, select: TENANT_SELECT })
     .catch(() => null);
-  return org ? toTenantConfig(org) : DEFAULT_TENANT;
+  if (byId) return toTenantConfig(byId);
+
+  const bySlug = await prisma.organization
+    .findUnique({ where: { slug: orgIdCookie }, select: TENANT_SELECT })
+    .catch(() => null);
+  return bySlug ? toTenantConfig(bySlug) : DEFAULT_TENANT;
 });

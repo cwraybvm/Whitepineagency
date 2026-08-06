@@ -1,7 +1,7 @@
 // src/config/clientConfig.selfcheck.ts
 // Run: npx tsx src/config/clientConfig.selfcheck.ts
 import assert from 'node:assert';
-import { DEFAULT_TENANT, isFeatureEnabled, type TenantConfig } from './clientConfig';
+import { DEFAULT_TENANT, isFeatureEnabled, type TenantConfig } from './tenantFeatures';
 
 assert.strictEqual(
   DEFAULT_TENANT.disabledFeatures.length,
