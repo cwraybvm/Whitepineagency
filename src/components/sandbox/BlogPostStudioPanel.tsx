@@ -8,6 +8,7 @@ import type { BrandDna, BlogPostPackage, MediaAsset } from '@/lib/sandboxPrompts
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import ScoreBadge from './ScoreBadge';
+import { renderBlogPostHtml } from './blogPostHtml';
 
 type InputMode = 'notes' | 'draft';
 
@@ -32,6 +33,12 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
   }, []);
 
   const selectedOrg = orgs.find((o) => o.id === organizationId);
+  const [viewport, setViewport] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  const previewHtml = useMemo(
+    () => (pkg ? renderBlogPostHtml(pkg, media, placementAssignments, selectedOrg?.primaryColor) : ''),
+    [pkg, media, placementAssignments, selectedOrg?.primaryColor],
+  );
+  const viewportWidth = viewport === 'mobile' ? '375px' : viewport === 'tablet' ? '768px' : '100%';
 
   const updateMedia = (index: number, patch: Partial<MediaAsset>) => {
     setMedia((prev) => prev.map((m, i) => (i === index ? { ...m, ...patch } : m)));
@@ -424,25 +431,48 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
         {/* Task 12 inserts the export row here */}
       </div>
 
-      {/* RIGHT: Live Preview — Task 11 fills this in */}
+      {/* RIGHT: Live Preview */}
       <div className="space-y-3">
-        {!pkg && (
-          <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-6 min-h-[500px] flex items-center justify-center text-center text-slate-500 dark:text-slate-400 text-sm">
-            {generationFailed ? (
-              <div className="flex flex-col items-center gap-3">
-                <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
-                <button
-                  onClick={generate}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Retry
-                </button>
-              </div>
-            ) : (
-              'Add notes or a draft and Generate Blog Post to see the live preview here.'
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {(['mobile', 'tablet', 'desktop'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setViewport(v)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide transition-all ${
+                viewport === v
+                  ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                  : 'bg-slate-100 border border-slate-300 text-slate-500 hover:text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              {v === 'mobile' ? 'Mobile 375px' : v === 'tablet' ? 'Tablet 768px' : 'Desktop 100%'}
+            </button>
+          ))}
+        </div>
+        <div className="bg-white/85 dark:bg-[#121824]/75 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/70 shadow-sm dark:shadow-md dark:shadow-black/20 rounded-xl p-4 min-h-[500px] flex items-center justify-center overflow-auto">
+          {pkg ? (
+            <iframe
+              srcDoc={previewHtml}
+              sandbox="allow-scripts"
+              title="Blog post preview"
+              style={{ width: viewportWidth, height: '800px', border: 'none', background: 'white' }}
+              className="rounded-lg shadow-lg shrink-0"
+            />
+          ) : generationFailed ? (
+            <div className="flex flex-col items-center gap-3 text-center">
+              <p className="text-sm text-red-500 dark:text-red-400">Generation failed. This can happen during high demand.</p>
+              <button
+                onClick={generate}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs flex items-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Retry
+              </button>
+            </div>
+          ) : (
+            <div className="text-center text-slate-500 dark:text-slate-400 text-sm">
+              Add notes or a draft and Generate Blog Post to see the live preview here.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
