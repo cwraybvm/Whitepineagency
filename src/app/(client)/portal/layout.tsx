@@ -3,6 +3,7 @@ import { Plus_Jakarta_Sans, Fira_Code } from "next/font/google";
 import { getCurrentTenant } from "@/config/clientConfig";
 import TenantTheme from "@/components/portal/TenantTheme";
 import { TenantProvider } from "@/components/TenantProvider";
+import DevTenantBadge from "@/components/DevTenantBadge";
 
 // design-system/white-pine-portal/pages/portal.md — Flat Design, trust-blue, light-mode default.
 const jakarta = Plus_Jakarta_Sans({
@@ -58,6 +59,7 @@ export default async function PortalLayout({
           <main className="min-h-screen">{children}</main>
         </TenantTheme>
       </TenantProvider>
+      <DevTenantBadge tenant={tenant} />
     </div>
   );
 }

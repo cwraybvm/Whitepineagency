@@ -4,6 +4,7 @@ import AdminNav from "@/components/AdminNav";
 import AdminCommandPalette from "@/components/admin/AdminCommandPalette";
 import { getCurrentTenant } from "@/config/clientConfig";
 import { TenantProvider } from "@/components/TenantProvider";
+import DevTenantBadge from "@/components/DevTenantBadge";
 
 const firaCode = Fira_Code({
   subsets: ["latin"],
@@ -29,37 +30,40 @@ export default async function SandboxLayout({
   const tenant = await getCurrentTenant();
 
   return (
-    <TenantProvider tenant={tenant}>
-      <div
-        className={`admin-console ${firaCode.variable} ${firaSans.variable} font-sans flex bg-slate-950 dark:bg-slate-950 light:bg-slate-50 min-h-screen text-slate-100 dark:text-slate-100 light:text-slate-900 antialiased relative overflow-hidden before:content-[''] before:absolute before:top-0 before:right-1/4 before:w-[500px] before:h-[500px] before:bg-emerald-500/5 before:blur-[120px] before:pointer-events-none before:-z-10`}
-        style={
-          {
-            "--color-primary": "#0F172A",
-            "--color-on-primary": "#FFFFFF",
-            "--color-secondary": "#334155",
-            "--color-accent": "#0369A1",
-            "--color-background": "#F8FAFC",
-            "--color-foreground": "#020617",
-            "--color-muted": "#E8ECF1",
-            "--color-border": "#E2E8F0",
-            "--color-destructive": "#DC2626",
-            "--color-ring": "#0F172A",
-            "--primary-color": tenant.primaryColor || "#2563EB",
-            "--accent-color": tenant.accentColor || "#EA580C",
-          } as React.CSSProperties
-        }
-      >
-        <div className="absolute inset-0 cyber-grid pointer-events-none z-0 opacity-30" />
-        <div className="absolute top-0 right-1/4 w-[700px] h-[700px] bg-indigo-500/5 rounded-full blur-[160px] pointer-events-none" />
+    <>
+      <TenantProvider tenant={tenant}>
+        <div
+          className={`admin-console ${firaCode.variable} ${firaSans.variable} font-sans flex bg-slate-950 dark:bg-slate-950 light:bg-slate-50 min-h-screen text-slate-100 dark:text-slate-100 light:text-slate-900 antialiased relative overflow-hidden before:content-[''] before:absolute before:top-0 before:right-1/4 before:w-[500px] before:h-[500px] before:bg-emerald-500/5 before:blur-[120px] before:pointer-events-none before:-z-10`}
+          style={
+            {
+              "--color-primary": "#0F172A",
+              "--color-on-primary": "#FFFFFF",
+              "--color-secondary": "#334155",
+              "--color-accent": "#0369A1",
+              "--color-background": "#F8FAFC",
+              "--color-foreground": "#020617",
+              "--color-muted": "#E8ECF1",
+              "--color-border": "#E2E8F0",
+              "--color-destructive": "#DC2626",
+              "--color-ring": "#0F172A",
+              "--primary-color": tenant.primaryColor || "#2563EB",
+              "--accent-color": tenant.accentColor || "#EA580C",
+            } as React.CSSProperties
+          }
+        >
+          <div className="absolute inset-0 cyber-grid pointer-events-none z-0 opacity-30" />
+          <div className="absolute top-0 right-1/4 w-[700px] h-[700px] bg-indigo-500/5 rounded-full blur-[160px] pointer-events-none" />
 
-        <AdminNav />
+          <AdminNav />
 
-        <main className="flex-1 overflow-y-auto relative z-10 w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
-          {children}
-        </main>
+          <main className="flex-1 overflow-y-auto relative z-10 w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
+            {children}
+          </main>
 
-        <AdminCommandPalette />
-      </div>
-    </TenantProvider>
+          <AdminCommandPalette />
+        </div>
+      </TenantProvider>
+      <DevTenantBadge tenant={tenant} />
+    </>
   );
 }
