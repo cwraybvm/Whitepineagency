@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FEATURE_KEYS, FEATURE_LABELS } from '@/config/tenantFeatures';
 import type { FeatureKey } from '@/config/tenantFeatures';
@@ -18,6 +19,7 @@ const DEFAULT_PRIMARY = '#2563EB';
 const DEFAULT_ACCENT = '#EA580C';
 
 export default function BrandingSettingsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -59,6 +61,7 @@ export default function BrandingSettingsPage() {
         throw new Error(body.error || 'Failed to save');
       }
       toast.success('Branding updated');
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save branding');
     } finally {

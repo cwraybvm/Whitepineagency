@@ -33,20 +33,6 @@ export function isFeatureEnabled(tenant: TenantConfig, feature: FeatureKey): boo
 
 // Single source of truth for both the branding API route's server-side validation
 // and the settings page's feature switchboard — order matches sandbox/page.tsx's TABS.
-export const FEATURE_KEYS: FeatureKey[] = [
-  'copy',
-  'ad',
-  'video',
-  'landing-page',
-  'campaign',
-  'swipe',
-  'brand-identity',
-  'master-campaign',
-  'compliance-audit',
-  'direct-mail',
-  'blog-post',
-];
-
 export const FEATURE_LABELS: Record<FeatureKey, string> = {
   copy: 'Copy Studio',
   ad: 'Ad Builder',
@@ -60,3 +46,7 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   'direct-mail': 'Direct Mail Studio',
   'blog-post': 'Blog Post Studio',
 };
+
+// Derived from FEATURE_LABELS (compiler-checked exhaustive over FeatureKey) so a new
+// SandboxTool can't silently go unvalidated here.
+export const FEATURE_KEYS = Object.keys(FEATURE_LABELS) as FeatureKey[];

@@ -66,11 +66,11 @@ export async function PUT(request: Request) {
     const updated = await prisma.organization.update({
       where: { id: organizationId },
       data: {
-        logoUrl: logoUrl || null,
-        primaryColor: primaryColor || null,
-        accentColor: accentColor || null,
-        customDomain: customDomain || null,
-        disabledFeatures: validatedDisabledFeatures,
+        ...(logoUrl !== undefined && { logoUrl: logoUrl || null }),
+        ...(primaryColor !== undefined && { primaryColor: primaryColor || null }),
+        ...(accentColor !== undefined && { accentColor: accentColor || null }),
+        ...(customDomain !== undefined && { customDomain: customDomain || null }),
+        ...(disabledFeatures !== undefined && { disabledFeatures: validatedDisabledFeatures }),
       },
       select: {
         name: true,
