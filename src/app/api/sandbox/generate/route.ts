@@ -20,7 +20,7 @@ import {
 } from '@/lib/sandboxPrompts';
 import type { ScorableType } from '@/lib/creativeScore';
 
-const VALID_SCORABLE_TYPES: ScorableType[] = ['COPY', 'AD', 'VIDEO_SCRIPT', 'DRIP', 'LANDING_PAGE'];
+const VALID_SCORABLE_TYPES: ScorableType[] = ['COPY', 'AD', 'VIDEO_SCRIPT', 'DRIP', 'LANDING_PAGE', 'BLOG_POST'];
 
 export async function POST(req: Request) {
   try {
