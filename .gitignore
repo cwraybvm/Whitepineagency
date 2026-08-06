@@ -49,3 +49,6 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# git worktrees (superpowers:using-git-worktrees)
+/.worktrees
