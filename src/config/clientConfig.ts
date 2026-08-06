@@ -2,31 +2,16 @@ import { cache } from 'react';
 import { cookies, headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { resolveOrganizationId } from '@/lib/portalOrg';
-import type { SandboxTool } from '@/components/sandbox/types';
+import { DEFAULT_TENANT, type FeatureKey, type TenantConfig } from '@/config/tenantFeatures';
 
-export type FeatureKey = SandboxTool;
-
-export interface TenantConfig {
-  id: string;
-  slug: string;
-  name: string;
-  logoUrl: string | null;
-  primaryColor: string | null;
-  accentColor: string | null;
-  customDomain: string | null;
-  disabledFeatures: FeatureKey[];
-}
-
-export const DEFAULT_TENANT: TenantConfig = {
-  id: 'default',
-  slug: 'default-org',
-  name: 'White Pine Portal',
-  logoUrl: null,
-  primaryColor: '#2563EB',
-  accentColor: '#EA580C',
-  customDomain: null,
-  disabledFeatures: [],
-};
+// Re-exported for existing consumers (e.g. TenantProvider) that import these
+// from clientConfig. The types/DEFAULT_TENANT/isFeatureEnabled themselves now
+// live in tenantFeatures.ts, which has no next/headers or prisma import, so
+// Client Components can pull in isFeatureEnabled without this server-only
+// module (getCurrentTenant) coming along for the ride.
+export { DEFAULT_TENANT };
+export type { FeatureKey, TenantConfig };
+export { isFeatureEnabled } from '@/config/tenantFeatures';
 
 const TENANT_SELECT = {
   id: true,
@@ -89,7 +74,3 @@ export const getCurrentTenant = cache(async (): Promise<TenantConfig> => {
     .catch(() => null);
   return org ? toTenantConfig(org) : DEFAULT_TENANT;
 });
-
-export function isFeatureEnabled(tenant: TenantConfig, feature: FeatureKey): boolean {
-  return !tenant.disabledFeatures.includes(feature);
-}

@@ -17,6 +17,9 @@ import StagedAssetsList from '@/components/sandbox/StagedAssetsList';
 import BrandDnaHud from '@/components/sandbox/BrandDnaHud';
 import type { SandboxTool } from '@/components/sandbox/types';
 import type { BrandDna } from '@/lib/sandboxPrompts';
+import { useTenant } from '@/components/TenantProvider';
+import { isFeatureEnabled } from '@/config/tenantFeatures';
+import FeatureGuard from '@/components/FeatureGuard';
 
 const TABS: { id: SandboxTool; label: string; icon: React.ElementType }[] = [
   { id: 'copy', label: 'Copy Studio', icon: PenTool },
@@ -37,6 +40,13 @@ export default function SandboxPage() {
   const [view, setView] = useState<'draft' | 'staged'>('draft');
   const [activeBrandDna, setActiveBrandDna] = useState<BrandDna | null>(null);
   const [pendingInsert, setPendingInsert] = useState<{ tool: SandboxTool; text: string } | null>(null);
+  const tenant = useTenant();
+  const visibleTabs = TABS.filter((tab) => isFeatureEnabled(tenant, tab.id));
+
+  const handleInsertPhrase = (tool: SandboxTool, text: string) => {
+    setPendingInsert({ tool, text });
+    setActiveTool(tool);
+  };
 
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-900 dark:text-slate-100">
@@ -56,7 +66,7 @@ export default function SandboxPage() {
       {/* Tabs + Draft/Staged toggle */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white/85 border border-white/60 shadow-sm backdrop-blur-md dark:bg-slate-900/70 dark:border-slate-800/80 dark:shadow-2xl rounded-2xl p-2">
         <div className="flex gap-1.5">
-          {TABS.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTool === tab.id;
             return (
@@ -98,56 +108,76 @@ export default function SandboxPage() {
       {view === 'draft' ? (
         <>
           {activeTool === 'copy' && (
-            <CopyStudioPanel
-              activeBrandDna={activeBrandDna}
-              pendingInsert={pendingInsert?.tool === 'copy' ? pendingInsert : null}
-              onInsertConsumed={() => setPendingInsert(null)}
-            />
+            <FeatureGuard feature="copy">
+              <CopyStudioPanel
+                activeBrandDna={activeBrandDna}
+                pendingInsert={pendingInsert?.tool === 'copy' ? pendingInsert : null}
+                onInsertConsumed={() => setPendingInsert(null)}
+              />
+            </FeatureGuard>
           )}
           {activeTool === 'ad' && (
-            <AdBuilderPanel
-              activeBrandDna={activeBrandDna}
-              pendingInsert={pendingInsert?.tool === 'ad' ? pendingInsert : null}
-              onInsertConsumed={() => setPendingInsert(null)}
-            />
+            <FeatureGuard feature="ad">
+              <AdBuilderPanel
+                activeBrandDna={activeBrandDna}
+                pendingInsert={pendingInsert?.tool === 'ad' ? pendingInsert : null}
+                onInsertConsumed={() => setPendingInsert(null)}
+              />
+            </FeatureGuard>
           )}
           {activeTool === 'video' && (
-            <VideoLabPanel
-              activeBrandDna={activeBrandDna}
-              pendingInsert={pendingInsert?.tool === 'video' ? pendingInsert : null}
-              onInsertConsumed={() => setPendingInsert(null)}
-            />
+            <FeatureGuard feature="video">
+              <VideoLabPanel
+                activeBrandDna={activeBrandDna}
+                pendingInsert={pendingInsert?.tool === 'video' ? pendingInsert : null}
+                onInsertConsumed={() => setPendingInsert(null)}
+              />
+            </FeatureGuard>
           )}
-          {activeTool === 'landing-page' && <LandingPageStudioPanel />}
+          {activeTool === 'landing-page' && (
+            <FeatureGuard feature="landing-page">
+              <LandingPageStudioPanel />
+            </FeatureGuard>
+          )}
           {activeTool === 'campaign' && (
-            <CampaignBatchPanel
-              activeBrandDna={activeBrandDna}
-              pendingInsert={pendingInsert?.tool === 'campaign' ? pendingInsert : null}
-              onInsertConsumed={() => setPendingInsert(null)}
-            />
+            <FeatureGuard feature="campaign">
+              <CampaignBatchPanel
+                activeBrandDna={activeBrandDna}
+                pendingInsert={pendingInsert?.tool === 'campaign' ? pendingInsert : null}
+                onInsertConsumed={() => setPendingInsert(null)}
+              />
+            </FeatureGuard>
           )}
-          {activeTool === 'swipe' && <SwipeAnalyzerPanel />}
+          {activeTool === 'swipe' && (
+            <FeatureGuard feature="swipe">
+              <SwipeAnalyzerPanel />
+            </FeatureGuard>
+          )}
           {activeTool === 'brand-identity' && (
-            <BrandIdentityPanel
-              onApplyBrandDna={setActiveBrandDna}
-              onInsertPhrase={(tool, text) => {
-                setPendingInsert({ tool, text });
-                setActiveTool(tool);
-              }}
-            />
+            <FeatureGuard feature="brand-identity">
+              <BrandIdentityPanel onApplyBrandDna={setActiveBrandDna} onInsertPhrase={handleInsertPhrase} />
+            </FeatureGuard>
           )}
-          {activeTool === 'master-campaign' && <MasterCampaignPanel activeBrandDna={activeBrandDna} />}
+          {activeTool === 'master-campaign' && (
+            <FeatureGuard feature="master-campaign">
+              <MasterCampaignPanel activeBrandDna={activeBrandDna} />
+            </FeatureGuard>
+          )}
           {activeTool === 'compliance-audit' && (
-            <ComplianceAuditPanel
-              activeBrandDna={activeBrandDna}
-              onInsertPhrase={(tool, text) => {
-                setPendingInsert({ tool, text });
-                setActiveTool(tool);
-              }}
-            />
+            <FeatureGuard feature="compliance-audit">
+              <ComplianceAuditPanel activeBrandDna={activeBrandDna} onInsertPhrase={handleInsertPhrase} />
+            </FeatureGuard>
           )}
-          {activeTool === 'direct-mail' && <DirectMailPanel activeBrandDna={activeBrandDna} />}
-          {activeTool === 'blog-post' && <BlogPostStudioPanel activeBrandDna={activeBrandDna} />}
+          {activeTool === 'direct-mail' && (
+            <FeatureGuard feature="direct-mail">
+              <DirectMailPanel activeBrandDna={activeBrandDna} />
+            </FeatureGuard>
+          )}
+          {activeTool === 'blog-post' && (
+            <FeatureGuard feature="blog-post">
+              <BlogPostStudioPanel activeBrandDna={activeBrandDna} />
+            </FeatureGuard>
+          )}
         </>
       ) : (
         <StagedAssetsList activeTool={activeTool} />
