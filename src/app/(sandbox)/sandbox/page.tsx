@@ -38,6 +38,11 @@ export default function SandboxPage() {
   const [activeBrandDna, setActiveBrandDna] = useState<BrandDna | null>(null);
   const [pendingInsert, setPendingInsert] = useState<{ tool: SandboxTool; text: string } | null>(null);
 
+  const handleInsertPhrase = (tool: SandboxTool, text: string) => {
+    setPendingInsert({ tool, text });
+    setActiveTool(tool);
+  };
+
   return (
     <div className="p-4 sm:p-8 space-y-6 max-w-[1600px] mx-auto font-sans text-slate-900 dark:text-slate-100">
       {/* Header */}
@@ -128,26 +133,30 @@ export default function SandboxPage() {
           )}
           {activeTool === 'swipe' && <SwipeAnalyzerPanel />}
           {activeTool === 'brand-identity' && (
-            <BrandIdentityPanel
-              onApplyBrandDna={setActiveBrandDna}
-              onInsertPhrase={(tool, text) => {
-                setPendingInsert({ tool, text });
-                setActiveTool(tool);
-              }}
-            />
+            <BrandIdentityPanel onApplyBrandDna={setActiveBrandDna} onInsertPhrase={handleInsertPhrase} />
           )}
-          {activeTool === 'master-campaign' && <MasterCampaignPanel activeBrandDna={activeBrandDna} />}
+          {activeTool === 'master-campaign' && (
+            <MasterCampaignPanel activeBrandDna={activeBrandDna} onInsertPhrase={handleInsertPhrase} />
+          )}
           {activeTool === 'compliance-audit' && (
-            <ComplianceAuditPanel
+            <ComplianceAuditPanel activeBrandDna={activeBrandDna} onInsertPhrase={handleInsertPhrase} />
+          )}
+          {activeTool === 'direct-mail' && (
+            <DirectMailPanel
               activeBrandDna={activeBrandDna}
-              onInsertPhrase={(tool, text) => {
-                setPendingInsert({ tool, text });
-                setActiveTool(tool);
-              }}
+              pendingInsert={pendingInsert?.tool === 'direct-mail' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+              onInsertPhrase={handleInsertPhrase}
             />
           )}
-          {activeTool === 'direct-mail' && <DirectMailPanel activeBrandDna={activeBrandDna} />}
-          {activeTool === 'blog-post' && <BlogPostStudioPanel activeBrandDna={activeBrandDna} />}
+          {activeTool === 'blog-post' && (
+            <BlogPostStudioPanel
+              activeBrandDna={activeBrandDna}
+              pendingInsert={pendingInsert?.tool === 'blog-post' ? pendingInsert : null}
+              onInsertConsumed={() => setPendingInsert(null)}
+              onInsertPhrase={handleInsertPhrase}
+            />
+          )}
         </>
       ) : (
         <StagedAssetsList activeTool={activeTool} />

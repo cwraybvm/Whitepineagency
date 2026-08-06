@@ -2,21 +2,32 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
-import { FileText, Loader2, Sparkles, Plus, X, RefreshCw, Save, Download, FileCode, FileJson, Globe } from 'lucide-react';
-import { BlogPostToneOptions, type OrgBrand, type BlogPostTone } from './types';
+import { FileText, Loader2, Sparkles, Plus, X, RefreshCw, Save, Download, FileCode, FileJson, Globe, Mail, LayoutTemplate, Archive } from 'lucide-react';
+import { BlogPostToneOptions, type OrgBrand, type BlogPostTone, type SandboxTool } from './types';
 import type { BrandDna, BlogPostPackage, MediaAsset } from '@/lib/sandboxPrompts';
 import { fetchJsonArray, fetchGenerationJson } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import ScoreBadge from './ScoreBadge';
+import PromptHealthBadge from './PromptHealthBadge';
 import { renderBlogPostHtml } from './blogPostHtml';
 
 type InputMode = 'notes' | 'draft';
 
 const emptyMedia = (): MediaAsset => ({ type: 'image', url: '', caption: '', altText: '' });
 
-export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna?: BrandDna | null } = {}) {
+export default function BlogPostStudioPanel({
+  activeBrandDna,
+  pendingInsert,
+  onInsertConsumed,
+  onInsertPhrase,
+}: {
+  activeBrandDna?: BrandDna | null;
+  pendingInsert?: { tool: SandboxTool; text: string } | null;
+  onInsertConsumed?: () => void;
+  onInsertPhrase?: (tool: SandboxTool, text: string) => void;
+} = {}) {
   const [mode, setMode] = useState<InputMode>('notes');
-  const [text, setText] = useState('');
+  const [text, setText] = useState(() => (pendingInsert?.tool === 'blog-post' ? pendingInsert.text : ''));
   const [tone, setTone] = useState<BlogPostTone>('informative');
   const [media, setMedia] = useState<MediaAsset[]>([]);
   const [orgs, setOrgs] = useState<OrgBrand[]>([]);
@@ -28,9 +39,15 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
   const [refiningField, setRefiningField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pushingWp, setPushingWp] = useState(false);
+  const [exportingZip, setExportingZip] = useState(false);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
+  }, []);
+
+  useEffect(() => {
+    if (pendingInsert?.tool === 'blog-post') onInsertConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedOrg = orgs.find((o) => o.id === organizationId);
@@ -162,6 +179,45 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
     URL.revokeObjectURL(url);
   };
 
+  const exportZipPackage = async () => {
+    if (!pkg) return;
+    setExportingZip(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const base = slugify(pkg.slug || pkg.title);
+      zip.file(`${base}.html`, previewHtml);
+      zip.file(`${base}.md`, pkg.contentMarkdown);
+      zip.file(`${base}.json`, JSON.stringify(pkg, null, 2));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${base}-package.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Full package downloaded');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to export package');
+    } finally {
+      setExportingZip(false);
+    }
+  };
+
+  const convertToDirectMail = () => {
+    if (!pkg) return;
+    const t = [pkg.title, '', pkg.excerpt, '', `Call to action: ${pkg.callToAction}`].join('\n');
+    onInsertPhrase?.('direct-mail', t);
+    toast.success('Sent to Direct Mail Studio');
+  };
+
+  const generateAdSet = () => {
+    if (!pkg) return;
+    const t = [`${pkg.title} — ${pkg.excerpt}`, '', `Hooks: ${pkg.targetKeywords.join(', ')}`, '', `CTA: ${pkg.callToAction}`].join('\n');
+    onInsertPhrase?.('ad', t);
+    toast.success('Sent to Ad Builder');
+  };
+
   const copyHtml = async () => {
     if (!pkg) return;
     try {
@@ -257,6 +313,7 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
             }
             className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
           />
+          <PromptHealthBadge text={text} />
         </div>
 
         <div className="space-y-1.5">
@@ -523,6 +580,26 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
             >
               {pushingWp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Globe className="w-3 h-3" />}
               Push to WordPress
+            </button>
+            <button
+              onClick={convertToDirectMail}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              <Mail className="w-3 h-3" /> Convert to Direct Mail
+            </button>
+            <button
+              onClick={generateAdSet}
+              className="py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              <LayoutTemplate className="w-3 h-3" /> Generate Ad Set
+            </button>
+            <button
+              onClick={exportZipPackage}
+              disabled={exportingZip}
+              className="col-span-2 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-lg text-[10px] uppercase tracking-wide flex items-center justify-center gap-1.5"
+            >
+              {exportingZip ? <Loader2 className="w-3 h-3 animate-spin" /> : <Archive className="w-3 h-3" />}
+              {exportingZip ? 'Exporting…' : 'Export Full Package (.zip)'}
             </button>
           </div>
         )}

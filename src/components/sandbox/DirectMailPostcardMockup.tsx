@@ -8,6 +8,21 @@ import type { DirectMailVariant } from '@/lib/sandboxPrompts';
 // is an inline hex/rgba style, never a Tailwind color class, because
 // Tailwind v4's oklch()-based utilities can crash the capture even on
 // ancestor elements that never use them (see flyer-generator's precedent).
+type EditableField = 'headline' | 'subheadline' | 'bodyCopy' | 'callToAction' | 'urgencyDriver';
+
+// Sibling overlay, never a descendant of frontRef/backRef — html2canvas only
+// walks those refs' subtrees for PNG/PDF export, so these guides are
+// structurally excluded with no need to hide/restore state around a capture.
+function SafetyGuides({ showAddressZone }: { showAddressZone?: boolean }) {
+  return (
+    <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-[2%] border-2 border-dashed border-red-500" />
+      <div className="absolute inset-[6%] border-2 border-dashed border-emerald-500" />
+      {showAddressZone && <div className="absolute top-0 right-0 bottom-0 w-[180px] bg-gray-500/25" />}
+    </div>
+  );
+}
+
 export default function DirectMailPostcardMockup({
   variant,
   brandColor,
@@ -16,6 +31,8 @@ export default function DirectMailPostcardMockup({
   qrUrl,
   frontRef,
   backRef,
+  onEditField,
+  showSafetyGuides,
 }: {
   variant: DirectMailVariant;
   brandColor: string;
@@ -24,15 +41,20 @@ export default function DirectMailPostcardMockup({
   qrUrl: string;
   frontRef: React.RefObject<HTMLDivElement | null>;
   backRef: React.RefObject<HTMLDivElement | null>;
+  onEditField: (field: EditableField, value: string) => void;
+  showSafetyGuides?: boolean;
 }) {
   const displayOrgName = orgName || 'Your Organization';
+  const commit = (field: EditableField) => (e: React.FocusEvent<HTMLElement>) =>
+    onEditField(field, e.currentTarget.innerText);
 
   return (
     <div className="flex flex-col gap-4 items-center">
       {/* FRONT */}
+      <div className="w-full max-w-[600px] relative">
       <div
         ref={frontRef}
-        className="w-full max-w-[600px] aspect-[3/2] rounded-lg border shadow-xl relative overflow-hidden flex flex-col justify-between p-8"
+        className="w-full aspect-[3/2] rounded-lg border shadow-xl relative overflow-hidden flex flex-col justify-between p-8"
         style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}
       >
         <div
@@ -46,28 +68,55 @@ export default function DirectMailPostcardMockup({
           </span>
         </div>
         <div className="space-y-2">
-          <h2 className="text-3xl font-black leading-tight" style={{ color: '#0F172A' }}>
+          <h2
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={commit('headline')}
+            className="text-3xl font-black leading-tight cursor-text"
+            style={{ color: '#0F172A' }}
+          >
             {variant.headline || 'Your headline appears here'}
           </h2>
-          <p className="text-base font-semibold" style={{ color: '#475569' }}>
+          <p
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={commit('subheadline')}
+            className="text-base font-semibold cursor-text"
+            style={{ color: '#475569' }}
+          >
             {variant.subheadline || 'Your subheadline appears here'}
           </p>
         </div>
       </div>
+      {showSafetyGuides && <SafetyGuides />}
+      </div>
 
       {/* BACK */}
+      <div className="w-full max-w-[600px] relative">
       <div
         ref={backRef}
-        className="w-full max-w-[600px] aspect-[3/2] rounded-lg border shadow-xl relative overflow-hidden flex p-6 gap-6"
+        className="w-full aspect-[3/2] rounded-lg border shadow-xl relative overflow-hidden flex p-6 gap-6"
         style={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0' }}
       >
         {/* Message column */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div className="space-y-2">
-            <p className="text-sm whitespace-pre-wrap" style={{ color: '#1E293B' }}>
+            <p
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={commit('bodyCopy')}
+              className="text-sm whitespace-pre-wrap cursor-text"
+              style={{ color: '#1E293B' }}
+            >
               {variant.bodyCopy || 'Body copy appears here.'}
             </p>
-            <p className="text-xs font-bold" style={{ color: brandColor }}>
+            <p
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={commit('urgencyDriver')}
+              className="text-xs font-bold cursor-text"
+              style={{ color: brandColor }}
+            >
               {variant.urgencyDriver}
             </p>
             <p className="text-[11px]" style={{ color: '#64748B' }}>
@@ -76,7 +125,10 @@ export default function DirectMailPostcardMockup({
           </div>
           <div className="space-y-1.5">
             <div
-              className="inline-block px-3 py-1.5 rounded text-xs font-bold"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={commit('callToAction')}
+              className="inline-block px-3 py-1.5 rounded text-xs font-bold cursor-text"
               style={{ backgroundColor: brandColor, color: '#FFFFFF' }}
             >
               {variant.callToAction || 'Call to Action'}
@@ -114,6 +166,8 @@ export default function DirectMailPostcardMockup({
             </p>
           </div>
         </div>
+      </div>
+      {showSafetyGuides && <SafetyGuides showAddressZone />}
       </div>
     </div>
   );

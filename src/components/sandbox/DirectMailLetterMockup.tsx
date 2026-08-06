@@ -6,6 +6,8 @@ import type { DirectMailVariant } from '@/lib/sandboxPrompts';
 
 // Same inline-color constraint as the postcard mockup — this subtree is
 // captured by html2canvas-pro for PNG/PDF export.
+type EditableField = 'headline' | 'subheadline' | 'bodyCopy' | 'callToAction' | 'urgencyDriver';
+
 export default function DirectMailLetterMockup({
   variant,
   brandColor,
@@ -13,6 +15,7 @@ export default function DirectMailLetterMockup({
   orgName,
   qrUrl,
   letterRef,
+  onEditField,
 }: {
   variant: DirectMailVariant;
   brandColor: string;
@@ -20,10 +23,13 @@ export default function DirectMailLetterMockup({
   orgName?: string;
   qrUrl: string;
   letterRef: React.RefObject<HTMLDivElement | null>;
+  onEditField: (field: EditableField, value: string) => void;
 }) {
   const displayOrgName = orgName || 'Your Organization';
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
   const bodyParagraphs = (variant.bodyCopy || 'Body copy appears here.').split('\n').filter((p) => p.trim());
+  const commit = (field: EditableField) => (e: React.FocusEvent<HTMLElement>) =>
+    onEditField(field, e.currentTarget.innerText);
 
   return (
     <div
@@ -47,19 +53,33 @@ export default function DirectMailLetterMockup({
         <p className="text-sm font-semibold" style={{ color: '#0F172A' }}>
           Dear Friend,
         </p>
-        <h2 className="text-lg font-black" style={{ color: '#0F172A' }}>
+        <h2
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={commit('headline')}
+          className="text-lg font-black cursor-text"
+          style={{ color: '#0F172A' }}
+        >
           {variant.headline}
         </h2>
         {variant.subheadline && (
-          <p className="text-sm italic" style={{ color: '#475569' }}>
+          <p
+            contentEditable
+            suppressContentEditableWarning
+            onBlur={commit('subheadline')}
+            className="text-sm italic cursor-text"
+            style={{ color: '#475569' }}
+          >
             {variant.subheadline}
           </p>
         )}
-        {bodyParagraphs.map((para, i) => (
-          <p key={i} className="text-xs leading-relaxed" style={{ color: '#1E293B' }}>
-            {para}
-          </p>
-        ))}
+        <div contentEditable suppressContentEditableWarning onBlur={commit('bodyCopy')} className="cursor-text">
+          {bodyParagraphs.map((para, i) => (
+            <p key={i} className="text-xs leading-relaxed" style={{ color: '#1E293B' }}>
+              {para}
+            </p>
+          ))}
+        </div>
         <p className="text-xs" style={{ color: '#1E293B' }}>
           Warm regards,
           <br />
@@ -69,14 +89,20 @@ export default function DirectMailLetterMockup({
         </p>
         {variant.urgencyDriver && (
           <p className="text-xs font-bold" style={{ color: brandColor }}>
-            P.S. {variant.urgencyDriver}
+            P.S.{' '}
+            <span contentEditable suppressContentEditableWarning onBlur={commit('urgencyDriver')} className="cursor-text">
+              {variant.urgencyDriver}
+            </span>
           </p>
         )}
       </div>
 
       <div className="flex items-center justify-between pt-6 border-t" style={{ borderColor: '#E2E8F0' }}>
         <div
-          className="px-4 py-2 rounded text-xs font-bold"
+          contentEditable
+          suppressContentEditableWarning
+          onBlur={commit('callToAction')}
+          className="px-4 py-2 rounded text-xs font-bold cursor-text"
           style={{ backgroundColor: brandColor, color: '#FFFFFF' }}
         >
           {variant.callToAction || 'Call to Action'}

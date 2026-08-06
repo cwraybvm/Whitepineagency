@@ -2,21 +2,34 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Mail, Loader2, Sparkles, Plus, X, FileImage, FileText, FileJson } from 'lucide-react';
-import { FormFactorOptions, type OrgBrand, type FormFactor } from './types';
+import { Mail, Loader2, Sparkles, Plus, X, FileImage, FileText, FileJson, Send, ShieldCheck, Archive } from 'lucide-react';
+import { FormFactorOptions, type OrgBrand, type FormFactor, type SandboxTool } from './types';
 import type { BrandDna, DirectMailPackage } from '@/lib/sandboxPrompts';
 import { fetchJsonArray } from '@/lib/sandboxClientFetch';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import DirectMailPostcardMockup from './DirectMailPostcardMockup';
 import DirectMailLetterMockup from './DirectMailLetterMockup';
+import PromptHealthBadge from './PromptHealthBadge';
 
 const FALLBACK_BRAND_COLOR = '#059669';
 const DEFAULT_AUDIENCES = ['Business Owners', 'Past Individual Donors', 'Reach Program Donors'];
 
-export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: BrandDna | null } = {}) {
+export default function DirectMailPanel({
+  activeBrandDna,
+  pendingInsert,
+  onInsertConsumed,
+  onInsertPhrase,
+}: {
+  activeBrandDna?: BrandDna | null;
+  pendingInsert?: { tool: SandboxTool; text: string } | null;
+  onInsertConsumed?: () => void;
+  onInsertPhrase?: (tool: SandboxTool, text: string) => void;
+} = {}) {
   const [orgs, setOrgs] = useState<OrgBrand[]>([]);
   const [organizationId, setOrganizationId] = useState('');
-  const [briefText, setBriefText] = useState('');
+  const [briefText, setBriefText] = useState(() =>
+    pendingInsert?.tool === 'direct-mail' ? pendingInsert.text : '',
+  );
   const [formFactor, setFormFactor] = useState<FormFactor>('postcard');
   const [audiences, setAudiences] = useState<string[]>(DEFAULT_AUDIENCES);
   const [qrUrl, setQrUrl] = useState('');
@@ -26,10 +39,16 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
   const letterRef = useRef<HTMLDivElement>(null);
-  const [exporting, setExporting] = useState<'png' | 'pdf' | 'json' | null>(null);
+  const [exporting, setExporting] = useState<'png' | 'pdf' | 'json' | 'zip' | null>(null);
+  const [showSafetyGuides, setShowSafetyGuides] = useState(false);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
+  }, []);
+
+  useEffect(() => {
+    if (pendingInsert?.tool === 'direct-mail') onInsertConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedOrg = orgs.find((o) => o.id === organizationId);
@@ -91,6 +110,20 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
   const slugify = (value: string) => (value || 'direct-mail').replace(/\s+/g, '-').toLowerCase();
 
   const activeVariant = pkg?.variants[activeVariantIndex];
+
+  const updateVariantField = (
+    field: 'headline' | 'subheadline' | 'bodyCopy' | 'callToAction' | 'urgencyDriver',
+    value: string,
+  ) => {
+    setPkg((prev) =>
+      prev
+        ? {
+            ...prev,
+            variants: prev.variants.map((v, i) => (i === activeVariantIndex ? { ...v, [field]: value } : v)),
+          }
+        : prev,
+    );
+  };
 
   const downloadPng = async () => {
     if (!pkg || !activeVariant) return;
@@ -155,6 +188,77 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
     }
   };
 
+  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+    new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
+
+  const waitForPaint = () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+  const exportZipPackage = async () => {
+    if (!pkg || pkg.variants.length === 0) return;
+    setExporting('zip');
+    const originalIndex = activeVariantIndex;
+    try {
+      const JSZip = (await import('jszip')).default;
+      const { jsPDF } = await import('jspdf');
+      const zip = new JSZip();
+      for (let i = 0; i < pkg.variants.length; i++) {
+        setActiveVariantIndex(i);
+        await waitForPaint();
+        const variant = pkg.variants[i];
+        const folder = zip.folder(slugify(variant.audienceName || `variant-${i + 1}`))!;
+        if (pkg.formFactor === 'postcard') {
+          const front = await captureCanvas(frontRef.current);
+          const back = await captureCanvas(backRef.current);
+          folder.file('front.png', await canvasToBlob(front));
+          folder.file('back.png', await canvasToBlob(back));
+          const pdf = new jsPDF({ unit: 'in', format: [6, 4] });
+          pdf.addImage(front.toDataURL('image/png'), 'PNG', 0, 0, 6, 4);
+          pdf.addPage([6, 4]);
+          pdf.addImage(back.toDataURL('image/png'), 'PNG', 0, 0, 6, 4);
+          folder.file('postcard.pdf', pdf.output('blob'));
+        } else {
+          const letter = await captureCanvas(letterRef.current);
+          folder.file('letter.png', await canvasToBlob(letter));
+          const pdf = new jsPDF({ orientation: 'portrait', unit: 'in', format: 'letter' });
+          const pageWidth = pdf.internal.pageSize.getWidth();
+          const pageHeight = pdf.internal.pageSize.getHeight();
+          pdf.addImage(letter.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight);
+          folder.file('letter.pdf', pdf.output('blob'));
+        }
+        folder.file('metadata.json', JSON.stringify(variant, null, 2));
+      }
+      zip.file('campaign.json', JSON.stringify(pkg, null, 2));
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `direct-mail-${pkg.formFactor}-campaign-pack.zip`;
+      link.click();
+      URL.revokeObjectURL(url);
+      toast.success('Campaign pack downloaded');
+    } catch (err: any) {
+      console.error('ZIP export failed:', err);
+      toast.error(err.message || 'Failed to export campaign pack');
+    } finally {
+      setActiveVariantIndex(originalIndex);
+      setExporting(null);
+    }
+  };
+
+  const sendToBlogStudio = () => {
+    if (!pkg || !activeVariant) return;
+    const text = [
+      briefText,
+      '',
+      `Headline: ${activeVariant.headline}`,
+      `Key message: ${activeVariant.bodyCopy}`,
+      `Call to action: ${activeVariant.callToAction}`,
+      `Contact: ${activeVariant.pointOfContact.name} — ${activeVariant.pointOfContact.email} — ${activeVariant.pointOfContact.phone}`,
+    ].join('\n');
+    onInsertPhrase?.('blog-post', text);
+    toast.success('Sent to Blog Studio');
+  };
+
   const downloadJson = () => {
     if (!pkg) return;
     setExporting('json');
@@ -206,6 +310,7 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
             placeholder="e.g. Fall gala, Nov 14, matching funds up to $10,000, keynote from our program director."
             className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
           />
+          <PromptHealthBadge text={briefText} checkContactInfo />
         </div>
 
         <div className="space-y-1.5">
@@ -323,7 +428,35 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
               >
                 <FileJson className="w-3.5 h-3.5" /> Export All Copy (JSON)
               </button>
+              <button
+                onClick={sendToBlogStudio}
+                disabled={exporting !== null}
+                className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 disabled:opacity-60 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                <Send className="w-3.5 h-3.5" /> Send to Blog Studio
+              </button>
+              <button
+                onClick={exportZipPackage}
+                disabled={exporting !== null}
+                className="basis-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+              >
+                {exporting === 'zip' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                {exporting === 'zip' ? 'Exporting…' : 'Export Campaign Pack (.zip)'}
+              </button>
             </div>
+
+            {pkg.formFactor === 'postcard' && (
+              <button
+                onClick={() => setShowSafetyGuides((v) => !v)}
+                className={`self-start py-1.5 px-3 rounded-lg text-[11px] font-bold flex items-center gap-1.5 ${
+                  showSafetyGuides
+                    ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" /> Print Safety Guide
+              </button>
+            )}
 
             {pkg.variants[activeVariantIndex] &&
               (pkg.formFactor === 'postcard' ? (
@@ -335,6 +468,8 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
                   qrUrl={pkg.qrUrl}
                   frontRef={frontRef}
                   backRef={backRef}
+                  onEditField={updateVariantField}
+                  showSafetyGuides={showSafetyGuides}
                 />
               ) : (
                 <DirectMailLetterMockup
@@ -344,6 +479,7 @@ export default function DirectMailPanel({ activeBrandDna }: { activeBrandDna?: B
                   orgName={selectedOrg?.name}
                   qrUrl={pkg.qrUrl}
                   letterRef={letterRef}
+                  onEditField={updateVariantField}
                 />
               ))}
           </>

@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { Calendar, Loader2, Sparkles, Download, ChevronDown, FileJson, FileText, FileCode } from 'lucide-react';
+import { Calendar, Loader2, Sparkles, Download, ChevronDown, FileJson, FileText, FileCode, Send } from 'lucide-react';
 import type { BrandDna, MasterCampaignPackage } from '@/lib/sandboxPrompts';
+import type { SandboxTool } from './types';
 import { buildMasterCampaignMarkdown, buildMasterCampaignHtml } from '@/lib/masterCampaignExport';
 import ActiveBrandDnaBadge from './ActiveBrandDnaBadge';
 import CopyButton from './CopyButton';
@@ -31,7 +32,13 @@ function slugify(value: string): string {
   return (value || 'campaign').replace(/\s+/g, '-').toLowerCase();
 }
 
-export default function MasterCampaignPanel({ activeBrandDna }: { activeBrandDna?: BrandDna | null } = {}) {
+export default function MasterCampaignPanel({
+  activeBrandDna,
+  onInsertPhrase,
+}: {
+  activeBrandDna?: BrandDna | null;
+  onInsertPhrase?: (tool: SandboxTool, text: string) => void;
+} = {}) {
   const [location, setLocation] = useState('');
   const [promoOffer, setPromoOffer] = useState('');
   const [generating, setGenerating] = useState(false);
@@ -76,6 +83,13 @@ export default function MasterCampaignPanel({ activeBrandDna }: { activeBrandDna
     if (!pkg) return;
     downloadTextFile(`${slugify(location)}-30-day-campaign.json`, JSON.stringify(pkg, null, 2), 'application/json');
     setExportOpen(false);
+  };
+
+  const sendToBlogStudio = () => {
+    if (!pkg) return;
+    const text = [promoOffer, '', `Location: ${location}`, '', pkg.googleBusinessPosts[0]?.content || ''].join('\n');
+    onInsertPhrase?.('blog-post', text);
+    toast.success('Sent to Blog Studio');
   };
 
   return (
@@ -145,6 +159,15 @@ export default function MasterCampaignPanel({ activeBrandDna }: { activeBrandDna
               </div>
             )}
           </div>
+        )}
+
+        {pkg && (
+          <button
+            onClick={sendToBlogStudio}
+            className="w-full py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5"
+          >
+            <Send className="w-3.5 h-3.5" /> Send to Blog Studio
+          </button>
         )}
       </div>
 
