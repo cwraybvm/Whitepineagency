@@ -58,8 +58,8 @@
 }
 
 @theme inline {
-  --color-primary: var(--primary-color);
-  --color-accent: var(--accent-color);
+  --color-tenant-primary: var(--primary-color);
+  --color-tenant-accent: var(--accent-color);
 }
 
 /* ==========================================================================
