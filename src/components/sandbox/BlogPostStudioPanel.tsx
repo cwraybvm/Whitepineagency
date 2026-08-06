@@ -23,6 +23,7 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
   const [generationFailed, setGenerationFailed] = useState(false);
   const [pkg, setPkg] = useState<BlogPostPackage | null>(null);
   const [placementAssignments, setPlacementAssignments] = useState<Record<string, number | null>>({});
+  const [refiningField, setRefiningField] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJsonArray<OrgBrand>('/api/sandbox/organizations').then(setOrgs);
@@ -76,6 +77,47 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
     } finally {
       setGenerating(false);
     }
+  };
+
+  const updateField = (patch: Partial<BlogPostPackage>) => {
+    setPkg((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
+  const updateKeyword = (index: number, value: string) => {
+    setPkg((prev) => {
+      if (!prev) return prev;
+      const targetKeywords = [...prev.targetKeywords];
+      targetKeywords[index] = value;
+      return { ...prev, targetKeywords };
+    });
+  };
+
+  const addKeyword = () => setPkg((prev) => (prev ? { ...prev, targetKeywords: [...prev.targetKeywords, ''] } : prev));
+
+  const removeKeyword = (index: number) => {
+    setPkg((prev) => (prev ? { ...prev, targetKeywords: prev.targetKeywords.filter((_, i) => i !== index) } : prev));
+  };
+
+  const refineSection = async (field: 'title' | 'metaDescription' | 'excerpt', instruction: string) => {
+    if (!pkg) return;
+    setRefiningField(field);
+    try {
+      const data = await fetchGenerationJson('/api/sandbox/landing-page/refine-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ field, currentValue: pkg[field], instruction, organizationId: organizationId || undefined }),
+      });
+      updateField({ [field]: data.text } as Partial<BlogPostPackage>);
+      toast.success('Section updated');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to refine section');
+    } finally {
+      setRefiningField(null);
+    }
+  };
+
+  const assignPlacement = (tag: string, mediaIndex: number | null) => {
+    setPlacementAssignments((prev) => ({ ...prev, [tag]: mediaIndex }));
   };
 
   return (
@@ -215,7 +257,126 @@ export default function BlogPostStudioPanel({ activeBrandDna }: { activeBrandDna
           {generating ? 'Generating…' : 'Generate Blog Post'}
         </button>
 
-        {/* Task 9 inserts the SEO inspector + media placement rows here */}
+        {pkg && (
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Title</label>
+                <button
+                  onClick={() => refineSection('title', 'Rewrite this title to be more compelling and keyword-aware, keep it 50-60 characters')}
+                  disabled={refiningField === 'title'}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                >
+                  {refiningField === 'title' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Rewrite
+                </button>
+              </div>
+              <input
+                value={pkg.title}
+                onChange={(e) => updateField({ title: e.target.value })}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
+              />
+              <p className="text-[9px] text-slate-400">{pkg.title.length} chars (aim for 50-60)</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Slug</label>
+              <input
+                value={pkg.slug}
+                onChange={(e) => updateField({ slug: e.target.value })}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Meta Description</label>
+                <button
+                  onClick={() => refineSection('metaDescription', 'Rewrite this meta description to be 120-160 characters and include the primary keyword naturally')}
+                  disabled={refiningField === 'metaDescription'}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                >
+                  {refiningField === 'metaDescription' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Rewrite
+                </button>
+              </div>
+              <textarea
+                value={pkg.metaDescription}
+                onChange={(e) => updateField({ metaDescription: e.target.value })}
+                rows={2}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
+              />
+              <p className="text-[9px] text-slate-400">{pkg.metaDescription.length} chars (aim for 120-160)</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Excerpt</label>
+                <button
+                  onClick={() => refineSection('excerpt', 'Rewrite this excerpt to hook a reader in one or two sentences')}
+                  disabled={refiningField === 'excerpt'}
+                  className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline disabled:opacity-60 flex items-center gap-1"
+                >
+                  {refiningField === 'excerpt' ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  Rewrite
+                </button>
+              </div>
+              <textarea
+                value={pkg.excerpt}
+                onChange={(e) => updateField({ excerpt: e.target.value })}
+                rows={2}
+                className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500/80 transition-all duration-200 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Target Keywords</label>
+              {pkg.targetKeywords.map((kw, i) => (
+                <div key={i} className="flex gap-1.5">
+                  <input
+                    value={kw}
+                    onChange={(e) => updateKeyword(i, e.target.value)}
+                    className="flex-1 bg-slate-100 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-900 dark:bg-slate-950 dark:border-slate-800 dark:text-white focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all duration-200"
+                  />
+                  <button onClick={() => removeKeyword(i)} className="px-2 rounded-lg text-slate-400 hover:text-red-500">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={addKeyword}
+                className="w-full py-1.5 rounded-lg text-[11px] font-bold text-slate-500 dark:text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 hover:text-emerald-600 hover:border-emerald-500/50 flex items-center justify-center gap-1"
+              >
+                <Plus className="w-3 h-3" /> Add Keyword
+              </button>
+            </div>
+
+            <span className="inline-block text-[10px] font-mono font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-full px-2 py-0.5">
+              {pkg.readTimeMinutes} min read
+            </span>
+
+            {pkg.suggestedMediaPlacements.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-[10px] text-slate-500 dark:text-slate-400 font-mono uppercase">Media Placements</label>
+                {pkg.suggestedMediaPlacements.map((placement) => (
+                  <div key={placement.placementTag} className="space-y-1 p-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/30">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300">{placement.contextNote}</p>
+                    <select
+                      value={placementAssignments[placement.placementTag] ?? ''}
+                      onChange={(e) => assignPlacement(placement.placementTag, e.target.value === '' ? null : Number(e.target.value))}
+                      className="w-full bg-slate-50/80 border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] text-slate-900 dark:bg-slate-950/50 dark:border-slate-800/80 dark:text-white"
+                    >
+                      <option value="">(none)</option>
+                      {media.map((m, i) => (
+                        <option key={i} value={i}>{m.caption || `${m.type} ${i + 1}`}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Task 10 inserts ScoreBadge + Save to Staged Assets here */}
         {/* Task 12 inserts the export row here */}
       </div>
