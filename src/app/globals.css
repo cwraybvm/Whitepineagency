@@ -57,6 +57,11 @@
   }
 }
 
+@theme inline {
+  --color-primary: var(--primary-color);
+  --color-accent: var(--accent-color);
+}
+
 /* ==========================================================================
    PREMIUM GLASSMORPHIC & SAAS MESH GLOWS
    ========================================================================== */

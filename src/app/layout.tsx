@@ -4,6 +4,8 @@ import "./globals.css";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "next-themes";
+import { getCurrentTenant } from "@/config/clientConfig";
+import { TenantProvider } from "@/components/TenantProvider";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -30,33 +32,45 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const tenant = await getCurrentTenant();
+
   return (
     <html lang="en" className={cn("font-sans", geist.variable)} suppressHydrationWarning>
-      <body className="antialiased bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900">
+      <body
+        className="antialiased bg-slate-950 dark:bg-slate-950 light:bg-slate-50 text-slate-100 dark:text-slate-100 light:text-slate-900"
+        style={
+          {
+            "--primary-color": tenant.primaryColor ?? "#2563EB",
+            "--accent-color": tenant.accentColor ?? "#EA580C",
+          } as React.CSSProperties
+        }
+      >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          {/* 🔔 SONNER DARK TOAST NOTIFICATIONS */}
-          <Toaster
-            position="top-center"
-            theme="dark"
-            richColors
-            toastOptions={{
-              style: {
-                background: "#090D16",
-                border: "1px solid rgba(255, 255, 255, 0.1)",
-                color: "#ffffff",
-                borderRadius: "1rem",
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "0.75rem",
-              },
-            }}
-          />
+          <TenantProvider tenant={tenant}>
+            {/* 🔔 SONNER DARK TOAST NOTIFICATIONS */}
+            <Toaster
+              position="top-center"
+              theme="dark"
+              richColors
+              toastOptions={{
+                style: {
+                  background: "#090D16",
+                  border: "1px solid rgba(255, 255, 255, 0.1)",
+                  color: "#ffffff",
+                  borderRadius: "1rem",
+                  fontFamily: "var(--font-mono, monospace)",
+                  fontSize: "0.75rem",
+                },
+              }}
+            />
 
-          {children}
+            {children}
+          </TenantProvider>
         </ThemeProvider>
       </body>
     </html>
