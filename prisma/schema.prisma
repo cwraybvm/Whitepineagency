@@ -69,6 +69,11 @@ model Organization {
   portalLeads        PortalLead[]
   fulfillmentTasks   FulfillmentTask[]
   creativeAssets     CreativeAsset[]
+  clientMeetings     ClientMeeting[]
+  expenses           Expense[]
+  timeEntries        TimeEntry[]
+  tasks              Task[]
+  campaigns          Campaign[]
 
   @@index([customDomain])
 }
@@ -516,4 +521,112 @@ model Metric {
   auditRun AuditRun @relation(fields: [auditRunId], references: [id], onDelete: Cascade)
 
   @@index([auditRunId])
+}
+
+model ClientMeeting {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title         String
+  meetingDate   DateTime
+  attendees     String[] @default([])
+  bodyMarkdown  String   @db.Text
+  billableHours Float    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([meetingDate])
+}
+
+model Expense {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  type       String   @default("EXPENSE") // EXPENSE, MILEAGE
+  amount     Float    @default(0)
+  miles      Float?
+  category   String   @default("General")
+  receiptUrl String?
+  date       DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([date])
+  @@index([type])
+}
+
+model TimeEntry {
+  id             String   @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  startTime       DateTime  @default(now())
+  endTime         DateTime?
+  durationSeconds Int       @default(0)
+  isBilled        Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([isBilled])
+}
+
+model Task {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  title        String
+  status       String    @default("INBOX") // INBOX, ACTIVE, DONE
+  priority     Int       @default(0)
+  dueDate      DateTime?
+  isFocusToday Boolean   @default(false)
+  focusOrder   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model Campaign {
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name   String
+  status String @default("DRAFT") // DRAFT, ACTIVE, COMPLETE
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  variants CampaignVariant[]
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+model CampaignVariant {
+  id         String   @id @default(uuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  headline    String
+  spend       Float @default(0)
+  impressions Int   @default(0)
+  clicks      Int   @default(0)
+  conversions Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([campaignId])
 }
