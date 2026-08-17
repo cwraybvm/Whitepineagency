@@ -16,7 +16,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const { id } = await params;
-  const { action } = await req.json();
+  const { action, description } = await req.json();
 
   if (action !== 'stop') {
     return NextResponse.json({ error: 'Only the "stop" action is supported' }, { status: 400 });
@@ -35,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const updated = await prisma.timeEntry.update({
     where: { id },
-    data: { endTime, durationSeconds },
+    data: { endTime, durationSeconds, ...(description ? { description } : {}) },
   });
   return NextResponse.json(updated);
 }

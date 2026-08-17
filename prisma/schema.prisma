@@ -570,6 +570,7 @@ model TimeEntry {
   endTime         DateTime?
   durationSeconds Int       @default(0)
   isBilled        Boolean   @default(false)
+  description     String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

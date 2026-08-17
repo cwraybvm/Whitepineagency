@@ -1,15 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Play, Square, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface ActiveEntry {
-  id: string;
-  organizationId: string;
-  startTime: string;
-  endTime: string | null;
-}
+import { useBillingTimer } from '@/hooks/useBillingTimer';
 
 interface ClientOption {
   id: string;
@@ -26,34 +20,17 @@ function formatElapsed(seconds: number): string {
 export default function BillingTimerWidget() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
-  const [active, setActive] = useState<ActiveEntry | null>(null);
-  const [elapsed, setElapsed] = useState(0);
-  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { active, elapsed, start, stop } = useBillingTimer();
 
   useEffect(() => {
     fetch('/api/clients').then((res) => (res.ok ? res.json() : [])).then((list: ClientOption[]) => {
       setClients(list);
       if (list.length > 0) setSelectedClientId((prev) => prev || list[0].id);
     });
-    fetch('/api/time-entries').then((res) => (res.ok ? res.json() : null)).then((entry: ActiveEntry | null) => {
-      setActive(entry);
-      if (entry) setSelectedClientId(entry.organizationId);
-    });
   }, []);
 
   useEffect(() => {
-    if (!active) {
-      if (tickRef.current) clearInterval(tickRef.current);
-      setElapsed(0);
-      return;
-    }
-    const start = new Date(active.startTime).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
-    tick();
-    tickRef.current = setInterval(tick, 1000);
-    return () => {
-      if (tickRef.current) clearInterval(tickRef.current);
-    };
+    if (active) setSelectedClientId(active.organizationId);
   }, [active]);
 
   async function handleStart() {
@@ -61,32 +38,17 @@ export default function BillingTimerWidget() {
       toast.error('Select a client first');
       return;
     }
-    const res = await fetch('/api/time-entries', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ organizationId: selectedClientId }),
-    });
-    if (!res.ok) {
-      const { error } = await res.json();
-      toast.error(error || 'Failed to start timer');
-      return;
-    }
-    setActive(await res.json());
+    const result = await start(selectedClientId);
+    if (!result.ok) toast.error(result.error);
   }
 
   async function handleStop() {
-    if (!active) return;
-    const res = await fetch(`/api/time-entries/${active.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'stop' }),
-    });
-    if (!res.ok) {
-      toast.error('Failed to stop timer');
+    const result = await stop();
+    if (!result.ok) {
+      toast.error(result.error);
       return;
     }
     toast.success('Time entry saved as pending billable time');
-    setActive(null);
   }
 
   return (

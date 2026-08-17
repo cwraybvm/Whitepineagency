@@ -14,6 +14,7 @@ interface FocusTask {
   isFocusToday: boolean;
   focusOrder: number | null;
   subtasks: FocusSubtask[] | null;
+  organizationId: string | null;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [

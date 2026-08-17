@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 import { X, ChevronLeft, ChevronRight, Zap, Loader2, CheckCircle2 } from 'lucide-react';
+import { useBillingTimer } from '@/hooks/useBillingTimer';
+import FocusModeTimerWidget from './FocusModeTimerWidget';
 
 export interface FocusSubtask {
   id: string;
@@ -15,6 +18,13 @@ export interface FocusOverlayTask {
   id: string;
   title: string;
   subtasks: FocusSubtask[] | null;
+  organizationId: string | null;
+}
+
+function timerDescription(title: string, subtasks: FocusSubtask[] | null): string {
+  if (!subtasks || subtasks.length === 0) return `Worked on ${title}`;
+  const doneCount = subtasks.filter((s) => s.done).length;
+  return `Worked on ${title}: Completed ${doneCount} micro-step${doneCount === 1 ? '' : 's'}`;
 }
 
 interface FocusModeOverlayProps {
@@ -42,13 +52,56 @@ export default function FocusModeOverlay({
   const [secondsLeft, setSecondsLeft] = useState(25 * 60);
   const [running, setRunning] = useState(false);
   const [breakingDown, setBreakingDown] = useState(false);
+  const [autoStart, setAutoStart] = useState(true);
 
   const task = queue[index] as FocusOverlayTask | undefined;
+  const timer = useBillingTimer();
+  const prevTaskRef = useRef<FocusOverlayTask | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('focusMode.autoStartTimer');
+    if (stored !== null) setAutoStart(stored === 'true');
+  }, []);
+
+  function toggleAutoStart() {
+    setAutoStart((prev) => {
+      const next = !prev;
+      localStorage.setItem('focusMode.autoStartTimer', String(next));
+      return next;
+    });
+  }
+
+  async function stopTimerFor(t: FocusOverlayTask) {
+    if (timer.active && timer.active.organizationId === t.organizationId) {
+      await timer.stop(timerDescription(t.title, t.subtasks));
+    }
+  }
+
+  // Auto-start/stop the billing timer as the active task changes (mount, Next/Previous, or
+  // auto-advance after Done). Stops the outgoing task's entry (if this overlay started it)
+  // before starting one for the incoming task, so the two never overlap under the server's
+  // single-active-entry constraint.
+  useEffect(() => {
+    if (!task) return;
+    const prev = prevTaskRef.current;
+    prevTaskRef.current = task;
+
+    (async () => {
+      if (prev && prev.id !== task.id) {
+        await stopTimerFor(prev);
+      }
+      if (autoStart && task.organizationId) {
+        const result = await timer.start(task.organizationId);
+        if (!result.ok) toast.error(`Billing timer: ${result.error}`);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id]);
 
   useEffect(() => {
     if (!running) return;
-    const timer = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
-    return () => clearInterval(timer);
+    const intervalId = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(intervalId);
   }, [running]);
 
   useEffect(() => {
@@ -59,16 +112,22 @@ export default function FocusModeOverlay({
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') handleClose();
     }
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, task?.id]);
 
   if (!task) return null;
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
+
+  async function handleClose() {
+    if (task) await stopTimerFor(task);
+    onClose();
+  }
 
   async function handleBreakDown() {
     if (!task) return;
@@ -77,8 +136,9 @@ export default function FocusModeOverlay({
     setBreakingDown(false);
   }
 
-  function handleDone() {
+  async function handleDone() {
     if (!task) return;
+    await stopTimerFor(task);
     confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
     onComplete(task.id);
     const doneId = task.id;
@@ -102,7 +162,7 @@ export default function FocusModeOverlay({
         className="fixed inset-0 z-[200] bg-[#050810]/97 backdrop-blur-xl flex flex-col items-center justify-center p-6"
       >
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 rounded-xl transition-all"
         >
           <X className="w-5 h-5" />
@@ -172,6 +232,14 @@ export default function FocusModeOverlay({
               {running ? 'Pause' : 'Start'}
             </button>
           </div>
+
+          <FocusModeTimerWidget
+            organizationId={task.organizationId}
+            active={timer.active}
+            elapsed={timer.elapsed}
+            autoStart={autoStart}
+            onToggleAutoStart={toggleAutoStart}
+          />
 
           <button
             onClick={handleDone}
