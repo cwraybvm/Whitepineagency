@@ -66,7 +66,7 @@ export async function POST(req: Request) {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3.6-flash',
       contents: `You are an elite content strategist and social media director for ${resolvedClientName || 'TRK Ministries'}.
       Transform the provided sermon notes, teaching bullet points, or transcript into a complete multi-channel release pack:
 

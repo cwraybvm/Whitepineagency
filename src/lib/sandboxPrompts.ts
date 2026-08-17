@@ -537,9 +537,9 @@ async function anthropicJsonAttempt(systemPrompt: string, userContext: string, t
 }
 
 // gemini-1.5-flash (the model this fallback was originally specced against)
-// is superseded — gemini-2.0-flash matches the model already used elsewhere
+// is superseded — gemini-3.6-flash matches the model already used elsewhere
 // in this codebase (src/app/api/ai/generate-content/route.ts).
-const GEMINI_FALLBACK_MODEL = 'gemini-2.0-flash';
+const GEMINI_FALLBACK_MODEL = 'gemini-3.6-flash';
 
 function geminiApiKey(): string | undefined {
   return process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
