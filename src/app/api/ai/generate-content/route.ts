@@ -24,13 +24,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Source notes are required' }, { status: 400 });
     }
 
+    // Client-context injection: brand voice/guidelines + recent meeting notes,
+    // when organizationId resolves to a real client. Failures here degrade to
+    // today's behavior (generate without this context) rather than failing
+    // the request — the generation itself is the valuable part.
+    let resolvedClientName = clientName;
+    let contextBlock = '';
+    try {
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true, brandVoice: true, brandGuidelines: true },
+      });
+
+      if (org) {
+        if (!resolvedClientName) resolvedClientName = org.name;
+
+        const contextParts: string[] = [];
+        if (org.brandVoice) contextParts.push(`Brand voice: ${org.brandVoice}`);
+        if (org.brandGuidelines) contextParts.push(`Brand guidelines: ${org.brandGuidelines}`);
+
+        const recentMeetings = await prisma.clientMeeting.findMany({
+          where: { organizationId },
+          orderBy: { meetingDate: 'desc' },
+          take: 3,
+          select: { title: true, bodyMarkdown: true },
+        });
+
+        if (recentMeetings.length > 0) {
+          const meetingSummaries = recentMeetings
+            .map((m) => `- ${m.title}: ${(m.bodyMarkdown || '').slice(0, 200)}`)
+            .join('\n');
+          contextParts.push(`Recent client meeting notes:\n${meetingSummaries}`);
+        }
+
+        if (contextParts.length > 0) {
+          contextBlock = `\n\nCLIENT CONTEXT (use this to match tone and stay consistent with recent client conversations):\n${contextParts.join('\n\n')}`;
+        }
+      }
+    } catch (err) {
+      console.error('[GENERATE_CONTENT] client context lookup failed (non-fatal)', err);
+    }
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
-      contents: `You are an elite content strategist and social media director for ${clientName || 'TRK Ministries'}.
+      contents: `You are an elite content strategist and social media director for ${resolvedClientName || 'TRK Ministries'}.
       Transform the provided sermon notes, teaching bullet points, or transcript into a complete multi-channel release pack:
 
       SOURCE CONTENT:
-      ${sourceNotes}`,
+      ${sourceNotes}${contextBlock}`,
       config: {
         systemInstruction: `Generate a structured content pack containing:
         1. blogMarkdown: A full, engaging blog article formatted in clean Markdown with headers.
