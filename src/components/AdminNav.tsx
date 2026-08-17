@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/sandbox/ThemeToggle";
+import { Focus as FocusIcon } from "lucide-react";
 
 export default function AdminNav() {
   const pathname = usePathname();
@@ -60,9 +61,17 @@ export default function AdminNav() {
           </nav>
         </div>
 
-        <div className="border-t border-slate-200/80 dark:border-slate-800/80 pt-4">
-          <span className="text-[10px] text-gray-500 dark:text-gray-500 light:text-slate-500 font-mono uppercase block">SECURE OPERATOR FRAME</span>
-          <span className="text-[9px] text-emerald-400/50 font-mono uppercase block mt-0.5">NODE_STATUS: ACTIVE</span>
+        <div className="border-t border-slate-200/80 dark:border-slate-800/80 pt-4 space-y-4">
+          <Link
+            href="/admin/tasks?focus=1"
+            className="flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 py-2.5 rounded-xl w-full"
+          >
+            <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
+          </Link>
+          <div>
+            <span className="text-[10px] text-gray-500 dark:text-gray-500 light:text-slate-500 font-mono uppercase block">SECURE OPERATOR FRAME</span>
+            <span className="text-[9px] text-emerald-400/50 font-mono uppercase block mt-0.5">NODE_STATUS: ACTIVE</span>
+          </div>
         </div>
       </aside>
 
@@ -82,6 +91,15 @@ export default function AdminNav() {
       <div className="fixed top-4 right-4 z-40 md:hidden no-print">
         <ThemeToggle />
       </div>
+
+      {/* Global Focus Mode quick-launch for mobile — desktop version lives in
+          the sidebar footer above. Sits above the bottom nav bar. */}
+      <Link
+        href="/admin/tasks?focus=1"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden no-print flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 py-2 rounded-full shadow-lg"
+      >
+        <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
+      </Link>
     </>
   );
 }

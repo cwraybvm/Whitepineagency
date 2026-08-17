@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon } from 'lucide-react';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
@@ -24,6 +25,7 @@ const COLUMNS: { id: FocusTask['status']; label: string }[] = [
 ];
 
 export default function TasksPage() {
+  const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<FocusTask[]>([]);
   const [quickAddValue, setQuickAddValue] = useState('');
   const [focusMode, setFocusMode] = useState(false);
@@ -43,6 +45,14 @@ export default function TasksPage() {
   }
 
   useEffect(load, []);
+
+  // Global nav "Focus Mode" quick-launch lands here with ?focus=1.
+  useEffect(() => {
+    if (searchParams.get('focus') === '1' && tasks.some((t) => t.status !== 'DONE')) {
+      setFocusOverlayIndex(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tasks.length]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {

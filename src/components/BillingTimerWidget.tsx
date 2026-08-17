@@ -52,7 +52,7 @@ export default function BillingTimerWidget() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-4 py-3 hidden md:flex items-center gap-3 font-mono text-xs">
+    <div className="fixed top-4 left-4 md:left-auto md:right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 font-mono text-xs max-w-[calc(100vw-2rem)] overflow-x-auto">
       <Clock className="w-4 h-4 text-emerald-400" />
       <select
         value={selectedClientId}
