@@ -589,6 +589,7 @@ model Task {
   dueDate      DateTime?
   isFocusToday Boolean   @default(false)
   focusOrder   Int?
+  subtasks     Json? // AI micro-chunked steps: [{ id, title, done }]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
