@@ -20,6 +20,7 @@ export interface FocusOverlayTask {
   title: string;
   subtasks: FocusSubtask[] | null;
   organizationId: string | null;
+  estimatedMinutes: number | null;
 }
 
 function timerDescription(title: string, subtasks: FocusSubtask[] | null): string {
@@ -104,6 +105,13 @@ export default function FocusModeOverlay({
     const intervalId = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(intervalId);
   }, [running]);
+
+  // Pre-populate the timer from the task's own estimate (mount + every Prev/Next
+  // switch), falling back to the default when it has none set.
+  useEffect(() => {
+    setMinutes(task?.estimatedMinutes || 25);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id]);
 
   useEffect(() => {
     setSecondsLeft(minutes * 60);

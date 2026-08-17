@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package } from 'lucide-react';
+import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -26,6 +26,7 @@ interface FocusTask {
   organizationId: string | null;
   energyLevel: EnergyLevel | null;
   isParked: boolean;
+  estimatedMinutes: number | null;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -67,6 +68,25 @@ function nextEnergyLevel(current: EnergyLevel | null): EnergyLevel | null {
   return null;
 }
 
+const DURATION_OPTIONS = [5, 15, 30, 60, 120];
+
+function formatDuration(minutes: number): string {
+  return minutes < 60 ? `${minutes}m` : `${minutes / 60}h`;
+}
+
+function formatMinutesTotal(total: number): string {
+  if (total < 60) return `${total}m`;
+  const hours = Math.round((total / 60) * 10) / 10;
+  return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)} hrs`;
+}
+
+function nextDuration(current: number | null): number | null {
+  if (current === null) return DURATION_OPTIONS[0];
+  const idx = DURATION_OPTIONS.indexOf(current);
+  if (idx === -1 || idx === DURATION_OPTIONS.length - 1) return null;
+  return DURATION_OPTIONS[idx + 1];
+}
+
 export default function TasksPage() {
   const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<FocusTask[]>([]);
@@ -81,6 +101,7 @@ export default function TasksPage() {
   const [energyFilter, setEnergyFilter] = useState<EnergyLevel | 'ALL'>('ALL');
   const [streak, setStreak] = useState<StreakState | null>(null);
   const [parkedDrawerOpen, setParkedDrawerOpen] = useState(false);
+  const [quickAddMinutes, setQuickAddMinutes] = useState<number | null>(null);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -122,11 +143,12 @@ export default function TasksPage() {
     const res = await fetch('/api/focus-tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: quickAddValue.trim(), energyLevel: quickAddEnergy }),
+      body: JSON.stringify({ title: quickAddValue.trim(), energyLevel: quickAddEnergy, estimatedMinutes: quickAddMinutes }),
     });
     if (!res.ok) return;
     setQuickAddValue('');
     setQuickAddEnergy(null);
+    setQuickAddMinutes(null);
     load();
   }
 
@@ -137,6 +159,16 @@ export default function TasksPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ energyLevel: next }),
+    });
+  }
+
+  function cycleDuration(task: FocusTask) {
+    const next = nextDuration(task.estimatedMinutes);
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estimatedMinutes: next } : t)));
+    fetch(`/api/focus-tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estimatedMinutes: next }),
     });
   }
 
@@ -234,6 +266,7 @@ export default function TasksPage() {
     .sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
   const overlayTasks = pickedTaskId ? openTasks.filter((t) => t.id === pickedTaskId) : openTasks;
   const parkedTasks = tasks.filter((t) => t.isParked);
+  const totalMinutesRemaining = openTasks.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
 
   function closeOverlay() {
     setFocusOverlayIndex(null);
@@ -266,6 +299,11 @@ export default function TasksPage() {
           {!!streak?.currentStreak && (
             <span className="flex items-center gap-1 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-full px-2.5 py-1 text-xs font-bold">
               🔥 {streak.currentStreak}-Day Streak
+            </span>
+          )}
+          {totalMinutesRemaining > 0 && (
+            <span className="flex items-center gap-1 bg-sky-500/20 text-sky-300 border border-sky-500/30 rounded-full px-2.5 py-1 text-xs font-bold">
+              ⏳ {formatMinutesTotal(totalMinutesRemaining)} remaining today
             </span>
           )}
         </div>
@@ -354,6 +392,21 @@ export default function TasksPage() {
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
+            {DURATION_OPTIONS.map((mins) => (
+              <button
+                key={mins}
+                type="button"
+                title={`${formatDuration(mins)} estimate`}
+                onClick={() => setQuickAddMinutes((prev) => (prev === mins ? null : mins))}
+                className={`px-1.5 py-1 rounded-lg text-[11px] font-medium ${
+                  quickAddMinutes === mins ? 'bg-sky-500 text-white' : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {formatDuration(mins)}
+              </button>
+            ))}
+          </div>
           <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
             <Plus className="w-4 h-4" />
           </button>
@@ -429,21 +482,34 @@ export default function TasksPage() {
                                 </div>
                               </div>
 
-                              <button
-                                onClick={() => cycleEnergyLevel(t)}
-                                title="Click to change energy level"
-                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                                  t.energyLevel ? ENERGY_META[t.energyLevel].badge : 'border-white/10 text-gray-600 hover:text-gray-400'
-                                }`}
-                              >
-                                {t.energyLevel ? (
-                                  <>
-                                    {ENERGY_META[t.energyLevel].emoji} {ENERGY_META[t.energyLevel].short}
-                                  </>
-                                ) : (
-                                  '+ Energy'
-                                )}
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => cycleEnergyLevel(t)}
+                                  title="Click to change energy level"
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                                    t.energyLevel ? ENERGY_META[t.energyLevel].badge : 'border-white/10 text-gray-600 hover:text-gray-400'
+                                  }`}
+                                >
+                                  {t.energyLevel ? (
+                                    <>
+                                      {ENERGY_META[t.energyLevel].emoji} {ENERGY_META[t.energyLevel].short}
+                                    </>
+                                  ) : (
+                                    '+ Energy'
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => cycleDuration(t)}
+                                  title="Click to change time estimate"
+                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                                    t.estimatedMinutes
+                                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                                      : 'border-white/10 text-gray-600 hover:text-gray-400'
+                                  }`}
+                                >
+                                  {t.estimatedMinutes ? `⏱️ ${formatDuration(t.estimatedMinutes)}` : '+ Time'}
+                                </button>
+                              </div>
 
                               {t.subtasks && t.subtasks.length > 0 ? (
                                 <div className="space-y-1 pl-1">
