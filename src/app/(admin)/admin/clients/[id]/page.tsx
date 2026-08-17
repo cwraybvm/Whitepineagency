@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import ClientMeetingsTab from '@/components/admin/clients/ClientMeetingsTab';
 import ExpensesTab from '@/components/admin/clients/ExpensesTab';
+import ClientAnalyticsTab from '@/components/admin/clients/ClientAnalyticsTab';
 import ContentStudio from '@/components/ContentStudio';
 
 interface ClientDetail {
@@ -15,12 +16,13 @@ interface ClientDetail {
   status: string;
 }
 
-type TabId = 'overview' | 'meetings' | 'expenses' | 'content';
+type TabId = 'overview' | 'meetings' | 'expenses' | 'analytics' | 'content';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'meetings', label: 'Meeting Notes' },
   { id: 'expenses', label: 'Expenses' },
+  { id: 'analytics', label: 'Analytics' },
   { id: 'content', label: 'Content' },
 ];
 
@@ -90,6 +92,7 @@ export default function ClientDetailPage() {
       )}
       {tab === 'meetings' && <ClientMeetingsTab clientId={client.id} />}
       {tab === 'expenses' && <ExpensesTab clientId={client.id} />}
+      {tab === 'analytics' && <ClientAnalyticsTab clientId={client.id} />}
       {tab === 'content' && <ContentStudio clientName={client.name} organizationId={client.id} />}
     </div>
   );
