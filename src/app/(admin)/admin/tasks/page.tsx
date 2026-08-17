@@ -9,6 +9,8 @@ import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusMod
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 
+type EnergyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
 interface FocusTask {
   id: string;
   title: string;
@@ -19,6 +21,7 @@ interface FocusTask {
   focusOrder: number | null;
   subtasks: FocusSubtask[] | null;
   organizationId: string | null;
+  energyLevel: EnergyLevel | null;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -26,6 +29,39 @@ const COLUMNS: { id: FocusTask['status']; label: string }[] = [
   { id: 'ACTIVE', label: 'Active' },
   { id: 'DONE', label: 'Done' },
 ];
+
+const ENERGY_LEVELS: EnergyLevel[] = ['LOW', 'MEDIUM', 'HIGH'];
+
+const ENERGY_META: Record<EnergyLevel, { emoji: string; short: string; title: string; badge: string; pill: string }> = {
+  LOW: {
+    emoji: '⚡',
+    short: 'Low',
+    title: 'Low Energy / Quick Win',
+    badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    pill: 'bg-amber-500 text-black',
+  },
+  MEDIUM: {
+    emoji: '🧠',
+    short: 'Med',
+    title: 'Medium Focus',
+    badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+    pill: 'bg-indigo-500 text-white',
+  },
+  HIGH: {
+    emoji: '🔥',
+    short: 'High',
+    title: 'Deep Focus / High Energy',
+    badge: 'bg-red-500/20 text-red-300 border-red-500/30',
+    pill: 'bg-red-500 text-white',
+  },
+};
+
+function nextEnergyLevel(current: EnergyLevel | null): EnergyLevel | null {
+  if (current === null) return 'LOW';
+  if (current === 'LOW') return 'MEDIUM';
+  if (current === 'MEDIUM') return 'HIGH';
+  return null;
+}
 
 export default function TasksPage() {
   const searchParams = useSearchParams();
@@ -37,6 +73,8 @@ export default function TasksPage() {
   const [pickedTaskId, setPickedTaskId] = useState<string | null>(null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [quickAddEnergy, setQuickAddEnergy] = useState<EnergyLevel | null>(null);
+  const [energyFilter, setEnergyFilter] = useState<EnergyLevel | 'ALL'>('ALL');
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -77,11 +115,22 @@ export default function TasksPage() {
     const res = await fetch('/api/focus-tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: quickAddValue.trim() }),
+      body: JSON.stringify({ title: quickAddValue.trim(), energyLevel: quickAddEnergy }),
     });
     if (!res.ok) return;
     setQuickAddValue('');
+    setQuickAddEnergy(null);
     load();
+  }
+
+  function cycleEnergyLevel(task: FocusTask) {
+    const next = nextEnergyLevel(task.energyLevel);
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, energyLevel: next } : t)));
+    fetch(`/api/focus-tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ energyLevel: next }),
+    });
   }
 
   async function handleDragEnd(result: DropResult) {
@@ -223,6 +272,29 @@ export default function TasksPage() {
         </div>
       </div>
 
+      <div className="flex items-center gap-1.5">
+        <span className="text-[11px] font-mono uppercase text-gray-500 mr-1">Energy:</span>
+        <button
+          onClick={() => setEnergyFilter('ALL')}
+          className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
+            energyFilter === 'ALL' ? 'bg-white text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+          }`}
+        >
+          All
+        </button>
+        {ENERGY_LEVELS.map((lvl) => (
+          <button
+            key={lvl}
+            onClick={() => setEnergyFilter(lvl)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
+              energyFilter === lvl ? ENERGY_META[lvl].pill : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            }`}
+          >
+            {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
+          </button>
+        ))}
+      </div>
+
       <div className="flex gap-2">
         <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1">
           <input
@@ -232,6 +304,21 @@ export default function TasksPage() {
             placeholder="Quick add a task, press N to focus this box"
             className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
           />
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
+            {ENERGY_LEVELS.map((lvl) => (
+              <button
+                key={lvl}
+                type="button"
+                title={ENERGY_META[lvl].title}
+                onClick={() => setQuickAddEnergy((prev) => (prev === lvl ? null : lvl))}
+                className={`px-1.5 py-1 rounded-lg text-sm ${
+                  quickAddEnergy === lvl ? ENERGY_META[lvl].pill : 'text-gray-500 hover:text-gray-300'
+                }`}
+              >
+                {ENERGY_META[lvl].emoji}
+              </button>
+            ))}
+          </div>
           <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
             <Plus className="w-4 h-4" />
           </button>
@@ -265,14 +352,20 @@ export default function TasksPage() {
                     <div className="text-xs font-mono uppercase text-gray-400">{col.label}</div>
                     {tasks
                       .filter((t) => t.status === col.id)
-                      .map((t, index) => (
+                      .map((t, index) => {
+                        const matchesEnergy = energyFilter === 'ALL' || t.energyLevel === energyFilter;
+                        return (
                         <Draggable draggableId={t.id} index={index} key={t.id}>
                           {(dragProvided) => (
                             <div
                               ref={dragProvided.innerRef}
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
-                              className="bg-[#0F172A] border border-white/10 rounded-xl p-3 text-sm text-white space-y-2"
+                              className={`bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white space-y-2 transition-all duration-300 ease-in-out overflow-hidden ${
+                                matchesEnergy
+                                  ? 'max-h-[500px] opacity-100 p-3 mb-0'
+                                  : 'max-h-0 opacity-0 p-0 mb-0 border-0 pointer-events-none'
+                              }`}
                             >
                               <div className="flex items-center justify-between gap-2">
                                 <span>{t.title}</span>
@@ -293,6 +386,22 @@ export default function TasksPage() {
                                   </button>
                                 </div>
                               </div>
+
+                              <button
+                                onClick={() => cycleEnergyLevel(t)}
+                                title="Click to change energy level"
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                                  t.energyLevel ? ENERGY_META[t.energyLevel].badge : 'border-white/10 text-gray-600 hover:text-gray-400'
+                                }`}
+                              >
+                                {t.energyLevel ? (
+                                  <>
+                                    {ENERGY_META[t.energyLevel].emoji} {ENERGY_META[t.energyLevel].short}
+                                  </>
+                                ) : (
+                                  '+ Energy'
+                                )}
+                              </button>
 
                               {t.subtasks && t.subtasks.length > 0 ? (
                                 <div className="space-y-1 pl-1">
@@ -325,7 +434,8 @@ export default function TasksPage() {
                             </div>
                           )}
                         </Draggable>
-                      ))}
+                        );
+                      })}
                     {provided.placeholder}
                   </div>
                 )}

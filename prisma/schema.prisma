@@ -629,18 +629,25 @@ model InvoiceLine {
   @@index([invoiceId])
 }
 
+enum EnergyLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
 model Task {
   id             String        @id @default(uuid())
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   title        String
-  status       String    @default("INBOX") // INBOX, ACTIVE, DONE
-  priority     Int       @default(0)
+  status       String       @default("INBOX") // INBOX, ACTIVE, DONE
+  priority     Int          @default(0)
   dueDate      DateTime?
-  isFocusToday Boolean   @default(false)
+  isFocusToday Boolean      @default(false)
   focusOrder   Int?
   subtasks     Json? // AI micro-chunked steps: [{ id, title, done }]
+  energyLevel  EnergyLevel? // Cognitive energy required: LOW/MEDIUM/HIGH, null = untagged
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

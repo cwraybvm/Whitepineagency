@@ -17,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params;
   const body = await req.json();
-  const { title, status, priority, dueDate, isFocusToday, focusOrder, subtasks } = body;
+  const { title, status, priority, dueDate, isFocusToday, focusOrder, subtasks, energyLevel } = body;
 
   const task = await prisma.task.update({
     where: { id },
@@ -29,6 +29,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(isFocusToday !== undefined && { isFocusToday }),
       ...(focusOrder !== undefined && { focusOrder }),
       ...(subtasks !== undefined && { subtasks }),
+      ...(energyLevel !== undefined && { energyLevel }),
     },
   });
   return NextResponse.json(task);
