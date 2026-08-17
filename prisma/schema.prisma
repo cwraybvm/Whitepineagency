@@ -50,6 +50,10 @@ model Organization {
   stripeCustomerId     String?
   stripeSubscriptionId String?
 
+  // Hourly rate applied to this client's unbilled TimeEntry rows when
+  // generating an invoice — falls back to DEFAULT_HOURLY_RATE when unset.
+  hourlyRate Float?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
@@ -74,6 +78,7 @@ model Organization {
   timeEntries        TimeEntry[]
   tasks              Task[]
   campaigns          Campaign[]
+  invoices           Invoice[]
 
   @@index([customDomain])
 }
@@ -572,11 +577,56 @@ model TimeEntry {
   isBilled        Boolean   @default(false)
   description     String?
 
+  invoiceLine InvoiceLine?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([organizationId])
   @@index([isBilled])
+}
+
+// Invoice generated from a client's unbilled TimeEntry rows — see
+// /api/admin/invoices/generate. One DRAFT invoice accumulates lines per
+// generation run until sent/paid.
+model Invoice {
+  id             String       @id @default(uuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  status      String    @default("DRAFT") // DRAFT, SENT, PAID
+  periodStart DateTime?
+  periodEnd   DateTime?
+  hourlyRate  Float     @default(0)
+  totalHours  Float     @default(0)
+  totalAmount Float     @default(0)
+
+  lines InvoiceLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([organizationId])
+  @@index([status])
+}
+
+// One itemized row per billed TimeEntry.
+model InvoiceLine {
+  id        String  @id @default(uuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  timeEntryId String    @unique
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id])
+
+  description String
+  hours       Float
+  rate        Float
+  amount      Float
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
 }
 
 model Task {

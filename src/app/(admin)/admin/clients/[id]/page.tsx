@@ -9,6 +9,7 @@ import ClientMeetingsTab from '@/components/admin/clients/ClientMeetingsTab';
 import ExpensesTab from '@/components/admin/clients/ExpensesTab';
 import ClientAnalyticsTab from '@/components/admin/clients/ClientAnalyticsTab';
 import ContentStudio from '@/components/ContentStudio';
+import InvoicingTab from '@/components/admin/clients/InvoicingTab';
 
 interface ClientDetail {
   id: string;
@@ -16,12 +17,13 @@ interface ClientDetail {
   status: string;
 }
 
-type TabId = 'overview' | 'meetings' | 'expenses' | 'analytics' | 'content';
+type TabId = 'overview' | 'meetings' | 'expenses' | 'invoicing' | 'analytics' | 'content';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'meetings', label: 'Meeting Notes' },
   { id: 'expenses', label: 'Expenses' },
+  { id: 'invoicing', label: 'Invoicing' },
   { id: 'analytics', label: 'Analytics' },
   { id: 'content', label: 'Content' },
 ];
@@ -92,6 +94,7 @@ export default function ClientDetailPage() {
       )}
       {tab === 'meetings' && <ClientMeetingsTab clientId={client.id} />}
       {tab === 'expenses' && <ExpensesTab clientId={client.id} />}
+      {tab === 'invoicing' && <InvoicingTab clientId={client.id} />}
       {tab === 'analytics' && <ClientAnalyticsTab clientId={client.id} />}
       {tab === 'content' && <ContentStudio clientName={client.name} organizationId={client.id} />}
     </div>
