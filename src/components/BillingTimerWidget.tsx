@@ -31,11 +31,11 @@ export default function BillingTimerWidget() {
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    fetch('/api/clients').then((res) => res.json()).then((list: ClientOption[]) => {
+    fetch('/api/clients').then((res) => (res.ok ? res.json() : [])).then((list: ClientOption[]) => {
       setClients(list);
       if (list.length > 0) setSelectedClientId((prev) => prev || list[0].id);
     });
-    fetch('/api/time-entries').then((res) => res.json()).then((entry: ActiveEntry | null) => {
+    fetch('/api/time-entries').then((res) => (res.ok ? res.json() : null)).then((entry: ActiveEntry | null) => {
       setActive(entry);
       if (entry) setSelectedClientId(entry.organizationId);
     });
