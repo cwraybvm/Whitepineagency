@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind } from 'lucide-react';
+import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
+import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 
 type EnergyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -24,6 +25,7 @@ interface FocusTask {
   subtasks: FocusSubtask[] | null;
   organizationId: string | null;
   energyLevel: EnergyLevel | null;
+  isParked: boolean;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -78,6 +80,7 @@ export default function TasksPage() {
   const [quickAddEnergy, setQuickAddEnergy] = useState<EnergyLevel | null>(null);
   const [energyFilter, setEnergyFilter] = useState<EnergyLevel | 'ALL'>('ALL');
   const [streak, setStreak] = useState<StreakState | null>(null);
+  const [parkedDrawerOpen, setParkedDrawerOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -134,6 +137,15 @@ export default function TasksPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ energyLevel: next }),
+    });
+  }
+
+  function setParked(taskId: string, isParked: boolean) {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, isParked } : t)));
+    fetch(`/api/focus-tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isParked }),
     });
   }
 
@@ -216,9 +228,12 @@ export default function TasksPage() {
     });
   }
 
-  const openTasks = tasks.filter((t) => t.status !== 'DONE');
-  const focusTasks = tasks.filter((t) => t.isFocusToday).sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
+  const openTasks = tasks.filter((t) => t.status !== 'DONE' && !t.isParked);
+  const focusTasks = tasks
+    .filter((t) => t.isFocusToday && !t.isParked)
+    .sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
   const overlayTasks = pickedTaskId ? openTasks.filter((t) => t.id === pickedTaskId) : openTasks;
+  const parkedTasks = tasks.filter((t) => t.isParked);
 
   function closeOverlay() {
     setFocusOverlayIndex(null);
@@ -307,6 +322,12 @@ export default function TasksPage() {
             {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
           </button>
         ))}
+        <button
+          onClick={() => setParkedDrawerOpen(true)}
+          className="ml-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+        >
+          <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
+        </button>
       </div>
 
       <div className="flex gap-2">
@@ -365,7 +386,7 @@ export default function TasksPage() {
                   <div ref={provided.innerRef} {...provided.droppableProps} className="bg-white/5 rounded-2xl p-3 space-y-2 min-h-[200px]">
                     <div className="text-xs font-mono uppercase text-gray-400">{col.label}</div>
                     {tasks
-                      .filter((t) => t.status === col.id)
+                      .filter((t) => t.status === col.id && !t.isParked)
                       .map((t, index) => {
                         const matchesEnergy = energyFilter === 'ALL' || t.energyLevel === energyFilter;
                         return (
@@ -397,6 +418,13 @@ export default function TasksPage() {
                                   </button>
                                   <button onClick={() => toggleFocus(t)} className={t.isFocusToday ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}>
                                     <Star className="w-3.5 h-3.5" fill={t.isFocusToday ? 'currentColor' : 'none'} />
+                                  </button>
+                                  <button
+                                    onClick={() => setParked(t.id, true)}
+                                    className="text-gray-600 hover:text-orange-400 p-0.5"
+                                    title="Park for later"
+                                  >
+                                    <Package className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </div>
@@ -482,6 +510,14 @@ export default function TasksPage() {
       )}
 
       {resetOpen && <DopamineResetDrawer onClose={() => setResetOpen(false)} />}
+
+      {parkedDrawerOpen && (
+        <ParkedTasksDrawer
+          tasks={parkedTasks}
+          onUnpark={(taskId) => setParked(taskId, false)}
+          onClose={() => setParkedDrawerOpen(false)}
+        />
+      )}
     </div>
   );
 }
