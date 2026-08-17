@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon } from 'lucide-react';
+import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle } from 'lucide-react';
+import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
+import BrainDumpModal from '@/components/admin/BrainDumpModal';
 
 interface FocusTask {
   id: string;
@@ -31,6 +33,8 @@ export default function TasksPage() {
   const [focusMode, setFocusMode] = useState(false);
   const [breakingDownId, setBreakingDownId] = useState<string | null>(null);
   const [focusOverlayIndex, setFocusOverlayIndex] = useState<number | null>(null);
+  const [pickedTaskId, setPickedTaskId] = useState<string | null>(null);
+  const [brainDumpOpen, setBrainDumpOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -154,6 +158,29 @@ export default function TasksPage() {
 
   const openTasks = tasks.filter((t) => t.status !== 'DONE');
   const focusTasks = tasks.filter((t) => t.isFocusToday).sort((a, b) => (a.focusOrder ?? 0) - (b.focusOrder ?? 0));
+  const overlayTasks = pickedTaskId ? openTasks.filter((t) => t.id === pickedTaskId) : openTasks;
+
+  function closeOverlay() {
+    setFocusOverlayIndex(null);
+    setPickedTaskId(null);
+  }
+
+  function pickSurpriseTask() {
+    if (openTasks.length === 0) return;
+    const weights = openTasks.map((t) => t.priority + 1);
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    let roll = Math.random() * total;
+    let chosen = openTasks[openTasks.length - 1];
+    for (let i = 0; i < openTasks.length; i++) {
+      roll -= weights[i];
+      if (roll <= 0) {
+        chosen = openTasks[i];
+        break;
+      }
+    }
+    setPickedTaskId(chosen.id);
+    setFocusOverlayIndex(0);
+  }
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
@@ -178,21 +205,36 @@ export default function TasksPage() {
           >
             <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
           </button>
+          <button
+            onClick={pickSurpriseTask}
+            disabled={openTasks.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30 disabled:opacity-30"
+          >
+            <Shuffle className="w-3.5 h-3.5" /> Surprise Me
+          </button>
         </div>
       </div>
 
-      <form onSubmit={handleQuickAdd} className="flex gap-2">
-        <input
-          ref={quickAddRef}
-          value={quickAddValue}
-          onChange={(e) => setQuickAddValue(e.target.value)}
-          placeholder="Quick add a task, press N to focus this box"
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
-        />
-        <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
-          <Plus className="w-4 h-4" />
+      <div className="flex gap-2">
+        <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1">
+          <input
+            ref={quickAddRef}
+            value={quickAddValue}
+            onChange={(e) => setQuickAddValue(e.target.value)}
+            placeholder="Quick add a task, press N to focus this box"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+          />
+          <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
+            <Plus className="w-4 h-4" />
+          </button>
+        </form>
+        <button
+          onClick={() => setBrainDumpOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0"
+        >
+          <Sparkles className="w-4 h-4" /> Brain Dump
         </button>
-      </form>
+      </div>
 
       {focusMode ? (
         <div className="space-y-2">
@@ -285,14 +327,25 @@ export default function TasksPage() {
         </DragDropContext>
       )}
 
-      {focusOverlayIndex !== null && openTasks.length > 0 && (
+      {focusOverlayIndex !== null && overlayTasks.length > 0 && (
         <FocusModeOverlay
-          tasks={openTasks}
-          startIndex={Math.min(focusOverlayIndex, openTasks.length - 1)}
-          onClose={() => setFocusOverlayIndex(null)}
+          tasks={overlayTasks}
+          startIndex={Math.min(focusOverlayIndex, overlayTasks.length - 1)}
+          onClose={closeOverlay}
           onComplete={completeTask}
           onToggleSubtask={toggleSubtask}
           onBreakDown={breakDownTask}
+        />
+      )}
+
+      {brainDumpOpen && (
+        <BrainDumpModal
+          onClose={() => setBrainDumpOpen(false)}
+          onCreated={(count) => {
+            setBrainDumpOpen(false);
+            load();
+            toast.success(`Added ${count} task${count === 1 ? '' : 's'}`);
+          }}
         />
       )}
     </div>
