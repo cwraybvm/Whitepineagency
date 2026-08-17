@@ -3,11 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import confetti from 'canvas-confetti';
 import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
+import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 
 type EnergyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -75,6 +77,7 @@ export default function TasksPage() {
   const [resetOpen, setResetOpen] = useState(false);
   const [quickAddEnergy, setQuickAddEnergy] = useState<EnergyLevel | null>(null);
   const [energyFilter, setEnergyFilter] = useState<EnergyLevel | 'ALL'>('ALL');
+  const [streak, setStreak] = useState<StreakState | null>(null);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -89,6 +92,7 @@ export default function TasksPage() {
   }
 
   useEffect(load, []);
+  useEffect(() => setStreak(getTaskStreak()), []);
 
   // Global nav "Focus Mode" quick-launch lands here with ?focus=1.
   useEffect(() => {
@@ -138,6 +142,10 @@ export default function TasksPage() {
     const newStatus = result.destination.droppableId as FocusTask['status'];
     const taskId = result.draggableId;
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+    if (newStatus === 'DONE' && result.source.droppableId !== 'DONE') {
+      confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+      setStreak(recordTaskCompletion());
+    }
     const res = await fetch(`/api/focus-tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -200,6 +208,7 @@ export default function TasksPage() {
 
   async function completeTask(taskId: string) {
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: 'DONE' } : t)));
+    setStreak(recordTaskCompletion());
     await fetch(`/api/focus-tasks/${taskId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -239,6 +248,11 @@ export default function TasksPage() {
         <div className="flex items-center gap-2">
           <ListTodo className="w-5 h-5 text-emerald-400" />
           <h1 className="text-lg font-bold text-white">Tasks</h1>
+          {!!streak?.currentStreak && (
+            <span className="flex items-center gap-1 bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded-full px-2.5 py-1 text-xs font-bold">
+              🔥 {streak.currentStreak}-Day Streak
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
