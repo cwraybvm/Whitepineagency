@@ -35,6 +35,7 @@ export default function AdminNav() {
     { href: "/admin/simulator", label: "Voice Simulator", mobileLabel: "Simulator", icon: "🎙️" },
     { href: "/admin/reports", label: "Reports", mobileLabel: "Reports", icon: "📄" },
     { href: "/admin/analytics", label: "Telemetry Analytics", mobileLabel: "Analytics", icon: "📊" },
+    { href: "/admin/cmo", label: "CMO Dashboard", mobileLabel: "CMO", icon: "🧭" },
   ];
 
   return (
