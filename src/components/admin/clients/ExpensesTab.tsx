@@ -47,8 +47,12 @@ export default function ExpensesTab({ clientId }: { clientId: string }) {
   function load() {
     setLoading(true);
     fetch(`/api/clients/${clientId}/expenses`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load expenses');
+        return res.json();
+      })
       .then(setExpenses)
+      .catch(() => toast.error('Failed to load expenses'))
       .finally(() => setLoading(false));
   }
 
@@ -85,7 +89,11 @@ export default function ExpensesTab({ clientId }: { clientId: string }) {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/clients/${clientId}/expenses/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/clients/${clientId}/expenses/${id}`, { method: 'DELETE' });
+    if (!res.ok) {
+      toast.error('Failed to delete expense');
+      return;
+    }
     load();
   }
 

@@ -90,7 +90,7 @@ export default function BillingTimerWidget() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-3 font-mono text-xs">
+    <div className="fixed top-4 right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-4 py-3 hidden md:flex items-center gap-3 font-mono text-xs">
       <Clock className="w-4 h-4 text-emerald-400" />
       <select
         value={selectedClientId}

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import ClientMeetingsTab from '@/components/admin/clients/ClientMeetingsTab';
 import ExpensesTab from '@/components/admin/clients/ExpensesTab';
 
@@ -31,10 +32,14 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     fetch('/api/clients')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load client');
+        return res.json();
+      })
       .then((all: ClientDetail[]) => {
         setClient(all.find((c) => c.id === clientId) || null);
       })
+      .catch(() => toast.error('Failed to load client'))
       .finally(() => setLoading(false));
   }, [clientId]);
 

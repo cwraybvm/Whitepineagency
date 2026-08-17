@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Building2, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface ClientRow {
   id: string;
@@ -16,8 +17,12 @@ export default function ClientsListPage() {
 
   useEffect(() => {
     fetch('/api/clients')
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load clients');
+        return res.json();
+      })
       .then(setClients)
+      .catch(() => toast.error('Failed to load clients'))
       .finally(() => setLoading(false));
   }, []);
 

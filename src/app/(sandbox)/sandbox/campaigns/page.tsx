@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Plus, FlaskConical } from 'lucide-react';
+import { toast } from 'sonner';
 import CampaignComparisonTable from '@/components/sandbox/CampaignComparisonTable';
 
 interface Variant {
@@ -26,7 +27,13 @@ export default function CampaignSandboxPage() {
   const [variantForm, setVariantForm] = useState<Record<string, { headline: string; spend: string; impressions: string; clicks: string; conversions: string }>>({});
 
   function load() {
-    fetch('/api/sandbox/campaigns').then((res) => res.json()).then(setCampaigns);
+    fetch('/api/sandbox/campaigns')
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load campaigns');
+        return res.json();
+      })
+      .then(setCampaigns)
+      .catch(() => toast.error('Failed to load campaigns'));
   }
 
   useEffect(load, []);
@@ -34,11 +41,15 @@ export default function CampaignSandboxPage() {
   async function handleCreateCampaign(e: React.FormEvent) {
     e.preventDefault();
     if (!newCampaignName.trim()) return;
-    await fetch('/api/sandbox/campaigns', {
+    const res = await fetch('/api/sandbox/campaigns', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newCampaignName.trim() }),
     });
+    if (!res.ok) {
+      toast.error('Failed to create campaign');
+      return;
+    }
     setNewCampaignName('');
     load();
   }
@@ -50,7 +61,7 @@ export default function CampaignSandboxPage() {
   async function handleAddVariant(campaignId: string) {
     const form = formFor(campaignId);
     if (!form.headline.trim()) return;
-    await fetch(`/api/sandbox/campaigns/${campaignId}/variants`, {
+    const res = await fetch(`/api/sandbox/campaigns/${campaignId}/variants`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -61,6 +72,10 @@ export default function CampaignSandboxPage() {
         conversions: Number(form.conversions) || 0,
       }),
     });
+    if (!res.ok) {
+      toast.error('Failed to add variant');
+      return;
+    }
     setVariantForm((prev) => ({ ...prev, [campaignId]: { headline: '', spend: '', impressions: '', clicks: '', conversions: '' } }));
     load();
   }

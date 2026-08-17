@@ -29,8 +29,12 @@ export default function ClientMeetingsTab({ clientId }: { clientId: string }) {
   function load() {
     setLoading(true);
     fetch(`/api/clients/${clientId}/meetings`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to load meeting notes');
+        return res.json();
+      })
       .then(setMeetings)
+      .catch(() => toast.error('Failed to load meeting notes'))
       .finally(() => setLoading(false));
   }
 

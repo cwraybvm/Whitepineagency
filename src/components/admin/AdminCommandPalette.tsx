@@ -19,6 +19,8 @@ import {
   Star,
   Kanban,
   Sparkles,
+  Building2,
+  FlaskConical,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -103,10 +105,12 @@ export default function AdminCommandPalette() {
     { id: 'nav-fulfillment', label: 'Fulfillment Board', hint: '/fulfillment', icon: Kanban, action: () => go('/fulfillment'), group: 'Navigate' },
     { id: 'nav-flyer', label: 'Offer & Flyer Generator', hint: '/fulfillment/flyer-generator', icon: Printer, action: () => go('/fulfillment/flyer-generator'), group: 'Navigate' },
     { id: 'nav-sandbox', label: 'Creative Sandbox', hint: '/sandbox', icon: Sparkles, action: () => go('/sandbox'), group: 'Navigate' },
+    { id: 'nav-campaigns', label: 'Campaign Sandbox', hint: '/sandbox/campaigns', icon: FlaskConical, action: () => go('/sandbox/campaigns'), group: 'Navigate' },
     { id: 'nav-intake', label: 'Client Intake Form', hint: '/intake', icon: FolderUp, action: () => go('/intake'), group: 'Navigate' },
     { id: 'nav-audit', label: 'Prospect Audit Helper', hint: '/audit/apex-mechanical', icon: Target, action: () => go('/audit/apex-mechanical'), group: 'Navigate' },
     { id: 'nav-reviews', label: 'Review Request System', hint: '/portal/reviews', icon: Star, action: () => go('/portal/reviews'), group: 'Navigate' },
     { id: 'nav-pipeline', label: 'Pipeline Console', hint: '/admin', icon: LayoutDashboard, action: () => go('/admin'), group: 'Navigate' },
+    { id: 'nav-clients', label: 'Clients', hint: '/admin/clients', icon: Building2, action: () => go('/admin/clients'), group: 'Navigate' },
     { id: 'nav-analytics', label: 'Telemetry Analytics', hint: '/admin/analytics', icon: BarChart3, action: () => go('/admin/analytics'), group: 'Navigate' },
     { id: 'nav-quote', label: 'Solution Quoter', hint: '/admin/quote', icon: Calculator, action: () => go('/admin/quote'), group: 'Navigate' },
     { id: 'nav-reports', label: 'Reports', hint: '/admin/reports', icon: FileText, action: () => go('/admin/reports'), group: 'Navigate' },
