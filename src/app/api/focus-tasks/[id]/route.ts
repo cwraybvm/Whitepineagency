@@ -23,7 +23,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     where: { id },
     data: {
       ...(title !== undefined && { title }),
-      ...(status !== undefined && { status }),
+      ...(status !== undefined && { status, completedAt: status === 'DONE' ? new Date() : null }),
       ...(priority !== undefined && { priority }),
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       ...(isFocusToday !== undefined && { isFocusToday }),

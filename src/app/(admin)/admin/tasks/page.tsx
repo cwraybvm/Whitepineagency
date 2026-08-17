@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock } from 'lucide-react';
+import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
+import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 
 type EnergyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
@@ -27,6 +28,7 @@ interface FocusTask {
   energyLevel: EnergyLevel | null;
   isParked: boolean;
   estimatedMinutes: number | null;
+  completedAt: string | null;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -102,6 +104,7 @@ export default function TasksPage() {
   const [streak, setStreak] = useState<StreakState | null>(null);
   const [parkedDrawerOpen, setParkedDrawerOpen] = useState(false);
   const [quickAddMinutes, setQuickAddMinutes] = useState<number | null>(null);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -335,6 +338,12 @@ export default function TasksPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
           >
             <Wind className="w-3.5 h-3.5" /> 5-Min Reset
+          </button>
+          <button
+            onClick={() => setInsightsOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
+          >
+            <PieChart className="w-3.5 h-3.5" /> Insights
           </button>
         </div>
       </div>
@@ -584,6 +593,8 @@ export default function TasksPage() {
           onClose={() => setParkedDrawerOpen(false)}
         />
       )}
+
+      {insightsOpen && <ExecutiveSummaryDrawer tasks={tasks} onClose={() => setInsightsOpen(false)} />}
     </div>
   );
 }

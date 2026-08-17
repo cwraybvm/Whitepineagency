@@ -650,6 +650,7 @@ model Task {
   energyLevel  EnergyLevel? // Cognitive energy required: LOW/MEDIUM/HIGH, null = untagged
   isParked     Boolean      @default(false) // Swept off the active board via the Park for Later drawer
   estimatedMinutes Int? // Quick-picked: 5, 15, 30, 60, or 120
+  completedAt      DateTime? // Set server-side when status transitions to DONE, cleared otherwise
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
