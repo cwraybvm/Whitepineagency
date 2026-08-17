@@ -12,8 +12,15 @@ import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
-
-type EnergyLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+import {
+  type EnergyLevel,
+  ENERGY_LEVELS,
+  ENERGY_META,
+  nextEnergyLevel,
+  DURATION_OPTIONS,
+  formatDuration,
+  nextDuration,
+} from '@/lib/taskFields';
 
 interface FocusTask {
   id: string;
@@ -37,56 +44,10 @@ const COLUMNS: { id: FocusTask['status']; label: string }[] = [
   { id: 'DONE', label: 'Done' },
 ];
 
-const ENERGY_LEVELS: EnergyLevel[] = ['LOW', 'MEDIUM', 'HIGH'];
-
-const ENERGY_META: Record<EnergyLevel, { emoji: string; short: string; title: string; badge: string; pill: string }> = {
-  LOW: {
-    emoji: '⚡',
-    short: 'Low',
-    title: 'Low Energy / Quick Win',
-    badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    pill: 'bg-amber-500 text-black',
-  },
-  MEDIUM: {
-    emoji: '🧠',
-    short: 'Med',
-    title: 'Medium Focus',
-    badge: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
-    pill: 'bg-indigo-500 text-white',
-  },
-  HIGH: {
-    emoji: '🔥',
-    short: 'High',
-    title: 'Deep Focus / High Energy',
-    badge: 'bg-red-500/20 text-red-300 border-red-500/30',
-    pill: 'bg-red-500 text-white',
-  },
-};
-
-function nextEnergyLevel(current: EnergyLevel | null): EnergyLevel | null {
-  if (current === null) return 'LOW';
-  if (current === 'LOW') return 'MEDIUM';
-  if (current === 'MEDIUM') return 'HIGH';
-  return null;
-}
-
-const DURATION_OPTIONS = [5, 15, 30, 60, 120];
-
-function formatDuration(minutes: number): string {
-  return minutes < 60 ? `${minutes}m` : `${minutes / 60}h`;
-}
-
 function formatMinutesTotal(total: number): string {
   if (total < 60) return `${total}m`;
   const hours = Math.round((total / 60) * 10) / 10;
   return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)} hrs`;
-}
-
-function nextDuration(current: number | null): number | null {
-  if (current === null) return DURATION_OPTIONS[0];
-  const idx = DURATION_OPTIONS.indexOf(current);
-  if (idx === -1 || idx === DURATION_OPTIONS.length - 1) return null;
-  return DURATION_OPTIONS[idx + 1];
 }
 
 export default function TasksPage() {
@@ -575,8 +536,9 @@ export default function TasksPage() {
 
       {brainDumpOpen && (
         <BrainDumpModal
+          focusTodayCount={focusTasks.length}
           onClose={() => setBrainDumpOpen(false)}
-          onCreated={(count) => {
+          onImported={(count) => {
             setBrainDumpOpen(false);
             load();
             toast.success(`Added ${count} task${count === 1 ? '' : 's'}`);
