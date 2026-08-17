@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { X, ChevronLeft, ChevronRight, Zap, Loader2, CheckCircle2 } from 'lucide-react';
 import { useBillingTimer } from '@/hooks/useBillingTimer';
 import FocusModeTimerWidget from './FocusModeTimerWidget';
+import AmbientAudioPlayer from './AmbientAudioPlayer';
 
 export interface FocusSubtask {
   id: string;
@@ -170,6 +171,12 @@ export default function FocusModeOverlay({
 
         <div className="text-xs font-mono uppercase tracking-wider text-gray-500 mb-4">
           Focus Mode &middot; Task {index + 1} of {queue.length}
+        </div>
+
+        {/* Outside the key={task.id} block below so the AudioContext survives
+            Prev/Next task navigation instead of restarting each time. */}
+        <div className="w-full max-w-xl mb-6">
+          <AmbientAudioPlayer />
         </div>
 
         <motion.div

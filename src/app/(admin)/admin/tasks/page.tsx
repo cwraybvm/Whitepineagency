@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle } from 'lucide-react';
+import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
+import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 
 interface FocusTask {
   id: string;
@@ -35,6 +36,7 @@ export default function TasksPage() {
   const [focusOverlayIndex, setFocusOverlayIndex] = useState<number | null>(null);
   const [pickedTaskId, setPickedTaskId] = useState<string | null>(null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -212,6 +214,12 @@ export default function TasksPage() {
           >
             <Shuffle className="w-3.5 h-3.5" /> Surprise Me
           </button>
+          <button
+            onClick={() => setResetOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+          >
+            <Wind className="w-3.5 h-3.5" /> 5-Min Reset
+          </button>
         </div>
       </div>
 
@@ -348,6 +356,8 @@ export default function TasksPage() {
           }}
         />
       )}
+
+      {resetOpen && <DopamineResetDrawer onClose={() => setResetOpen(false)} />}
     </div>
   );
 }
