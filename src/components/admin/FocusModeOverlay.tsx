@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { toast } from 'sonner';
-import { X, ChevronLeft, ChevronRight, Zap, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Lightbulb, Loader2, CheckCircle2 } from 'lucide-react';
 import { useBillingTimer } from '@/hooks/useBillingTimer';
 import FocusModeTimerWidget from './FocusModeTimerWidget';
 import AmbientAudioPlayer from './AmbientAudioPlayer';
@@ -213,16 +213,14 @@ export default function FocusModeOverlay({
               </label>
             ))}
 
-            {!task.subtasks?.length && (
-              <button
-                onClick={handleBreakDown}
-                disabled={breakingDown}
-                className="w-full flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/15 text-gray-400 text-xs rounded-xl px-3 py-3 disabled:opacity-50"
-              >
-                {breakingDown ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
-                {breakingDown ? 'Breaking down…' : 'Break into Micro-Steps'}
-              </button>
-            )}
+            <button
+              onClick={handleBreakDown}
+              disabled={breakingDown}
+              className="w-full flex items-center justify-center gap-1.5 bg-white/5 hover:bg-white/10 border border-dashed border-white/15 text-gray-400 text-xs rounded-xl px-3 py-3 disabled:opacity-50"
+            >
+              {breakingDown ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
+              {breakingDown ? 'Breaking down…' : 'Unstick Me'}
+            </button>
           </div>
 
           <div className="flex items-center justify-center gap-3">

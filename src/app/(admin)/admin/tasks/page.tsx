@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Zap, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -55,7 +55,7 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<FocusTask[]>([]);
   const [quickAddValue, setQuickAddValue] = useState('');
   const [focusMode, setFocusMode] = useState(false);
-  const [breakingDownId, setBreakingDownId] = useState<string | null>(null);
+  const [unstickingId, setUnstickingId] = useState<string | null>(null);
   const [focusOverlayIndex, setFocusOverlayIndex] = useState<number | null>(null);
   const [pickedTaskId, setPickedTaskId] = useState<string | null>(null);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
@@ -184,26 +184,19 @@ export default function TasksPage() {
     });
   }
 
-  async function breakDownTask(taskId: string) {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    setBreakingDownId(taskId);
+  async function unstickTask(taskId: string) {
+    setUnstickingId(taskId);
     try {
-      const res = await fetch('/api/tasks/breakdown', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: task.title }),
-      });
-      if (!res.ok) return;
-      const { subtasks } = await res.json();
-      const steps: FocusSubtask[] = (subtasks as string[]).map((title) => ({
-        id: crypto.randomUUID(),
-        title,
-        done: false,
-      }));
-      await patchSubtasks(taskId, steps);
+      const res = await fetch(`/api/focus-tasks/${taskId}/unstick`, { method: 'POST' });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error || 'Unstick Me failed');
+        return;
+      }
+      const updated = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks: updated.subtasks } : t)));
     } finally {
-      setBreakingDownId(null);
+      setUnstickingId(null);
     }
   }
 
@@ -481,7 +474,7 @@ export default function TasksPage() {
                                 </button>
                               </div>
 
-                              {t.subtasks && t.subtasks.length > 0 ? (
+                              {t.subtasks && t.subtasks.length > 0 && (
                                 <div className="space-y-1 pl-1">
                                   {t.subtasks.map((st) => (
                                     <label key={st.id} className="flex items-center gap-2 text-xs cursor-pointer">
@@ -495,20 +488,19 @@ export default function TasksPage() {
                                     </label>
                                   ))}
                                 </div>
-                              ) : (
-                                <button
-                                  onClick={() => breakDownTask(t.id)}
-                                  disabled={breakingDownId === t.id}
-                                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
-                                >
-                                  {breakingDownId === t.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <Zap className="w-3 h-3" />
-                                  )}
-                                  {breakingDownId === t.id ? 'Breaking down…' : 'Break Down'}
-                                </button>
                               )}
+                              <button
+                                onClick={() => unstickTask(t.id)}
+                                disabled={unstickingId === t.id}
+                                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
+                              >
+                                {unstickingId === t.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Lightbulb className="w-3 h-3" />
+                                )}
+                                {unstickingId === t.id ? 'Breaking down…' : 'Unstick Me'}
+                              </button>
                             </div>
                           )}
                         </Draggable>
@@ -530,7 +522,7 @@ export default function TasksPage() {
           onClose={closeOverlay}
           onComplete={completeTask}
           onToggleSubtask={toggleSubtask}
-          onBreakDown={breakDownTask}
+          onBreakDown={unstickTask}
         />
       )}
 
