@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fira_Code, Fira_Sans } from "next/font/google";
 import AdminNav from "@/components/AdminNav";
 import AdminCommandPalette from "@/components/admin/AdminCommandPalette";
+import BillingTimerWidget from "@/components/BillingTimerWidget";
 import { getCurrentTenant } from "@/config/clientConfig";
 import { TenantProvider } from "@/components/TenantProvider";
 import DevTenantBadge from "@/components/DevTenantBadge";
@@ -61,6 +62,7 @@ export default async function SandboxLayout({
           </main>
 
           <AdminCommandPalette />
+          <BillingTimerWidget />
         </div>
       </TenantProvider>
       <DevTenantBadge tenant={tenant} />

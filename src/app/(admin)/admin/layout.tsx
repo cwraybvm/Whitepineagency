@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fira_Code, Fira_Sans } from "next/font/google";
 import AdminNav from "@/components/AdminNav";
 import AdminCommandPalette from "@/components/admin/AdminCommandPalette";
+import BillingTimerWidget from "@/components/BillingTimerWidget";
 
 // design-system/white-pine-portal/MASTER.md + pages/admin.md — Data-Dense Dashboard, navy/Fira.
 const firaCode = Fira_Code({
@@ -66,6 +67,7 @@ export default function AdminLayout({
 
       {/* ⌘K GLOBAL COMMAND PALETTE — available on every /admin/* route */}
       <AdminCommandPalette />
+      <BillingTimerWidget />
 
     </div>
   );
