@@ -28,6 +28,7 @@ export default function AdminNav() {
   // per-link role check is needed here.
   const NAV_LINKS = [
     { href: "/admin", label: "Pipeline Intake", mobileLabel: "Pipeline", icon: "📥" },
+    { href: "/admin/tasks", label: "Tasks", mobileLabel: "Tasks", icon: "✅" },
     { href: "/fulfillment", label: "Fulfillment / SLA", mobileLabel: "Fulfillment", icon: "📦" },
     { href: "/sandbox", label: "Creative Sandbox", mobileLabel: "Sandbox", icon: "🎨" },
     { href: "/admin/simulator", label: "Voice Simulator", mobileLabel: "Simulator", icon: "🎙️" },
