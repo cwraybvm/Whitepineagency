@@ -96,6 +96,7 @@ function TasksBoardContent() {
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [toolkitOpen, setToolkitOpen] = useState(false);
   const [bossBattleTaskId, setBossBattleTaskId] = useState<string | null>(null);
   const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
   const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
@@ -462,14 +463,14 @@ function TasksBoardContent() {
           <button
             onClick={() => setFocusOverlayIndex(0)}
             disabled={openTasks.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 disabled:opacity-30"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-30"
           >
             <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
           </button>
           <button
             onClick={pickSurpriseTask}
             disabled={openTasks.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30 disabled:opacity-30"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10 disabled:opacity-30"
           >
             <Shuffle className="w-3.5 h-3.5" /> Surprise Me
           </button>
@@ -479,30 +480,76 @@ function TasksBoardContent() {
           >
             <Wind className="w-3.5 h-3.5" /> 5-Min Reset
           </button>
-          <button
-            onClick={() => setInsightsOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
-          >
-            <PieChart className="w-3.5 h-3.5" /> Insights
-          </button>
-          <button
-            onClick={() => setBingoOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30"
-          >
-            <Target className="w-3.5 h-3.5" /> Bingo
-          </button>
-          <button
-            onClick={() => setVaultOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
-          >
-            🏆 Dopamine Vault
-          </button>
-          <button
-            onClick={toggleLowBatteryMode}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
-          >
-            <Zap className="w-3.5 h-3.5" /> Low-Battery Mode
-          </button>
+
+          {/* Novelty/launcher features grouped behind one dropdown instead of
+              4-5 standalone buttons competing for attention in the header. */}
+          <div className="relative">
+            <button
+              onClick={() => setToolkitOpen((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
+                toolkitOpen ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+              }`}
+            >
+              🎯 ADHD Toolkit
+            </button>
+            {toolkitOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setToolkitOpen(false)} />
+                <div className="absolute right-0 mt-2 w-60 bg-[#0F172A] border border-white/10 rounded-xl shadow-xl z-40 p-1.5 space-y-0.5">
+                  <button
+                    onClick={() => {
+                      setInsightsOpen(true);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <PieChart className="w-3.5 h-3.5 text-emerald-400" /> Insights
+                  </button>
+                  <button
+                    onClick={() => {
+                      setBingoOpen(true);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <Target className="w-3.5 h-3.5 text-emerald-400" /> Bingo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setVaultOpen(true);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    🏆 Dopamine Vault
+                  </button>
+                  <button
+                    onClick={() => {
+                      toggleLowBatteryMode();
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Zap className="w-3.5 h-3.5 text-amber-400" /> Low-Battery Mode
+                    </span>
+                    {isLowBatteryMode && <span className="text-amber-400 text-[10px] font-mono">ON</span>}
+                  </button>
+                  {staleTasks.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setStaleModalOpen(true);
+                        setToolkitOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-amber-300 hover:bg-white/10 text-left"
+                    >
+                      🧹 Sweep Stale ({staleTasks.length})
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -542,14 +589,6 @@ function TasksBoardContent() {
         >
           <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
         </button>
-        {staleTasks.length > 0 && (
-          <button
-            onClick={() => setStaleModalOpen(true)}
-            className="ml-1 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
-          >
-            🧹 Sweep Stale ({staleTasks.length})
-          </button>
-        )}
       </div>
 
       <div className="flex gap-2">

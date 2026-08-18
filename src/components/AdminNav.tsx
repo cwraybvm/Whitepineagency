@@ -1,12 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/sandbox/ThemeToggle";
-import { Focus as FocusIcon, ListTodo } from "lucide-react";
+import { Focus as FocusIcon, ListTodo, MoreHorizontal, X } from "lucide-react";
 
 export default function AdminNav() {
   const pathname = usePathname();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Root "/admin" is a prefix of every other admin route, so it alone needs
   // an exact match -- every other link highlights on itself and sub-routes.
@@ -22,12 +24,10 @@ export default function AdminNav() {
     }`;
   };
 
-  const getMobileLinkStyles = (path: string) => {
-    const isActive = isPathActive(path);
-    return `flex flex-col items-center justify-center flex-1 py-2 text-[10px] font-mono font-bold transition-all ${
+  const getMobileLinkStyles = (isActive: boolean) =>
+    `flex flex-col items-center justify-center gap-1 py-2.5 px-1 text-[10px] font-mono font-bold leading-tight transition-all ${
       isActive ? "text-emerald-500 dark:text-emerald-400 text-glow-emerald" : "text-gray-500 dark:text-gray-500 light:text-slate-500 hover:text-gray-300 dark:hover:text-gray-300 light:hover:text-slate-700"
     }`;
-  };
 
   // Primary console navigation — shared across /admin, /sandbox, /fulfillment.
   // Rendered only inside OWNER-gated route groups (see src/proxy.ts), so no
@@ -43,6 +43,13 @@ export default function AdminNav() {
     { href: "/admin/analytics", label: "Telemetry Analytics", mobileLabel: "Analytics", icon: "📊" },
     { href: "/admin/cmo", label: "CMO Dashboard", mobileLabel: "CMO", icon: "🧭" },
   ];
+
+  // Mobile bottom bar only has room for 4 anchors -- the 3 highest-traffic
+  // destinations stay pinned, everything else lives behind "More".
+  const MOBILE_PRIMARY_HREFS = ["/admin", "/admin/tasks", "/admin/clients"];
+  const primaryLinks = NAV_LINKS.filter((l) => MOBILE_PRIMARY_HREFS.includes(l.href));
+  const moreLinks = NAV_LINKS.filter((l) => !MOBILE_PRIMARY_HREFS.includes(l.href));
+  const isInMoreSection = moreLinks.some((l) => isPathActive(l.href));
 
   return (
     <>
@@ -80,24 +87,57 @@ export default function AdminNav() {
         </div>
       </aside>
 
-      {/* 📱 MOBILE BOTTOM NAVIGATION BAR */}
-      <nav className="fixed bottom-0 left-0 right-0 h-[calc(4.5rem+env(safe-area-inset-bottom))] bg-black/80 dark:bg-black/80 light:bg-[#F1F5F2]/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800/80 flex items-start px-2 pt-2 z-40 md:hidden no-print pb-[env(safe-area-inset-bottom)] overflow-x-auto">
-        {NAV_LINKS.map((link) => (
-          <Link key={link.href} href={link.href} className={getMobileLinkStyles(link.href)}>
+      {/* 📱 MOBILE BOTTOM NAVIGATION BAR — 3 primary anchors + "More" drawer */}
+      <nav className="fixed bottom-0 left-0 right-0 h-[calc(4.25rem+env(safe-area-inset-bottom))] bg-black/90 dark:bg-black/90 light:bg-[#F1F5F2]/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800/80 grid grid-cols-4 z-40 md:hidden no-print pb-[env(safe-area-inset-bottom)]">
+        {primaryLinks.map((link) => (
+          <Link key={link.href} href={link.href} className={getMobileLinkStyles(isPathActive(link.href))}>
             {typeof link.icon === "string" ? (
-              <span className="text-lg mb-1">{link.icon}</span>
+              <span className="text-lg">{link.icon}</span>
             ) : (
-              <link.icon className="w-[18px] h-[18px] mb-1" />
+              <link.icon className="w-[18px] h-[18px]" />
             )}
             <span>{link.mobileLabel}</span>
           </Link>
         ))}
+        <button type="button" onClick={() => setMoreOpen(true)} className={getMobileLinkStyles(isInMoreSection)}>
+          <MoreHorizontal className="w-[18px] h-[18px]" />
+          <span>More</span>
+        </button>
       </nav>
+
+      {/* "More" drawer — secondary destinations, mobile only */}
+      {moreOpen && (
+        <div className="fixed inset-0 z-50 md:hidden no-print flex items-end" onClick={() => setMoreOpen(false)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            className="relative w-full bg-black/95 light:bg-[#F1F5F2] border-t border-slate-200/80 dark:border-slate-800/80 rounded-t-2xl p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] space-y-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2">
+              <span className="text-xs font-mono uppercase text-gray-500">More</span>
+              <button onClick={() => setMoreOpen(false)} className="text-gray-400 hover:text-white p-1">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {moreLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setMoreOpen(false)}
+                className={getLinkStyles(link.href)}
+              >
+                {typeof link.icon === "string" ? <span>{link.icon}</span> : <link.icon className="w-4 h-4 shrink-0" />} {link.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ThemeToggle only ships inside the desktop aside above (hidden below
           md), so it's otherwise unreachable on mobile — this floating button
-          is the only theme control available under the md breakpoint. */}
-      <div className="fixed top-4 right-4 z-40 md:hidden no-print">
+          is the only theme control available under the md breakpoint. Offset
+          by safe-area-inset-top so it clears the device status bar/notch. */}
+      <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] right-4 z-40 md:hidden no-print">
         <ThemeToggle />
       </div>
 
@@ -105,7 +145,7 @@ export default function AdminNav() {
           the sidebar footer above. Sits above the bottom nav bar. */}
       <Link
         href="/admin/tasks?focus=1"
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden no-print flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 py-2 rounded-full shadow-lg"
+        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 md:hidden no-print flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 py-2 rounded-full shadow-lg"
       >
         <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
       </Link>
