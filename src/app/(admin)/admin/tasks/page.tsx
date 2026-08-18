@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
@@ -54,7 +54,23 @@ function formatMinutesTotal(total: number): string {
   return `${hours % 1 === 0 ? hours.toFixed(0) : hours.toFixed(1)} hrs`;
 }
 
+function TasksLoadingSkeleton() {
+  return (
+    <div className="p-6 md:p-8 max-w-5xl mx-auto flex items-center justify-center min-h-[300px]">
+      <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+    </div>
+  );
+}
+
 export default function TasksPage() {
+  return (
+    <Suspense fallback={<TasksLoadingSkeleton />}>
+      <TasksBoardContent />
+    </Suspense>
+  );
+}
+
+function TasksBoardContent() {
   const searchParams = useSearchParams();
   const [tasks, setTasks] = useState<FocusTask[]>([]);
   const [quickAddValue, setQuickAddValue] = useState('');
