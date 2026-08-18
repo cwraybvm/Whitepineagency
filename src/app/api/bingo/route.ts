@@ -1,16 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import {
-  GOAL_POOLS,
-  getSeedKey,
-  getPeriodRange,
-  getBefore10amCutoff,
-  pickTiles,
-  type BingoPeriod,
-  type BingoMetric,
-  type GoalTemplate,
-} from '@/lib/bingo';
+import { getSeedKey, getPeriodRange, computeBoardCells, type BingoPeriod } from '@/lib/bingo';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,60 +14,15 @@ function isPeriod(value: unknown): value is BingoPeriod {
   return value === 'DAILY' || value === 'WEEKLY';
 }
 
-async function computeCurrent(metric: BingoMetric, start: Date, end: Date): Promise<number> {
-  switch (metric) {
-    case 'TASK_BEFORE_10AM':
-      return prisma.task.count({
-        where: { completedAt: { gte: start, lt: getBefore10amCutoff(start) } },
-      });
-    case 'UNSTICK_COUNT':
-      return prisma.task.count({ where: { unstickedAt: { gte: start, lt: end } } });
-    case 'FOCUS_SESSION_COUNT':
-      return prisma.focusSession.count({ where: { createdAt: { gte: start, lt: end } } });
-    case 'FOCUS_MINUTES': {
-      const agg = await prisma.focusSession.aggregate({
-        where: { createdAt: { gte: start, lt: end } },
-        _sum: { durationSeconds: true },
-      });
-      return Math.floor((agg._sum.durationSeconds ?? 0) / 60);
-    }
-    case 'TASKS_COMPLETED':
-      return prisma.task.count({ where: { completedAt: { gte: start, lt: end } } });
-    case 'TASKS_CREATED':
-      return prisma.task.count({ where: { createdAt: { gte: start, lt: end } } });
-    case 'TASKS_PARKED':
-      return prisma.task.count({ where: { parkedAt: { gte: start, lt: end } } });
-    case 'ENERGY_TAGGED':
-      return prisma.task.count({ where: { energyLevel: { not: null }, updatedAt: { gte: start, lt: end } } });
-    case 'HIGH_ENERGY_DONE':
-      return prisma.task.count({ where: { energyLevel: 'HIGH', completedAt: { gte: start, lt: end } } });
-    case 'FOCUS_TODAY_STARRED':
-      return prisma.task.count({ where: { isFocusToday: true, updatedAt: { gte: start, lt: end } } });
-  }
-}
-
 async function buildBoard(period: BingoPeriod) {
   const now = new Date();
   const seedKey = getSeedKey(period, now);
   const { start, end } = getPeriodRange(period, now);
-  const tiles = pickTiles(seedKey, GOAL_POOLS[period]);
 
   const board = await prisma.bingoBoard.findUnique({ where: { period_seedKey: { period, seedKey } } });
   const manuallyCompleted = new Set<number>(Array.isArray(board?.completedCells) ? (board!.completedCells as number[]) : []);
 
-  const cells = await Promise.all(
-    tiles.map(async (tile: GoalTemplate, index: number) => {
-      const current = await computeCurrent(tile.metric, start, end);
-      return {
-        index,
-        id: tile.id,
-        label: tile.label,
-        target: tile.target,
-        current: Math.min(current, tile.target),
-        completed: current >= tile.target || manuallyCompleted.has(index),
-      };
-    })
-  );
+  const cells = await computeBoardCells(period, seedKey, start, end, manuallyCompleted);
 
   return { period, seedKey, cells };
 }
