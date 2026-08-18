@@ -172,6 +172,7 @@ export default function FocusModeOverlay({
       >
         <button
           onClick={handleClose}
+          aria-label="Close modal"
           className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 rounded-xl transition-all"
         >
           <X className="w-5 h-5" />
@@ -235,11 +236,13 @@ export default function FocusModeOverlay({
                 {m}m
               </button>
             ))}
-            <div className="text-3xl font-mono text-white tabular-nums px-2">
+            <div data-testid="focus-timer" className="text-3xl font-mono text-white tabular-nums px-2">
               {mm}:{ss}
             </div>
             <button
+              data-testid="focus-timer-toggle"
               onClick={() => setRunning((r) => !r)}
+              aria-label={running ? 'Pause Focus Session' : 'Start Focus Session'}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:bg-white/10"
             >
               {running ? 'Pause' : 'Start'}
