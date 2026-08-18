@@ -14,7 +14,9 @@ import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
 import DopamineBingoModal from '@/components/admin/DopamineBingoModal';
 import StaleTasksModal, { type StaleTask } from '@/components/admin/StaleTasksModal';
+import EnergyMatcherWidget from '@/components/admin/EnergyMatcherWidget';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
+import { recommendedEnergy, type EnergyRecommendation } from '@/lib/energyMatcher';
 import {
   type EnergyLevel,
   ENERGY_LEVELS,
@@ -94,6 +96,7 @@ function TasksBoardContent() {
   const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
   const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
   const [staleModalOpen, setStaleModalOpen] = useState(false);
+  const [recommendation, setRecommendation] = useState<EnergyRecommendation | null>(null);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -125,6 +128,17 @@ function TasksBoardContent() {
       setIsLowBatteryMode(localStorage.getItem(LOW_BATTERY_STORAGE_KEY) === '1');
     } catch {}
   }, []);
+
+  // Computed client-side only (not on initial render) so the server clock
+  // can never disagree with the visitor's local time and cause a hydration mismatch.
+  useEffect(() => {
+    setRecommendation(recommendedEnergy());
+  }, []);
+
+  function toggleShowRecommended() {
+    if (!recommendation) return;
+    setEnergyFilter((prev) => (prev === recommendation.level ? 'ALL' : recommendation.level));
+  }
 
   function toggleLowBatteryMode() {
     setIsLowBatteryMode((prev) => {
@@ -323,6 +337,9 @@ function TasksBoardContent() {
   const overlayTasks = pickedTaskId ? openTasks.filter((t) => t.id === pickedTaskId) : openTasks;
   const parkedTasks = tasks.filter((t) => t.isParked);
   const totalMinutesRemaining = openTasks.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
+  const recommendedMatchCount = recommendation
+    ? openTasks.filter((t) => t.energyLevel === recommendation.level).length
+    : 0;
   const lowBatteryTask =
     focusTasks[0] ?? [...openTasks].sort((a, b) => b.priority - a.priority)[0] ?? null;
 
@@ -476,6 +493,15 @@ function TasksBoardContent() {
           </button>
         </div>
       </div>
+
+      {recommendation && (
+        <EnergyMatcherWidget
+          recommendation={recommendation}
+          matchCount={recommendedMatchCount}
+          active={energyFilter === recommendation.level}
+          onToggle={toggleShowRecommended}
+        />
+      )}
 
       <div className="flex items-center gap-1.5">
         <span className="text-[11px] font-mono uppercase text-gray-500 mr-1">Energy:</span>
