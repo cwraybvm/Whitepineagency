@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { X, Mic, MicOff, Loader2, Sparkles, Star } from 'lucide-react';
+import { X, Loader2, Sparkles, Star } from 'lucide-react';
 import { type EnergyLevel, ENERGY_LEVELS, ENERGY_META, DURATION_OPTIONS, formatDuration } from '@/lib/taskFields';
+import VoiceCaptureButton from './VoiceCaptureButton';
 
 interface BrainDumpModalProps {
   focusTodayCount: number;
@@ -20,58 +21,28 @@ interface ReviewRow {
   included: boolean;
 }
 
-// Chrome/Edge only — no polyfill, mic button just doesn't render elsewhere.
-function getSpeechRecognition(): typeof window.SpeechRecognition | undefined {
-  if (typeof window === 'undefined') return undefined;
-  return window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-}
-
 export default function BrainDumpModal({ focusTodayCount, onClose, onImported }: BrainDumpModalProps) {
   const [text, setText] = useState('');
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [listening, setListening] = useState(false);
+  const [autoSubmit, setAutoSubmit] = useState(false);
   const [rows, setRows] = useState<ReviewRow[] | null>(null);
-  const recognitionRef = useRef<InstanceType<NonNullable<typeof window.SpeechRecognition>> | null>(null);
-  const SpeechRecognition = getSpeechRecognition();
 
-  useEffect(() => {
-    return () => recognitionRef.current?.stop();
-  }, []);
-
-  function toggleListening() {
-    if (!SpeechRecognition) return;
-
-    if (listening) {
-      recognitionRef.current?.stop();
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.onresult = (e) => {
-      const chunk = Array.from(e.results)
-        .slice(e.resultIndex)
-        .map((r) => r[0].transcript)
-        .join(' ');
-      setText((prev) => (prev ? `${prev} ${chunk}` : chunk));
-    };
-    recognition.onerror = () => setListening(false);
-    recognition.onend = () => setListening(false);
-    recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
+  function handleVoiceTranscript(chunk: string) {
+    const next = text ? `${text} ${chunk}` : chunk;
+    setText(next);
+    if (autoSubmit) handleParse(next);
   }
 
-  async function handleParse() {
-    if (!text.trim() || parsing) return;
+  async function handleParse(overrideText?: string) {
+    const value = (overrideText ?? text).trim();
+    if (!value || parsing) return;
     setParsing(true);
     try {
       const res = await fetch('/api/focus-tasks/parse-brain-dump', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text.trim() }),
+        body: JSON.stringify({ prompt: value }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -172,23 +143,22 @@ export default function BrainDumpModal({ focusTodayCount, onClose, onImported }:
               className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white resize-none"
             />
 
-            <div className="flex items-center justify-between gap-2">
-              {SpeechRecognition ? (
-                <button
-                  onClick={toggleListening}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
-                    listening ? 'bg-red-500/20 text-red-300' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                  }`}
-                >
-                  {listening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  {listening ? 'Stop dictating' : 'Dictate'}
-                </button>
-              ) : (
-                <span />
-              )}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-3">
+                <VoiceCaptureButton onTranscript={handleVoiceTranscript} />
+                <label className="flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={autoSubmit}
+                    onChange={(e) => setAutoSubmit(e.target.checked)}
+                    className="w-3 h-3 accent-indigo-500"
+                  />
+                  Auto-submit after capture
+                </label>
+              </div>
 
               <button
-                onClick={handleParse}
+                onClick={() => handleParse()}
                 disabled={!text.trim() || parsing}
                 className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold text-xs px-4 py-2 rounded-xl disabled:opacity-40"
               >
