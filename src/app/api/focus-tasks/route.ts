@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { title, organizationId, dueDate, priority, energyLevel, isParked, estimatedMinutes } = await req.json();
+  const { title, organizationId, dueDate, priority, energyLevel, isParked, estimatedMinutes, isUrgent, isImportant } = await req.json();
   if (!title) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
   }
@@ -39,6 +39,8 @@ export async function POST(req: Request) {
       energyLevel: energyLevel || null,
       isParked: isParked ?? false,
       estimatedMinutes: estimatedMinutes || null,
+      isUrgent: isUrgent ?? false,
+      isImportant: isImportant ?? false,
     },
   });
   return NextResponse.json(task, { status: 201 });

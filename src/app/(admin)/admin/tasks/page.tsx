@@ -4,13 +4,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
+import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 import {
   type EnergyLevel,
@@ -36,6 +37,8 @@ interface FocusTask {
   isParked: boolean;
   estimatedMinutes: number | null;
   completedAt: string | null;
+  isUrgent: boolean;
+  isImportant: boolean;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -66,6 +69,7 @@ export default function TasksPage() {
   const [parkedDrawerOpen, setParkedDrawerOpen] = useState(false);
   const [quickAddMinutes, setQuickAddMinutes] = useState<number | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const quickAddRef = useRef<HTMLInputElement>(null);
 
   function load() {
@@ -133,6 +137,27 @@ export default function TasksPage() {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estimatedMinutes: next }),
+    });
+  }
+
+  function toggleMatrixAxis(taskId: string, axis: 'isUrgent' | 'isImportant') {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task) return;
+    const value = !task[axis];
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, [axis]: value } : t)));
+    fetch(`/api/focus-tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [axis]: value }),
+    });
+  }
+
+  function moveMatrixQuadrant(taskId: string, isUrgent: boolean, isImportant: boolean) {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, isUrgent, isImportant } : t)));
+    fetch(`/api/focus-tasks/${taskId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isUrgent, isImportant }),
     });
   }
 
@@ -266,6 +291,20 @@ export default function TasksPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setView((v) => (v === 'KANBAN' ? 'MATRIX' : 'KANBAN'))}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+          >
+            {view === 'KANBAN' ? (
+              <>
+                <LayoutGrid className="w-3.5 h-3.5" /> Roosevelt Matrix
+              </>
+            ) : (
+              <>
+                <Kanban className="w-3.5 h-3.5" /> Kanban Board
+              </>
+            )}
+          </button>
+          <button
             onClick={() => setFocusMode((v) => !v)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
               focusMode ? 'bg-amber-500 text-black' : 'bg-white/5 text-gray-400'
@@ -393,6 +432,8 @@ export default function TasksPage() {
             </div>
           ))}
         </div>
+      ) : view === 'MATRIX' ? (
+        <RooseveltMatrix tasks={openTasks} onToggleAxis={toggleMatrixAxis} onMove={moveMatrixQuadrant} />
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
