@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { scrapeSite, type ScrapedSite } from '@/lib/siteScraper';
 import type { CompetitorEntry, SpeedResult } from '@/lib/competitorAuditTypes';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +13,30 @@ export const dynamic = 'force-dynamic';
 // /fulfillment/competitor-audit calling this same endpoint is still fine --
 // the *page* stays role-gated by proxy.ts, this API just doesn't add a
 // second, inconsistent gate its siblings don't have.
+//
+// Logged-in staff (the /fulfillment tool) get unlimited use; anonymous demo
+// callers are capped per-IP so the OpenAI cost on this public route can't
+// be run up by a script hitting it in a loop.
+const DEMO_RATE_LIMIT = 5;
+const DEMO_RATE_WINDOW_MS = 60 * 60 * 1000;
+
+async function isAuthenticated() {
+  const store = await cookies();
+  return Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
+}
 
 export async function POST(req: Request) {
+  if (!(await isAuthenticated())) {
+    const ip = getClientIp(req);
+    const { allowed, resetAt } = checkRateLimit(`competitor-intel:${ip}`, DEMO_RATE_LIMIT, DEMO_RATE_WINDOW_MS);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Demo limit reached. Please try again in an hour or log in for unlimited audits.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((resetAt - Date.now()) / 1000)) } }
+      );
+    }
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'OPENAI_API_KEY is not configured in environment variables.' }, { status: 500 });
