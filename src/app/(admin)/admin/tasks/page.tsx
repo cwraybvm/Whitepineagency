@@ -13,6 +13,7 @@ import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
 import DopamineBingoModal from '@/components/admin/DopamineBingoModal';
+import StaleTasksModal, { type StaleTask } from '@/components/admin/StaleTasksModal';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 import {
   type EnergyLevel,
@@ -91,6 +92,8 @@ function TasksBoardContent() {
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
   const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
+  const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
+  const [staleModalOpen, setStaleModalOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -105,7 +108,16 @@ function TasksBoardContent() {
       });
   }
 
+  function loadStale() {
+    fetch('/api/focus-tasks/stale')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) setStaleTasks(data.tasks);
+      });
+  }
+
   useEffect(load, []);
+  useEffect(loadStale, []);
   useEffect(() => setStreak(getTaskStreak()), []);
 
   useEffect(() => {
@@ -285,6 +297,23 @@ function TasksBoardContent() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'DONE' }),
     });
+  }
+
+  async function handleStaleUnstick(taskId: string) {
+    await unstickTask(taskId);
+    setStaleTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }
+
+  function handleStalePark(taskId: string) {
+    setParked(taskId, true);
+    setStaleTasks((prev) => prev.filter((t) => t.id !== taskId));
+  }
+
+  async function handleStaleDelete(taskId: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    setStaleTasks((prev) => prev.filter((t) => t.id !== taskId));
+    await fetch(`/api/focus-tasks/${taskId}`, { method: 'DELETE' });
+    toast.success('Let go, guilt-free. One less thing on your plate.');
   }
 
   const openTasks = tasks.filter((t) => t.status !== 'DONE' && !t.isParked);
@@ -475,6 +504,14 @@ function TasksBoardContent() {
         >
           <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
         </button>
+        {staleTasks.length > 0 && (
+          <button
+            onClick={() => setStaleModalOpen(true)}
+            className="ml-1 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
+          >
+            🧹 Sweep Stale ({staleTasks.length})
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -693,6 +730,17 @@ function TasksBoardContent() {
           tasks={parkedTasks}
           onUnpark={(taskId) => setParked(taskId, false)}
           onClose={() => setParkedDrawerOpen(false)}
+        />
+      )}
+
+      {staleModalOpen && (
+        <StaleTasksModal
+          tasks={staleTasks}
+          unstickingId={unstickingId}
+          onUnstick={handleStaleUnstick}
+          onPark={handleStalePark}
+          onDelete={handleStaleDelete}
+          onClose={() => setStaleModalOpen(false)}
         />
       )}
 
