@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ...(focusOrder !== undefined && { focusOrder }),
       ...(subtasks !== undefined && { subtasks }),
       ...(energyLevel !== undefined && { energyLevel }),
-      ...(isParked !== undefined && { isParked }),
+      ...(isParked !== undefined && { isParked, ...(isParked ? { parkedAt: new Date() } : {}) }),
       ...(estimatedMinutes !== undefined && { estimatedMinutes }),
       ...(isUrgent !== undefined && { isUrgent }),
       ...(isImportant !== undefined && { isImportant }),

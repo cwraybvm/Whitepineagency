@@ -653,12 +653,34 @@ model Task {
   completedAt      DateTime? // Set server-side when status transitions to DONE, cleared otherwise
   isUrgent     Boolean      @default(false) // Roosevelt Matrix: urgent axis
   isImportant  Boolean      @default(false) // Roosevelt Matrix: important axis
+  unstickedAt  DateTime? // Set server-side when "Unstick Me" generates steps -- Bingo's Unstick goal
+  parkedAt     DateTime? // Set server-side when isParked flips true -- Bingo's Park goal (action count, not current state)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([organizationId])
   @@index([status])
+}
+
+model FocusSession {
+  id              String   @id @default(uuid())
+  durationSeconds Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model BingoBoard {
+  id             String   @id @default(uuid())
+  period         String // 'DAILY' or 'WEEKLY'
+  seedKey        String // 'YYYY-MM-DD' or ISO week 'YYYY-Www'
+  completedCells Json     @default("[]") // manually-claimed cell indices [0-8]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([period, seedKey])
 }
 
 model Campaign {

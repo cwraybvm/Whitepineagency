@@ -86,7 +86,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const updated = await prisma.task.update({
       where: { id },
-      data: { subtasks: [...existingSteps, ...newSteps] as unknown as Prisma.InputJsonValue },
+      data: {
+        subtasks: [...existingSteps, ...newSteps] as unknown as Prisma.InputJsonValue,
+        unstickedAt: new Date(),
+      },
     });
 
     return NextResponse.json(updated);

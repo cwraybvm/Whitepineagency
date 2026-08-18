@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -12,6 +12,7 @@ import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
+import DopamineBingoModal from '@/components/admin/DopamineBingoModal';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 import {
   type EnergyLevel,
@@ -70,7 +71,9 @@ export default function TasksPage() {
   const [quickAddMinutes, setQuickAddMinutes] = useState<number | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
+  const [bingoOpen, setBingoOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
+  const focusSessionStartRef = useRef<number | null>(null);
 
   function load() {
     fetch('/api/focus-tasks')
@@ -85,6 +88,13 @@ export default function TasksPage() {
 
   useEffect(load, []);
   useEffect(() => setStreak(getTaskStreak()), []);
+
+  // Tracks Focus Mode session length for the Bingo FOCUS_SESSION_COUNT / FOCUS_MINUTES goals.
+  useEffect(() => {
+    if (focusOverlayIndex !== null && focusSessionStartRef.current === null) {
+      focusSessionStartRef.current = Date.now();
+    }
+  }, [focusOverlayIndex]);
 
   // Global nav "Focus Mode" quick-launch lands here with ?focus=1.
   useEffect(() => {
@@ -253,6 +263,18 @@ export default function TasksPage() {
   function closeOverlay() {
     setFocusOverlayIndex(null);
     setPickedTaskId(null);
+    const startedAt = focusSessionStartRef.current;
+    focusSessionStartRef.current = null;
+    if (startedAt !== null) {
+      const durationSeconds = Math.round((Date.now() - startedAt) / 1000);
+      if (durationSeconds >= 5) {
+        fetch('/api/focus-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ durationSeconds }),
+        });
+      }
+    }
   }
 
   function pickSurpriseTask() {
@@ -337,6 +359,12 @@ export default function TasksPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
           >
             <PieChart className="w-3.5 h-3.5" /> Insights
+          </button>
+          <button
+            onClick={() => setBingoOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30"
+          >
+            <Target className="w-3.5 h-3.5" /> Bingo
           </button>
         </div>
       </div>
@@ -590,6 +618,8 @@ export default function TasksPage() {
       )}
 
       {insightsOpen && <ExecutiveSummaryDrawer tasks={tasks} onClose={() => setInsightsOpen(false)} />}
+
+      {bingoOpen && <DopamineBingoModal onClose={() => setBingoOpen(false)} />}
     </div>
   );
 }
