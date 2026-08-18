@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -14,6 +14,7 @@ import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
 import DopamineBingoModal from '@/components/admin/DopamineBingoModal';
 import DopamineVaultModal from '@/components/admin/DopamineVaultModal';
+import BossBattleModal from '@/components/admin/BossBattleModal';
 import StaleTasksModal, { type StaleTask } from '@/components/admin/StaleTasksModal';
 import EnergyMatcherWidget from '@/components/admin/EnergyMatcherWidget';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
@@ -95,6 +96,7 @@ function TasksBoardContent() {
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
+  const [bossBattleTaskId, setBossBattleTaskId] = useState<string | null>(null);
   const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
   const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
   const [staleModalOpen, setStaleModalOpen] = useState(false);
@@ -331,6 +333,8 @@ function TasksBoardContent() {
     await fetch(`/api/focus-tasks/${taskId}`, { method: 'DELETE' });
     toast.success('Let go, guilt-free. One less thing on your plate.');
   }
+
+  const bossBattleTask = bossBattleTaskId ? tasks.find((t) => t.id === bossBattleTaskId) ?? null : null;
 
   const openTasks = tasks.filter((t) => t.status !== 'DONE' && !t.isParked);
   const focusTasks = tasks
@@ -708,18 +712,28 @@ function TasksBoardContent() {
                                   ))}
                                 </div>
                               )}
-                              <button
-                                onClick={() => unstickTask(t.id)}
-                                disabled={unstickingId === t.id}
-                                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
-                              >
-                                {unstickingId === t.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Lightbulb className="w-3 h-3" />
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => unstickTask(t.id)}
+                                  disabled={unstickingId === t.id}
+                                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
+                                >
+                                  {unstickingId === t.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Lightbulb className="w-3 h-3" />
+                                  )}
+                                  {unstickingId === t.id ? 'Breaking down…' : 'Unstick Me'}
+                                </button>
+                                {((t.subtasks && t.subtasks.length > 0) || (t.isUrgent && t.isImportant)) && (
+                                  <button
+                                    onClick={() => setBossBattleTaskId(t.id)}
+                                    className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300"
+                                  >
+                                    <Swords className="w-3 h-3" /> Boss Battle
+                                  </button>
                                 )}
-                                {unstickingId === t.id ? 'Breaking down…' : 'Unstick Me'}
-                              </button>
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -783,6 +797,18 @@ function TasksBoardContent() {
       {bingoOpen && <DopamineBingoModal onClose={() => setBingoOpen(false)} />}
 
       {vaultOpen && <DopamineVaultModal onClose={() => setVaultOpen(false)} />}
+
+      {bossBattleTask && (
+        <BossBattleModal
+          task={bossBattleTask}
+          onToggleSubtask={toggleSubtask}
+          onComplete={(taskId) => {
+            completeTask(taskId);
+            setBossBattleTaskId(null);
+          }}
+          onClose={() => setBossBattleTaskId(null)}
+        />
+      )}
     </div>
   );
 }
