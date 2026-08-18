@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
-import { getSeedKey, getPeriodRange, computeBoardCells, getCompletedLines, type BingoPeriod } from '@/lib/bingo';
+import { getSeedKey, getPeriodRange, getCompletedLines, type BingoPeriod } from '@/lib/bingo';
+import { computeBoardCells } from '@/lib/bingoServer';
 
 export const dynamic = 'force-dynamic';
 
