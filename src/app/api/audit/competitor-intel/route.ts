@@ -1,23 +1,18 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { scrapeSite, type ScrapedSite } from '@/lib/siteScraper';
 import type { CompetitorEntry, SpeedResult } from '@/lib/competitorAuditTypes';
 
 export const dynamic = 'force-dynamic';
 
-// Matches src/app/api/fulfillment/checklist/route.ts's convention -- any
-// authenticated session, not OWNER-only, since this tool is meant to be
-// reachable from /fulfillment (OWNER + OPERATOR per proxy.ts).
-async function requireAuth() {
-  const store = await cookies();
-  return Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
-}
+// No auth check, deliberately -- matches every sibling route under
+// /api/audit/* (speed, rank, competitors), all intentionally public
+// because /demo/audit-generator is a no-login live-pitch tool (see
+// proxy.ts's ROUTE_ROLES comment: "/demo/* is deliberately NOT here").
+// /fulfillment/competitor-audit calling this same endpoint is still fine --
+// the *page* stays role-gated by proxy.ts, this API just doesn't add a
+// second, inconsistent gate its siblings don't have.
 
 export async function POST(req: Request) {
-  if (!(await requireAuth())) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'OPENAI_API_KEY is not configured in environment variables.' }, { status: 500 });

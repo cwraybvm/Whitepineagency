@@ -406,6 +406,15 @@ export default function UltimateFulfillmentPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Standalone entry point -- reachable even with zero clients
+              listed, unlike the per-card "Audit" link below which only
+              exists once a fulfillment task card does. */}
+          <button
+            onClick={() => router.push('/fulfillment/competitor-audit')}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5 text-emerald-400" /> 🔍 Competitor Audit
+          </button>
           <button
             onClick={() => router.push('/intake')}
             className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer"
