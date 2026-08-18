@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -17,6 +17,7 @@ import DopamineVaultModal from '@/components/admin/DopamineVaultModal';
 import BossBattleModal from '@/components/admin/BossBattleModal';
 import StaleTasksModal, { type StaleTask } from '@/components/admin/StaleTasksModal';
 import EnergyMatcherWidget from '@/components/admin/EnergyMatcherWidget';
+import BillingTimerWidget from '@/components/BillingTimerWidget';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
 import { recommendedEnergy, type EnergyRecommendation } from '@/lib/energyMatcher';
 import {
@@ -109,6 +110,8 @@ function TasksBoardContent() {
   const [staleModalOpen, setStaleModalOpen] = useState(false);
   const [recommendation, setRecommendation] = useState<EnergyRecommendation | null>(null);
   const [mobileColumnTab, setMobileColumnTab] = useState<FocusTask['status']>('INBOX');
+  const [filterBarOpen, setFilterBarOpen] = useState(true);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -434,8 +437,8 @@ function TasksBoardContent() {
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-y-3">
+        <div className="flex flex-wrap items-center gap-2">
           <ListTodo className="w-5 h-5 text-emerald-400" />
           <h1 className="text-lg font-bold text-white">Tasks</h1>
           {!!streak?.currentStreak && (
@@ -448,6 +451,10 @@ function TasksBoardContent() {
               ⏳ {formatMinutesTotal(totalMinutesRemaining)} remaining today
             </span>
           )}
+          {/* Docked here instead of floating fixed over page content --
+              BillingTimerWidget suppresses its own floating instance on
+              this route (see BillingTimerWidget.tsx). */}
+          <BillingTimerWidget variant="inline" />
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -616,85 +623,115 @@ function TasksBoardContent() {
         />
       )}
 
-      <div className="flex items-center flex-wrap gap-1 bg-white/5 border border-white/10 rounded-full p-1 w-fit">
-        <span className="text-[11px] font-mono uppercase text-gray-500 pl-2 pr-1">Energy</span>
+      {/* Energy filters + quick-add combined into one collapsible bar so
+          the board doesn't open under 2-3 stacked rows of small buttons. */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <button
-          onClick={() => setEnergyFilter('ALL')}
-          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-            energyFilter === 'ALL' ? 'bg-white text-black' : 'text-gray-400 hover:text-gray-200'
-          }`}
+          onClick={() => setFilterBarOpen((v) => !v)}
+          className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5"
         >
-          All
+          <span className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-gray-500" /> Filter &amp; Add
+          </span>
+          <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${filterBarOpen ? 'rotate-180' : ''}`} />
         </button>
-        {ENERGY_LEVELS.map((lvl) => (
-          <button
-            key={lvl}
-            onClick={() => setEnergyFilter(lvl)}
-            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-              energyFilter === lvl ? ENERGY_META[lvl].pill : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
-          </button>
-        ))}
-        <span className="w-px h-4 bg-white/10 mx-1" />
-        <button
-          onClick={() => setParkedDrawerOpen(true)}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-gray-400 hover:text-gray-200"
-        >
-          <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
-        </button>
-      </div>
 
-      <div className="flex gap-2">
-        <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1">
-          <input
-            ref={quickAddRef}
-            value={quickAddValue}
-            onChange={(e) => setQuickAddValue(e.target.value)}
-            placeholder="Quick add a task, press N to focus this box"
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
-          />
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
-            {ENERGY_LEVELS.map((lvl) => (
+        {filterBarOpen && (
+          <div className="px-3 pb-3 pt-1 space-y-3 border-t border-white/10">
+            <div className="flex items-center flex-wrap gap-1">
+              <span className="text-[11px] font-mono uppercase text-gray-500 pr-1">Energy</span>
               <button
-                key={lvl}
-                type="button"
-                title={ENERGY_META[lvl].title}
-                onClick={() => setQuickAddEnergy((prev) => (prev === lvl ? null : lvl))}
-                className={`px-1.5 py-1 rounded-lg text-sm ${
-                  quickAddEnergy === lvl ? ENERGY_META[lvl].pill : 'text-gray-500 hover:text-gray-300'
+                onClick={() => setEnergyFilter('ALL')}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                  energyFilter === 'ALL' ? 'bg-white text-black' : 'text-gray-400 hover:text-gray-200'
                 }`}
               >
-                {ENERGY_META[lvl].emoji}
+                All
               </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
-            {DURATION_OPTIONS.map((mins) => (
+              {ENERGY_LEVELS.map((lvl) => (
+                <button
+                  key={lvl}
+                  onClick={() => setEnergyFilter(lvl)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                    energyFilter === lvl ? ENERGY_META[lvl].pill : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
+                </button>
+              ))}
+              <span className="w-px h-4 bg-white/10 mx-1" />
               <button
-                key={mins}
-                type="button"
-                title={`${formatDuration(mins)} estimate`}
-                onClick={() => setQuickAddMinutes((prev) => (prev === mins ? null : mins))}
-                className={`px-1.5 py-1 rounded-lg text-[11px] font-medium ${
-                  quickAddMinutes === mins ? 'bg-sky-500 text-white' : 'text-gray-500 hover:text-gray-300'
-                }`}
+                onClick={() => setParkedDrawerOpen(true)}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-gray-400 hover:text-gray-200"
               >
-                {formatDuration(mins)}
+                <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
               </button>
-            ))}
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1 min-w-[220px]">
+                <input
+                  ref={quickAddRef}
+                  value={quickAddValue}
+                  onChange={(e) => setQuickAddValue(e.target.value)}
+                  placeholder="Quick add a task, press N to focus this box"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+                />
+                <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
+                  {ENERGY_LEVELS.map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      title={ENERGY_META[lvl].title}
+                      onClick={() => setQuickAddEnergy((prev) => (prev === lvl ? null : lvl))}
+                      className={`px-1.5 py-1 rounded-lg text-sm ${
+                        quickAddEnergy === lvl ? ENERGY_META[lvl].pill : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      {ENERGY_META[lvl].emoji}
+                    </button>
+                  ))}
+                </div>
+                {/* Duration presets are secondary -- hidden behind this icon
+                    on mobile to cut vertical stacking, always shown on sm+. */}
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen((v) => !v)}
+                  className={`sm:hidden flex items-center justify-center px-2 rounded-xl border ${
+                    mobileFiltersOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
+                  }`}
+                  title="More options"
+                >
+                  <Filter className="w-4 h-4" />
+                </button>
+                <div className={`${mobileFiltersOpen ? 'flex' : 'hidden'} sm:flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5`}>
+                  {DURATION_OPTIONS.map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      title={`${formatDuration(mins)} estimate`}
+                      onClick={() => setQuickAddMinutes((prev) => (prev === mins ? null : mins))}
+                      className={`px-1.5 py-1 rounded-lg text-[11px] font-medium ${
+                        quickAddMinutes === mins ? 'bg-sky-500 text-white' : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      {formatDuration(mins)}
+                    </button>
+                  ))}
+                </div>
+                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </form>
+              <button
+                onClick={() => setBrainDumpOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0"
+              >
+                <Sparkles className="w-4 h-4" /> Brain Dump
+              </button>
+            </div>
           </div>
-          <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
-            <Plus className="w-4 h-4" />
-          </button>
-        </form>
-        <button
-          onClick={() => setBrainDumpOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0"
-        >
-          <Sparkles className="w-4 h-4" /> Brain Dump
-        </button>
+        )}
       </div>
 
       {focusMode ? (
@@ -748,16 +785,16 @@ function TasksBoardContent() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
-                    className={`${mobileColumnTab === col.id ? 'block' : 'hidden'} md:block bg-zinc-900/80 border border-white/10 shadow-lg shadow-black/10 rounded-2xl p-4 space-y-2 min-h-[200px]`}
+                    className={`${mobileColumnTab === col.id ? 'block' : 'hidden'} md:block border border-slate-800 bg-slate-900/40 backdrop-blur-sm shadow-inner shadow-emerald-500/5 rounded-2xl p-5 space-y-3 min-h-[220px]`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-gray-200">{col.label}</span>
                       <span className="text-[11px] font-mono text-gray-500 bg-white/5 rounded-full px-2 py-0.5">{colTasks.length}</span>
                     </div>
                     {colTasks.length === 0 && (
-                      <div className="flex flex-col items-center justify-center text-center py-8 px-3 text-gray-500">
-                        <span className="text-2xl mb-2">{EMPTY_STATE[col.id].emoji}</span>
-                        <span className="text-xs">{EMPTY_STATE[col.id].text}</span>
+                      <div className="flex flex-col items-center justify-center text-center py-14 px-4 text-gray-400">
+                        <span className="text-5xl mb-3">{EMPTY_STATE[col.id].emoji}</span>
+                        <span className="text-sm font-medium max-w-[220px]">{EMPTY_STATE[col.id].text}</span>
                       </div>
                     )}
                     {colTasks
