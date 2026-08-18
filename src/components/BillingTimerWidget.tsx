@@ -1,9 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Play, Square, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBillingTimer } from '@/hooks/useBillingTimer';
+
+interface BillingTimerWidgetProps {
+  // "floating" (default) is the fixed-position pill every admin page gets
+  // from the layout. "inline" renders as a plain flow element for pages
+  // that want to dock it in their own header instead.
+  variant?: 'floating' | 'inline';
+}
 
 interface ClientOption {
   id: string;
@@ -17,7 +25,8 @@ function formatElapsed(seconds: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
-export default function BillingTimerWidget() {
+export default function BillingTimerWidget({ variant = 'floating' }: BillingTimerWidgetProps) {
+  const pathname = usePathname();
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const { active, elapsed, start, stop } = useBillingTimer();
@@ -51,8 +60,17 @@ export default function BillingTimerWidget() {
     toast.success('Time entry saved as pending billable time');
   }
 
+  // /admin/tasks docks its own inline instance in the page header instead --
+  // suppress the floating one there so the timer never overlaps page content.
+  if (variant === 'floating' && pathname === '/admin/tasks') return null;
+
+  const containerClassName =
+    variant === 'inline'
+      ? 'bg-[#080E1A] border border-white/20 rounded-xl px-3 py-1.5 flex items-center gap-2 font-mono text-xs max-w-full overflow-x-auto shrink-0'
+      : 'fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 md:left-auto md:right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 font-mono text-xs max-w-[calc(100vw-2rem)] overflow-x-auto';
+
   return (
-    <div className="fixed top-[calc(1rem+env(safe-area-inset-top))] left-4 md:left-auto md:right-4 z-[150] bg-[#080E1A] border border-white/20 rounded-2xl shadow-2xl px-3 py-2 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 font-mono text-xs max-w-[calc(100vw-2rem)] overflow-x-auto">
+    <div className={containerClassName}>
       <Clock className="w-4 h-4 text-emerald-400" />
       <select
         value={selectedClientId}
