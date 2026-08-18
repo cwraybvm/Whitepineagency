@@ -3,13 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/sandbox/ThemeToggle";
-import { Focus as FocusIcon } from "lucide-react";
+import { Focus as FocusIcon, ListTodo } from "lucide-react";
 
 export default function AdminNav() {
   const pathname = usePathname();
 
+  // Root "/admin" is a prefix of every other admin route, so it alone needs
+  // an exact match -- every other link highlights on itself and sub-routes.
+  const isPathActive = (path: string) =>
+    path === "/admin" ? pathname === path : pathname === path || pathname.startsWith(`${path}/`);
+
   const getLinkStyles = (path: string) => {
-    const isActive = pathname === path;
+    const isActive = isPathActive(path);
     return `flex items-center gap-3 p-3 rounded-xl transition-all font-bold ${
       isActive
         ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.3)] border border-emerald-500/30"
@@ -18,7 +23,7 @@ export default function AdminNav() {
   };
 
   const getMobileLinkStyles = (path: string) => {
-    const isActive = pathname === path;
+    const isActive = isPathActive(path);
     return `flex flex-col items-center justify-center flex-1 py-2 text-[10px] font-mono font-bold transition-all ${
       isActive ? "text-emerald-500 dark:text-emerald-400 text-glow-emerald" : "text-gray-500 dark:text-gray-500 light:text-slate-500 hover:text-gray-300 dark:hover:text-gray-300 light:hover:text-slate-700"
     }`;
@@ -27,10 +32,10 @@ export default function AdminNav() {
   // Primary console navigation — shared across /admin, /sandbox, /fulfillment.
   // Rendered only inside OWNER-gated route groups (see src/proxy.ts), so no
   // per-link role check is needed here.
-  const NAV_LINKS = [
+  const NAV_LINKS: { href: string; label: string; mobileLabel: string; icon: string | typeof ListTodo }[] = [
     { href: "/admin", label: "Pipeline Intake", mobileLabel: "Pipeline", icon: "📥" },
+    { href: "/admin/tasks", label: "To-Do List", mobileLabel: "To-Do", icon: ListTodo },
     { href: "/admin/clients", label: "Clients", mobileLabel: "Clients", icon: "🏢" },
-    { href: "/admin/tasks", label: "Tasks", mobileLabel: "Tasks", icon: "✅" },
     { href: "/fulfillment", label: "Fulfillment / SLA", mobileLabel: "Fulfillment", icon: "📦" },
     { href: "/sandbox", label: "Creative Sandbox", mobileLabel: "Sandbox", icon: "🎨" },
     { href: "/admin/simulator", label: "Voice Simulator", mobileLabel: "Simulator", icon: "🎙️" },
@@ -55,7 +60,7 @@ export default function AdminNav() {
           <nav className="space-y-1.5 font-mono text-xs">
             {NAV_LINKS.map((link) => (
               <Link key={link.href} href={link.href} className={getLinkStyles(link.href)}>
-                <span>{link.icon}</span> {link.label}
+                {typeof link.icon === "string" ? <span>{link.icon}</span> : <link.icon className="w-4 h-4 shrink-0" />} {link.label}
               </Link>
             ))}
           </nav>
@@ -79,7 +84,11 @@ export default function AdminNav() {
       <nav className="fixed bottom-0 left-0 right-0 h-[calc(4.5rem+env(safe-area-inset-bottom))] bg-black/80 dark:bg-black/80 light:bg-[#F1F5F2]/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800/80 flex items-start px-2 pt-2 z-40 md:hidden no-print pb-[env(safe-area-inset-bottom)] overflow-x-auto">
         {NAV_LINKS.map((link) => (
           <Link key={link.href} href={link.href} className={getMobileLinkStyles(link.href)}>
-            <span className="text-lg mb-1">{link.icon}</span>
+            {typeof link.icon === "string" ? (
+              <span className="text-lg mb-1">{link.icon}</span>
+            ) : (
+              <link.icon className="w-[18px] h-[18px] mb-1" />
+            )}
             <span>{link.mobileLabel}</span>
           </Link>
         ))}
