@@ -112,6 +112,7 @@ function TasksBoardContent() {
   const [mobileColumnTab, setMobileColumnTab] = useState<FocusTask['status']>('INBOX');
   const [filterBarOpen, setFilterBarOpen] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [billingWidgetOpen, setBillingWidgetOpen] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -450,7 +451,7 @@ function TasksBoardContent() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
+    <div className="px-6 pb-6 pt-[calc(max(24px,env(safe-area-inset-top))+8px)] md:px-8 md:pb-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <ListTodo className="w-5 h-5 text-emerald-400" />
@@ -467,8 +468,32 @@ function TasksBoardContent() {
           )}
           {/* Docked here instead of floating fixed over page content --
               BillingTimerWidget suppresses its own floating instance on
-              this route (see BillingTimerWidget.tsx). */}
-          <BillingTimerWidget variant="inline" />
+              this route (see BillingTimerWidget.tsx). Full widget on
+              desktop; collapses to an icon toggle on mobile so it doesn't
+              compete for space with New Task / ADHD Toolkit on the right. */}
+          <div className="hidden md:block">
+            <BillingTimerWidget variant="inline" />
+          </div>
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setBillingWidgetOpen((v) => !v)}
+              className={`flex items-center justify-center w-8 h-8 rounded-full border ${
+                billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
+              }`}
+              title="Billing timer"
+            >
+              <Clock className="w-4 h-4" />
+            </button>
+            {billingWidgetOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setBillingWidgetOpen(false)} />
+                <div className="absolute left-0 top-full mt-2 z-40">
+                  <BillingTimerWidget variant="inline" />
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -682,14 +707,14 @@ function TasksBoardContent() {
               </button>
             </div>
 
-            <div className="flex gap-2 flex-wrap">
-              <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1 min-w-[220px]">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1 sm:min-w-[220px]">
                 <input
                   ref={quickAddRef}
                   value={quickAddValue}
                   onChange={(e) => setQuickAddValue(e.target.value)}
                   placeholder="Quick add a task, press N to focus this box"
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
                 />
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
                   {ENERGY_LEVELS.map((lvl) => (
@@ -739,7 +764,7 @@ function TasksBoardContent() {
               </form>
               <button
                 onClick={() => setBrainDumpOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 shrink-0"
+                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 sm:shrink-0"
               >
                 <Sparkles className="w-4 h-4" /> Brain Dump
               </button>

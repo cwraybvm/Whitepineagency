@@ -57,7 +57,7 @@ export default function ClientsListPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="px-6 pb-6 pt-[calc(max(24px,env(safe-area-inset-top))+8px)] md:px-8 md:pb-8 space-y-6">
       <div className="flex items-center gap-3">
         <Building2 className="w-6 h-6 text-emerald-400" />
         <h1 className="text-xl font-bold text-white">Clients</h1>

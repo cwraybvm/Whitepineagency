@@ -10,10 +10,12 @@ export default function AdminNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // Root "/admin" is a prefix of every other admin route, so it alone needs
-  // an exact match -- every other link highlights on itself and sub-routes.
+  // "/admin" and "/fulfillment" are each a prefix of another NAV_LINKS entry
+  // (/fulfillment/competitor-audit), so both need an exact match -- every
+  // other link highlights on itself and sub-routes.
+  const EXACT_MATCH_ONLY = new Set(["/admin", "/fulfillment"]);
   const isPathActive = (path: string) =>
-    path === "/admin" ? pathname === path : pathname === path || pathname.startsWith(`${path}/`);
+    EXACT_MATCH_ONLY.has(path) ? pathname === path : pathname === path || pathname.startsWith(`${path}/`);
 
   const getLinkStyles = (path: string) => {
     const isActive = isPathActive(path);
@@ -37,6 +39,7 @@ export default function AdminNav() {
     { href: "/admin/tasks", label: "To-Do List", mobileLabel: "To-Do", icon: ListTodo },
     { href: "/admin/clients", label: "Clients", mobileLabel: "Clients", icon: "🏢" },
     { href: "/fulfillment", label: "Fulfillment / SLA", mobileLabel: "Fulfillment", icon: "📦" },
+    { href: "/fulfillment/competitor-audit", label: "Competitor Audit", mobileLabel: "Audit", icon: "🔍" },
     { href: "/sandbox", label: "Creative Sandbox", mobileLabel: "Sandbox", icon: "🎨" },
     { href: "/admin/simulator", label: "Voice Simulator", mobileLabel: "Simulator", icon: "🎙️" },
     { href: "/admin/reports", label: "Reports", mobileLabel: "Reports", icon: "📄" },
