@@ -689,11 +689,19 @@ model Task {
   unstickedAt  DateTime? // Set server-side when "Unstick Me" generates steps -- Bingo's Unstick goal
   parkedAt     DateTime? // Set server-side when isParked flips true -- Bingo's Park goal (action count, not current state)
 
+  // Google Calendar sync: scheduledAt is the assigned date/time; googleCalendarEventId
+  // tracks the mirrored event so it can be updated/removed later. syncToGoogleCalendar
+  // is the per-task toggle in the Task details modal.
+  scheduledAt           DateTime?
+  googleCalendarEventId String?
+  syncToGoogleCalendar  Boolean   @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([organizationId])
   @@index([status])
+  @@index([scheduledAt])
 }
 
 model FocusSession {

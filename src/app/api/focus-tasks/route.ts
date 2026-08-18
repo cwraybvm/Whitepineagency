@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { syncTaskCalendarEvent } from '@/lib/googleCalendar';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,10 +27,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { title, organizationId, dueDate, priority, energyLevel, isParked, estimatedMinutes, isUrgent, isImportant } = await req.json();
+  const { title, organizationId, dueDate, priority, energyLevel, isParked, estimatedMinutes, isUrgent, isImportant, scheduledAt } = await req.json();
   if (!title) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 });
   }
+  const scheduledAtDate = scheduledAt ? new Date(scheduledAt) : null;
+  const googleCalendarEventId = await syncTaskCalendarEvent({
+    existingEventId: null,
+    shouldSync: true,
+    scheduledAt: scheduledAtDate,
+    title,
+    estimatedMinutes: estimatedMinutes || null,
+  });
   const task = await prisma.task.create({
     data: {
       title,
@@ -41,6 +50,8 @@ export async function POST(req: Request) {
       estimatedMinutes: estimatedMinutes || null,
       isUrgent: isUrgent ?? false,
       isImportant: isImportant ?? false,
+      scheduledAt: scheduledAtDate,
+      googleCalendarEventId,
     },
   });
   return NextResponse.json(task, { status: 201 });

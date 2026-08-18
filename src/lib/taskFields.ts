@@ -45,3 +45,10 @@ export function nextDuration(current: number | null): number | null {
   if (idx === -1 || idx === DURATION_OPTIONS.length - 1) return null;
   return DURATION_OPTIONS[idx + 1];
 }
+
+export function formatScheduledBadge(iso: string): string {
+  const date = new Date(iso);
+  const datePart = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${timePart}`;
+}
