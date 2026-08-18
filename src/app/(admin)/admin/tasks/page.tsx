@@ -4,10 +4,11 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter, Calendar } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter, Calendar, Rss } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import TaskScheduleModal from '@/components/admin/TaskScheduleModal';
+import IcalSubscribeModal from '@/components/admin/IcalSubscribeModal';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
@@ -107,6 +108,7 @@ function TasksBoardContent() {
   const [quickAddScheduledAt, setQuickAddScheduledAt] = useState('');
   const [showQuickAddSchedule, setShowQuickAddSchedule] = useState(false);
   const [scheduleModalTaskId, setScheduleModalTaskId] = useState<string | null>(null);
+  const [icalModalOpen, setIcalModalOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
@@ -636,6 +638,15 @@ function TasksBoardContent() {
                   >
                     🏆 Dopamine Vault
                   </button>
+                  <button
+                    onClick={() => {
+                      setIcalModalOpen(true);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <Rss className="w-3.5 h-3.5 text-emerald-400" /> Subscribe via iCal
+                  </button>
 
                   <div className="px-3 pt-2 pb-1 text-[10px] font-mono uppercase text-gray-600 border-t border-white/5 mt-1">Mode</div>
                   <button
@@ -1059,6 +1070,8 @@ function TasksBoardContent() {
       {bingoOpen && <DopamineBingoModal onClose={() => setBingoOpen(false)} />}
 
       {vaultOpen && <DopamineVaultModal onClose={() => setVaultOpen(false)} />}
+
+      {icalModalOpen && <IcalSubscribeModal onClose={() => setIcalModalOpen(false)} />}
 
       {scheduleModalTaskId && (() => {
         const scheduleTask = tasks.find((t) => t.id === scheduleModalTaskId);
