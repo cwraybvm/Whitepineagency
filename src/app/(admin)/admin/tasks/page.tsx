@@ -53,6 +53,12 @@ const COLUMNS: { id: FocusTask['status']; label: string }[] = [
   { id: 'DONE', label: 'Done' },
 ];
 
+const EMPTY_STATE: Record<FocusTask['status'], { emoji: string; text: string }> = {
+  INBOX: { emoji: '📥', text: "Inbox is clear! You're ready to focus." },
+  ACTIVE: { emoji: '🎯', text: 'No active tasks — add one above or grab from Inbox.' },
+  DONE: { emoji: '✅', text: 'Nothing completed yet — your first win is coming.' },
+};
+
 const LOW_BATTERY_STORAGE_KEY = 'wp-low-battery-mode';
 
 function formatMinutesTotal(total: number): string {
@@ -102,6 +108,7 @@ function TasksBoardContent() {
   const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
   const [staleModalOpen, setStaleModalOpen] = useState(false);
   const [recommendation, setRecommendation] = useState<EnergyRecommendation | null>(null);
+  const [mobileColumnTab, setMobileColumnTab] = useState<FocusTask['status']>('INBOX');
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -384,6 +391,11 @@ function TasksBoardContent() {
     setFocusOverlayIndex(0);
   }
 
+  function focusQuickAdd() {
+    quickAddRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    quickAddRef.current?.focus();
+  }
+
   if (isLowBatteryMode) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6">
@@ -439,63 +451,103 @@ function TasksBoardContent() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setView((v) => (v === 'KANBAN' ? 'MATRIX' : 'KANBAN'))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+            onClick={focusQuickAdd}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
           >
-            {view === 'KANBAN' ? (
-              <>
-                <LayoutGrid className="w-3.5 h-3.5" /> Roosevelt Matrix
-              </>
-            ) : (
-              <>
-                <Kanban className="w-3.5 h-3.5" /> Kanban Board
-              </>
-            )}
-          </button>
-          <button
-            onClick={() => setFocusMode((v) => !v)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
-              focusMode ? 'bg-amber-500 text-black' : 'bg-white/5 text-gray-400'
-            }`}
-          >
-            <Star className="w-3.5 h-3.5" /> Top 3 Focus
-          </button>
-          <button
-            onClick={() => setFocusOverlayIndex(0)}
-            disabled={openTasks.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-30"
-          >
-            <FocusIcon className="w-3.5 h-3.5" /> Focus Mode
-          </button>
-          <button
-            onClick={pickSurpriseTask}
-            disabled={openTasks.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10 disabled:opacity-30"
-          >
-            <Shuffle className="w-3.5 h-3.5" /> Surprise Me
-          </button>
-          <button
-            onClick={() => setResetOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
-          >
-            <Wind className="w-3.5 h-3.5" /> 5-Min Reset
+            <Plus className="w-4 h-4" /> New Task
           </button>
 
-          {/* Novelty/launcher features grouped behind one dropdown instead of
-              4-5 standalone buttons competing for attention in the header. */}
+          {/* Every launcher/toggle feature lives behind this one dropdown so
+              the header stays a single clean row instead of 8+ competing
+              buttons. Sections below give quick "am I in a mode?" cues via
+              inline ON badges since those toggles are no longer visible
+              buttons in their own right. */}
           <div className="relative">
             <button
               onClick={() => setToolkitOpen((v) => !v)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
+              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium ${
                 toolkitOpen ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
               🎯 ADHD Toolkit
+              {(focusMode || isLowBatteryMode || (recommendation && energyFilter === recommendation.level)) && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400" />
+              )}
             </button>
             {toolkitOpen && (
               <>
                 <div className="fixed inset-0 z-30" onClick={() => setToolkitOpen(false)} />
-                <div className="absolute right-0 mt-2 w-60 bg-[#0F172A] border border-white/10 rounded-xl shadow-xl z-40 p-1.5 space-y-0.5">
+                <div className="absolute right-0 mt-2 w-64 bg-[#0F172A] border border-white/10 rounded-xl shadow-xl z-40 p-1.5 space-y-0.5 max-h-[75vh] overflow-y-auto">
+                  <div className="px-3 pt-1.5 pb-1 text-[10px] font-mono uppercase text-gray-600">View</div>
+                  <button
+                    onClick={() => {
+                      setView((v) => (v === 'KANBAN' ? 'MATRIX' : 'KANBAN'));
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    {view === 'KANBAN' ? <LayoutGrid className="w-3.5 h-3.5 text-emerald-400" /> : <Kanban className="w-3.5 h-3.5 text-emerald-400" />}
+                    {view === 'KANBAN' ? 'Roosevelt Matrix' : 'Kanban Board'}
+                  </button>
+                  {recommendation && (
+                    <button
+                      onClick={() => {
+                        toggleShowRecommended();
+                        setToolkitOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Target className="w-3.5 h-3.5 text-emerald-400" /> Circadian Matcher
+                      </span>
+                      {energyFilter === recommendation.level && <span className="text-emerald-400 text-[10px] font-mono">ON</span>}
+                    </button>
+                  )}
+
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-mono uppercase text-gray-600 border-t border-white/5 mt-1">Focus</div>
+                  <button
+                    onClick={() => {
+                      setFocusMode((v) => !v);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Star className="w-3.5 h-3.5 text-amber-400" /> Top 3 Focus
+                    </span>
+                    {focusMode && <span className="text-amber-400 text-[10px] font-mono">ON</span>}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFocusOverlayIndex(0);
+                      setToolkitOpen(false);
+                    }}
+                    disabled={openTasks.length === 0}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left disabled:opacity-40"
+                  >
+                    <FocusIcon className="w-3.5 h-3.5 text-emerald-400" /> Focus Mode
+                  </button>
+                  <button
+                    onClick={() => {
+                      pickSurpriseTask();
+                      setToolkitOpen(false);
+                    }}
+                    disabled={openTasks.length === 0}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left disabled:opacity-40"
+                  >
+                    <Shuffle className="w-3.5 h-3.5 text-emerald-400" /> Surprise Me
+                  </button>
+                  <button
+                    onClick={() => {
+                      setResetOpen(true);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <Wind className="w-3.5 h-3.5 text-emerald-400" /> 5-Min Reset
+                  </button>
+
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-mono uppercase text-gray-600 border-t border-white/5 mt-1">Games &amp; Insights</div>
                   <button
                     onClick={() => {
                       setInsightsOpen(true);
@@ -523,6 +575,8 @@ function TasksBoardContent() {
                   >
                     🏆 Dopamine Vault
                   </button>
+
+                  <div className="px-3 pt-2 pb-1 text-[10px] font-mono uppercase text-gray-600 border-t border-white/5 mt-1">Mode</div>
                   <button
                     onClick={() => {
                       toggleLowBatteryMode();
@@ -562,12 +616,12 @@ function TasksBoardContent() {
         />
       )}
 
-      <div className="flex items-center gap-1.5">
-        <span className="text-[11px] font-mono uppercase text-gray-500 mr-1">Energy:</span>
+      <div className="flex items-center flex-wrap gap-1 bg-white/5 border border-white/10 rounded-full p-1 w-fit">
+        <span className="text-[11px] font-mono uppercase text-gray-500 pl-2 pr-1">Energy</span>
         <button
           onClick={() => setEnergyFilter('ALL')}
-          className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-            energyFilter === 'ALL' ? 'bg-white text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+          className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+            energyFilter === 'ALL' ? 'bg-white text-black' : 'text-gray-400 hover:text-gray-200'
           }`}
         >
           All
@@ -576,16 +630,17 @@ function TasksBoardContent() {
           <button
             key={lvl}
             onClick={() => setEnergyFilter(lvl)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
-              energyFilter === lvl ? ENERGY_META[lvl].pill : 'bg-white/5 text-gray-400 hover:bg-white/10'
+            className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+              energyFilter === lvl ? ENERGY_META[lvl].pill : 'text-gray-400 hover:text-gray-200'
             }`}
           >
             {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
           </button>
         ))}
+        <span className="w-px h-4 bg-white/10 mx-1" />
         <button
           onClick={() => setParkedDrawerOpen(true)}
-          className="ml-2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium text-gray-400 hover:text-gray-200"
         >
           <Package className="w-3.5 h-3.5" /> Parked ({parkedTasks.length})
         </button>
@@ -644,6 +699,9 @@ function TasksBoardContent() {
 
       {focusMode ? (
         <div className="space-y-2">
+          <button onClick={() => setFocusMode(false)} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300">
+            <X className="w-3.5 h-3.5" /> Exit Top 3 Focus
+          </button>
           {focusTasks.length === 0 && (
             <div className="text-gray-500 text-sm">No focus tasks picked yet. Star up to 3 below.</div>
           )}
@@ -654,17 +712,55 @@ function TasksBoardContent() {
           ))}
         </div>
       ) : view === 'MATRIX' ? (
-        <RooseveltMatrix tasks={openTasks} onToggleAxis={toggleMatrixAxis} onMove={moveMatrixQuadrant} />
+        <div className="space-y-2">
+          <button onClick={() => setView('KANBAN')} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300">
+            <Kanban className="w-3.5 h-3.5" /> Back to Kanban Board
+          </button>
+          <RooseveltMatrix tasks={openTasks} onToggleAxis={toggleMatrixAxis} onMove={moveMatrixQuadrant} />
+        </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
+          {/* Mobile: one column at a time via tabs instead of 3 stacked
+              full-height columns. Desktop keeps the side-by-side grid. */}
+          <div className="flex md:hidden items-center gap-1 bg-white/5 border border-white/10 rounded-full p-1 mb-4">
+            {COLUMNS.map((col) => {
+              const count = tasks.filter((t) => t.status === col.id && !t.isParked).length;
+              return (
+                <button
+                  key={col.id}
+                  onClick={() => setMobileColumnTab(col.id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                    mobileColumnTab === col.id ? 'bg-white text-black' : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {col.label} <span className="opacity-70">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {COLUMNS.map((col) => (
+            {COLUMNS.map((col) => {
+              const colTasks = tasks.filter((t) => t.status === col.id && !t.isParked);
+              return (
               <Droppable droppableId={col.id} key={col.id}>
                 {(provided) => (
-                  <div ref={provided.innerRef} {...provided.droppableProps} className="bg-white/5 rounded-2xl p-3 space-y-2 min-h-[200px]">
-                    <div className="text-xs font-mono uppercase text-gray-400">{col.label}</div>
-                    {tasks
-                      .filter((t) => t.status === col.id && !t.isParked)
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`${mobileColumnTab === col.id ? 'block' : 'hidden'} md:block bg-zinc-900/80 border border-white/10 shadow-lg shadow-black/10 rounded-2xl p-4 space-y-2 min-h-[200px]`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-gray-200">{col.label}</span>
+                      <span className="text-[11px] font-mono text-gray-500 bg-white/5 rounded-full px-2 py-0.5">{colTasks.length}</span>
+                    </div>
+                    {colTasks.length === 0 && (
+                      <div className="flex flex-col items-center justify-center text-center py-8 px-3 text-gray-500">
+                        <span className="text-2xl mb-2">{EMPTY_STATE[col.id].emoji}</span>
+                        <span className="text-xs">{EMPTY_STATE[col.id].text}</span>
+                      </div>
+                    )}
+                    {colTasks
                       .map((t, index) => {
                         const matchesEnergy = energyFilter === 'ALL' || t.energyLevel === energyFilter;
                         return (
@@ -782,7 +878,8 @@ function TasksBoardContent() {
                   </div>
                 )}
               </Droppable>
-            ))}
+              );
+            })}
           </div>
         </DragDropContext>
       )}
