@@ -13,6 +13,7 @@ import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
 import ExecutiveSummaryDrawer from '@/components/admin/ExecutiveSummaryDrawer';
 import RooseveltMatrix from '@/components/admin/RooseveltMatrix';
 import DopamineBingoModal from '@/components/admin/DopamineBingoModal';
+import DopamineVaultModal from '@/components/admin/DopamineVaultModal';
 import StaleTasksModal, { type StaleTask } from '@/components/admin/StaleTasksModal';
 import EnergyMatcherWidget from '@/components/admin/EnergyMatcherWidget';
 import { getTaskStreak, recordTaskCompletion, type StreakState } from '@/lib/taskStreak';
@@ -93,6 +94,7 @@ function TasksBoardContent() {
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
+  const [vaultOpen, setVaultOpen] = useState(false);
   const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
   const [staleTasks, setStaleTasks] = useState<StaleTask[]>([]);
   const [staleModalOpen, setStaleModalOpen] = useState(false);
@@ -486,6 +488,12 @@ function TasksBoardContent() {
             <Target className="w-3.5 h-3.5" /> Bingo
           </button>
           <button
+            onClick={() => setVaultOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30"
+          >
+            🏆 Dopamine Vault
+          </button>
+          <button
             onClick={toggleLowBatteryMode}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
           >
@@ -773,6 +781,8 @@ function TasksBoardContent() {
       {insightsOpen && <ExecutiveSummaryDrawer tasks={tasks} onClose={() => setInsightsOpen(false)} />}
 
       {bingoOpen && <DopamineBingoModal onClose={() => setBingoOpen(false)} />}
+
+      {vaultOpen && <DopamineVaultModal onClose={() => setVaultOpen(false)} />}
     </div>
   );
 }
