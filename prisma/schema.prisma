@@ -79,8 +79,41 @@ model Organization {
   tasks              Task[]
   campaigns          Campaign[]
   invoices           Invoice[]
+  marketingStrategies MarketingStrategy[]
+  scheduledPosts      ScheduledPost[]
 
   @@index([customDomain])
+}
+
+model MarketingStrategy {
+  id             String   @id @default(uuid())
+  organizationId String
+  auditSummary   String   @db.Text // JSON-encoded { strengths[], bottlenecks[], opportunities[] }
+  roadmapItems   Json // [{ id, month: 'Month 1'|'Month 2'|'Month 3', text, status: 'pending'|'completed' }]
+  currentQuarter String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model ScheduledPost {
+  id             String   @id @default(cuid())
+  organizationId String
+  platform       String // LINKEDIN, FACEBOOK, INSTAGRAM, X_TWITTER
+  content        String   @db.Text
+  mediaUrl       String?
+  scheduledFor   DateTime
+  status         String   @default("DRAFT") // DRAFT, SCHEDULED, PUBLISHED, FAILED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([scheduledFor])
+  @@index([status])
 }
 
 // RBAC tiers. OWNER/OPERATOR/SALES are internal White Pine staff roles —

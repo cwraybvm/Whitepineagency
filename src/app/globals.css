@@ -123,7 +123,7 @@ body {
       color: #6B7280;
     }
     @bottom-left {
-      content: "WHITE PINE AGENCY • COMMERCIAL RISK INFRASTRUCTURE PROFILE";
+      content: "WHITE PINE AGENCY";
       font-size: 8.5px;
       font-family: ui-monospace, Consolas, monospace;
       color: #6B7280;
@@ -227,6 +227,34 @@ body {
 
   table, tr, td {
     page-break-inside: avoid !important;
+  }
+
+  /* CMO Strategy export — audit + roadmap cards */
+  .cmo-print-card {
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .cmo-print-grid {
+    display: block !important;
+  }
+
+  .cmo-print-grid > * + * {
+    margin-top: 12px !important;
+  }
+
+  .cmo-roadmap-section {
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  /* Milestone rows are <button> elements (screen-only toggle) — override the
+     blanket `button { display: none }` above so checklist items still print. */
+  .cmo-print-card button {
+    display: flex !important;
+    pointer-events: none !important;
   }
 }
 

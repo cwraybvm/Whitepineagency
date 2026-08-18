@@ -12,6 +12,7 @@ const ROUTE_ROLES: { prefix: string; roles: Role[] }[] = [
   { prefix: '/crm', roles: ['OWNER', 'OPERATOR', 'SALES'] },
   { prefix: '/portal/settings', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER'] },
   { prefix: '/portal', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER', 'CLIENT_MEMBER'] },
+  { prefix: '/dashboard', roles: ['OWNER', 'OPERATOR', 'CLIENT_OWNER', 'CLIENT_MEMBER'] },
 ];
 
 function allowedRolesFor(pathname: string): Role[] | null {
@@ -118,6 +119,7 @@ export const config = {
   matcher: [
     '/admin/:path*',
     '/portal/:path*',
+    '/dashboard/:path*',
     '/fulfillment/:path*',
     '/sandbox/:path*',
     '/crm/:path*',

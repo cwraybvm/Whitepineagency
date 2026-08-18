@@ -45,6 +45,8 @@ export const FEATURE_LABELS: Record<FeatureKey, string> = {
   'compliance-audit': 'Policy & Competitor Audit',
   'direct-mail': 'Direct Mail Studio',
   'blog-post': 'Blog Post Studio',
+  cmo: 'Freelance CMO',
+  scheduler: 'Social Media Scheduler',
 };
 
 // Derived from FEATURE_LABELS (compiler-checked exhaustive over FeatureKey) so a new

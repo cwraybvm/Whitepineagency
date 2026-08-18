@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Plus, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 import CampaignComparisonTable from '@/components/sandbox/CampaignComparisonTable';
+import FeatureGuard from '@/components/FeatureGuard';
+import FeatureLockedPlaceholder from '@/components/FeatureLockedPlaceholder';
 
 interface Variant {
   id: string;
@@ -81,6 +83,7 @@ export default function CampaignSandboxPage() {
   }
 
   return (
+    <FeatureGuard feature="campaign" fallback={<FeatureLockedPlaceholder feature="campaign" />}>
     <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex items-center gap-2">
         <FlaskConical className="w-5 h-5 text-emerald-400" />
@@ -150,5 +153,6 @@ export default function CampaignSandboxPage() {
         {campaigns.length === 0 && <div className="text-gray-500 text-sm">No campaigns yet.</div>}
       </div>
     </div>
+    </FeatureGuard>
   );
 }

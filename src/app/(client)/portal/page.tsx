@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTenant } from '@/components/TenantProvider';
 import QRCode from 'react-qr-code';
 import { toast } from 'sonner';
 import { gsap } from 'gsap';
@@ -117,7 +118,7 @@ const DEMO_FEED_ITEMS: ActivityFeedItem[] = [
     subtitle: 'Water heater actively leaking in basement.',
     jobCategory: 'Water Heater Replacement',
     badge: '🤖 AI Receptionist',
-    badgeColor: 'bg-indigo-50 text-indigo-700 border border-indigo-500/30',
+    badgeColor: 'bg-indigo-50 text-[var(--portal-primary)] border border-[var(--portal-primary)]/30',
     source: 'google_maps',
     fmsStatus: 'synced',
     fmsJobId: 'JOB-9921',
@@ -230,6 +231,8 @@ const DEMO_FEED_ITEMS: ActivityFeedItem[] = [
   }
 ];
 
+const DEFAULT_PRIMARY = '#4F46E5'; // indigo-600 hex — matches the pre-branding look
+
 function DashboardSkeleton() {
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-pulse p-4 md:p-8 bg-slate-50 min-h-screen">
@@ -295,6 +298,7 @@ export default function CompleteOperationalClientPortal() {
   const [isCustomerTyping, setIsCustomerTyping] = useState(false);
 
   const router = useRouter();
+  const tenant = useTenant();
 
   const [isRecordingVoice, setIsRecordingVoice] = useState<string | null>(null);
   const [isVoiceSearching, setIsVoiceSearching] = useState<boolean>(false);
@@ -742,7 +746,7 @@ export default function CompleteOperationalClientPortal() {
       case 'amber':
         return { primaryBtn: 'bg-amber-600 hover:bg-amber-500', text: 'text-amber-600', border: 'border-amber-500/30' };
       default:
-        return { primaryBtn: 'bg-indigo-600 hover:bg-indigo-500', text: 'text-indigo-600', border: 'border-indigo-500/30' };
+        return { primaryBtn: 'bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)]', text: 'text-[var(--portal-primary)]', border: 'border-[var(--portal-primary)]/30' };
     }
   }, [accentTheme]);
 
@@ -1367,7 +1371,7 @@ export default function CompleteOperationalClientPortal() {
       case 'google_lsa':
         return <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-500/30 px-3 py-1 rounded-full font-sans"><DollarSign className="w-3 h-3" /> Google LSA</span>;
       case 'organic_web':
-        return <span className="inline-flex items-center gap-1 text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-500/30 px-3 py-1 rounded-full font-sans"><Globe className="w-3 h-3" /> Web Organic</span>;
+        return <span className="inline-flex items-center gap-1 text-xs font-semibold bg-indigo-50 text-[var(--portal-primary)] border border-[var(--portal-primary)]/30 px-3 py-1 rounded-full font-sans"><Globe className="w-3 h-3" /> Web Organic</span>;
       case 'truck_wrap':
         return <span className="inline-flex items-center gap-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-500/30 px-3 py-1 rounded-full font-sans"><Truck className="w-3 h-3" /> Direct / Wrap</span>;
     }
@@ -1405,7 +1409,7 @@ export default function CompleteOperationalClientPortal() {
           key={item.id}
           onClick={() => setMobileFocusedLead(item)}
           className={`gsap-card p-3 rounded-xl flex items-center justify-between gap-2 border cursor-pointer transition-all duration-200 active:scale-[0.98] ${
-            isPinned ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-500/50' : ''
+            isPinned ? 'ring-2 ring-[var(--portal-primary)] bg-indigo-50 border-[var(--portal-primary)]/50' : ''
           } ${
             isVimFocused || isMobileFocused ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''
           } ${
@@ -1428,7 +1432,7 @@ export default function CompleteOperationalClientPortal() {
               type="checkbox"
               checked={isSelected}
               onChange={() => toggleLeadSelection(item.id)}
-              className="w-3.5 h-3.5 accent-indigo-600 rounded cursor-pointer shrink-0"
+              className="w-3.5 h-3.5 accent-[var(--portal-primary)] rounded cursor-pointer shrink-0"
             />
 
             {isHotLead && <span title="Hot High-Margin Opportunity" className="text-orange-600 flex items-center"><Flame className="w-3.5 h-3.5" /></span>}
@@ -1463,7 +1467,7 @@ export default function CompleteOperationalClientPortal() {
         onTouchStart={(e) => handleTouchStart(e, item.id)}
         onTouchEnd={(e) => handleTouchEnd(e, item)}
         className={`gsap-card rounded-2xl space-y-2.5 cursor-pointer transition-all duration-200 select-none relative overflow-hidden hover:-translate-y-0.5 active:scale-[0.98] active:translate-y-0 ${
-          isPinned ? 'ring-2 ring-indigo-500 bg-indigo-50 border-indigo-500/50 ' : ''
+          isPinned ? 'ring-2 ring-[var(--portal-primary)] bg-indigo-50 border-[var(--portal-primary)]/50 ' : ''
         } ${
           isVimFocused || isMobileFocused ? 'ring-2 ring-indigo-400 bg-indigo-50' : ''
         } ${
@@ -1473,7 +1477,7 @@ export default function CompleteOperationalClientPortal() {
             : isOverdueSla
             ? 'bg-rose-50 border-l-4 border-l-rose-500 border-y border-r border-rose-500/40 animate-pulse '
             : 'bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border-l-4 border-l-amber-500 border-y border-r border-slate-200 text-slate-800 hover:border-r-slate-700 hover:border-y-slate-700 '
-        } ${isSelected ? 'ring-2 ring-indigo-500/80' : ''}`}
+        } ${isSelected ? 'ring-2 ring-[var(--portal-primary)]/80' : ''}`}
       >
         {renderSlaDecayBar(item.unrepliedMinutes)}
 
@@ -1495,14 +1499,14 @@ export default function CompleteOperationalClientPortal() {
                   type="checkbox" 
                   checked={isSelected}
                   onChange={() => toggleLeadSelection(item.id)}
-                  className="w-4 h-4 accent-indigo-600 rounded cursor-pointer shrink-0"
+                  className="w-4 h-4 accent-[var(--portal-primary)] rounded cursor-pointer shrink-0"
                 />
               </div>
 
               <div>
                 <div className="flex flex-wrap items-center gap-1.5 font-sans">
                   {isPinned && (
-                    <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-indigo-700 border border-indigo-500/40 px-3 py-1 rounded-full font-bold">
+                    <span className="inline-flex items-center gap-1 text-xs bg-indigo-50 text-[var(--portal-primary)] border border-[var(--portal-primary)]/40 px-3 py-1 rounded-full font-bold">
                       <Pin className="w-3 h-3" /> Pinned Priority
                     </span>
                   )}
@@ -1549,7 +1553,7 @@ export default function CompleteOperationalClientPortal() {
                 </div>
 
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <button onClick={() => { playSynthesizerChime('click'); setSelectedCustomer(item); }} className="text-slate-800 hover:text-indigo-600 font-bold text-sm font-sans underline underline-offset-2 cursor-pointer">
+                  <button onClick={() => { playSynthesizerChime('click'); setSelectedCustomer(item); }} className="text-slate-800 hover:text-[var(--portal-primary)] font-bold text-sm font-sans underline underline-offset-2 cursor-pointer">
                     {renderHighlightText(item.customerName, searchQuery)}
                   </button>
 
@@ -1587,7 +1591,7 @@ export default function CompleteOperationalClientPortal() {
                 <div className="flex items-center gap-1.5 mt-1.5 font-sans text-xs">
                   <span className="text-emerald-600 font-bold">● Intercepted</span>
                   <span className="text-gray-600">──</span>
-                  <span className={item.status === 'in_progress' || isWon ? 'text-indigo-600 font-bold' : 'text-gray-600'}>
+                  <span className={item.status === 'in_progress' || isWon ? 'text-[var(--portal-primary)] font-bold' : 'text-gray-600'}>
                     {item.status === 'in_progress' || isWon ? '● Dispatched' : '○ Pending Dispatch'}
                   </span>
                   <span className="text-gray-600">──</span>
@@ -1616,7 +1620,7 @@ export default function CompleteOperationalClientPortal() {
 
               <button
                 onClick={() => { playSynthesizerChime('click'); setActiveChatLead(item); }}
-                className="min-h-[44px] sm:min-h-[32px] px-3 py-1 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-700 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
+                className="min-h-[44px] sm:min-h-[32px] px-3 py-1 bg-[var(--portal-primary)]/30 hover:bg-[var(--portal-primary)] border border-[var(--portal-primary)]/40 text-[var(--portal-primary)] hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95"
               >
                 <MessageCircle className="w-3.5 h-3.5" /> Chat (<span className="font-mono tabular-nums">{item.chatThread?.length || 0}</span>)
               </button>
@@ -1634,7 +1638,7 @@ export default function CompleteOperationalClientPortal() {
             <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-xl font-sans text-xs">
               <button
                 onClick={() => setOpenNoteCardId(openNoteCardId === item.id ? null : item.id)}
-                className="px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-500/40 rounded-lg font-bold flex items-center gap-1"
+                className="px-2 py-1 bg-indigo-50 text-[var(--portal-primary)] border border-[var(--portal-primary)]/40 rounded-lg font-bold flex items-center gap-1"
               >
                 <StickyNote className="w-3.5 h-3.5" /> Add Note
               </button>
@@ -1649,7 +1653,7 @@ export default function CompleteOperationalClientPortal() {
               {item.hasAudio && (
                 <button
                   onClick={() => toggleAudioPlayback(item.id)}
-                  className="px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-500/40 rounded-lg font-bold flex items-center gap-1"
+                  className="px-2 py-1 bg-indigo-50 text-[var(--portal-primary)] border border-[var(--portal-primary)]/40 rounded-lg font-bold flex items-center gap-1"
                 >
                   <Play className="w-3.5 h-3.5" /> Play Call Audio (<span className="font-mono tabular-nums">{item.audioDuration || '38s'}</span>)
                 </button>
@@ -1658,8 +1662,8 @@ export default function CompleteOperationalClientPortal() {
           )}
 
           {(openNoteCardId === item.id || leadNotes[item.id]) && (
-            <div className="bg-slate-50 border border-indigo-500/30 p-2.5 rounded-xl space-y-1 text-xs">
-              <div className="flex justify-between items-center text-xs text-indigo-600 font-bold uppercase">
+            <div className="bg-slate-50 border border-[var(--portal-primary)]/30 p-2.5 rounded-xl space-y-1 text-xs">
+              <div className="flex justify-between items-center text-xs text-[var(--portal-primary)] font-bold uppercase">
                 <span className="inline-flex items-center gap-1"><StickyNote className="w-3.5 h-3.5" /> Dispatch Staff Quick Note</span>
                 {openNoteCardId === item.id && (
                   <button onClick={() => setOpenNoteCardId(null)} className="text-gray-600 hover:text-slate-800">Close Box</button>
@@ -1673,7 +1677,7 @@ export default function CompleteOperationalClientPortal() {
                   onChange={(e) => setLeadNotes({ ...leadNotes, [item.id]: e.target.value })}
                   onBlur={(e) => patchLead(item.id, { dispatchNote: e.target.value })}
                   placeholder="Add quick dispatch note or tap mic to speak..."
-                  className="flex-1 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 placeholder-gray-500 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 text-xs min-h-[44px] sm:min-h-0"
+                  className="flex-1 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 placeholder-gray-500 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] text-xs min-h-[44px] sm:min-h-0"
                 />
 
                 <button
@@ -1682,7 +1686,7 @@ export default function CompleteOperationalClientPortal() {
                   className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${
                     isRecordingVoice === item.id
                       ? 'bg-rose-600 text-white border-rose-400 animate-pulse'
-                      : 'bg-indigo-50 text-indigo-700 border-indigo-500/40 hover:bg-indigo-600 hover:text-white'
+                      : 'bg-indigo-50 text-[var(--portal-primary)] border-[var(--portal-primary)]/40 hover:bg-[var(--portal-primary)] hover:text-white'
                   }`}
                 >
                   <Mic className="w-3.5 h-3.5" /> {isRecordingVoice === item.id ? 'Listening...' : 'Voice'}
@@ -1700,8 +1704,8 @@ export default function CompleteOperationalClientPortal() {
                 className="w-full px-3 py-2 flex justify-between items-center text-left hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <Bot className="w-3.5 h-3.5 text-indigo-600" />
-                  <span className="font-bold text-indigo-600 text-xs">
+                  <Bot className="w-3.5 h-3.5 text-[var(--portal-primary)]" />
+                  <span className="font-bold text-[var(--portal-primary)] text-xs">
                     AI Call Summary: <span className="text-slate-800 font-normal">{item.aiSummary.issue}</span>
                   </span>
                 </div>
@@ -1713,7 +1717,7 @@ export default function CompleteOperationalClientPortal() {
 
               {isAiSummaryExpanded && (
                 <div className="p-3 pt-1 border-t border-slate-200 space-y-2 text-xs font-sans text-slate-500 bg-slate-50">
-                  <div className="flex justify-between items-center text-xs text-indigo-600 font-bold uppercase tracking-wider">
+                  <div className="flex justify-between items-center text-xs text-[var(--portal-primary)] font-bold uppercase tracking-wider">
                     <span>AI Key Takeaways (Tap bullet to jump audio)</span>
                     <button
                       type="button"
@@ -1778,7 +1782,11 @@ export default function CompleteOperationalClientPortal() {
   };
 
   return (
-    <div ref={pageRef} className="apex-portal min-h-screen w-full bg-slate-50 text-[#1E293B] font-sans p-3 sm:p-6 lg:p-8 relative pb-28 pt-[max(12px,env(safe-area-inset-top))]">
+    <div
+      ref={pageRef}
+      className="apex-portal min-h-screen w-full bg-slate-50 text-[#1E293B] font-sans p-3 sm:p-6 lg:p-8 relative pb-28 pt-[max(12px,env(safe-area-inset-top))]"
+      style={{ ['--portal-primary' as string]: tenant.primaryColor || DEFAULT_PRIMARY }}
+    >
       
       <div className="no-print max-w-7xl mx-auto space-y-6">
 
@@ -1786,7 +1794,7 @@ export default function CompleteOperationalClientPortal() {
         <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 rounded-2xl p-4 relative">
           <div className="flex items-center justify-between w-full sm:w-auto">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-600/20 border border-indigo-500/30 rounded-2xl flex items-center justify-center p-1.5">
+              <div className="w-10 h-10 bg-[var(--portal-primary)]/20 border border-[var(--portal-primary)]/30 rounded-2xl flex items-center justify-center p-1.5">
                 <img src="/logo.jpg" alt="Logo" className="max-w-full max-h-full object-contain" />
               </div>
               <div>
@@ -1846,14 +1854,14 @@ export default function CompleteOperationalClientPortal() {
             </button>
 
             <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-300">
-              <button onClick={() => handleRoleChange('owner')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'owner' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><Crown className="w-3.5 h-3.5" /> Owner</button>
-              <button onClick={() => handleRoleChange('manager')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'manager' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><ClipboardList className="w-3.5 h-3.5" /> Office</button>
-              <button onClick={() => handleRoleChange('tech')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'tech' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Tech</button>
+              <button onClick={() => handleRoleChange('owner')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'owner' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><Crown className="w-3.5 h-3.5" /> Owner</button>
+              <button onClick={() => handleRoleChange('manager')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'manager' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><ClipboardList className="w-3.5 h-3.5" /> Office</button>
+              <button onClick={() => handleRoleChange('tech')} className={`px-2.5 py-1 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-1 ${currentRole === 'tech' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Tech</button>
             </div>
 
             {currentRole !== 'tech' && (
               <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-300">
-                <button onClick={() => setActiveTab('command')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'command' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}>
+                <button onClick={() => setActiveTab('command')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'command' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}>
                   <Zap className="w-3.5 h-3.5" /> <span>Command</span>
                   {pendingActionCount > 0 && (
                     <span className="px-1.5 py-0.5 bg-amber-500 text-slate-950 font-black rounded-full text-xs font-mono tabular-nums">
@@ -1862,9 +1870,9 @@ export default function CompleteOperationalClientPortal() {
                   )}
                 </button>
                 {currentRole === 'owner' && (
-                  <button onClick={() => setActiveTab('telemetry')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'telemetry' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><BarChart3 className="w-3.5 h-3.5" /> Performance</button>
+                  <button onClick={() => setActiveTab('telemetry')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'telemetry' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><BarChart3 className="w-3.5 h-3.5" /> Performance</button>
                 )}
-                <button onClick={() => setActiveTab('toolkit')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'toolkit' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Toolkit</button>
+                <button onClick={() => setActiveTab('toolkit')} className={`px-3 py-1 rounded-lg text-sm font-bold transition-all cursor-pointer flex items-center gap-1.5 ${activeTab === 'toolkit' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Toolkit</button>
               </div>
             )}
           </div>
@@ -1873,7 +1881,7 @@ export default function CompleteOperationalClientPortal() {
         {/* 🎯 DAILY BRIEFING + WORKLOAD SUMMARY (merged: was 3 stacked cards) */}
         <div className="bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 p-4 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-3 text-xs font-sans text-slate-700">
           <div className="flex items-start gap-2.5 min-w-0">
-            <span className="shrink-0 mt-0.5">{trafficLightCounts.red === 0 ? <PartyPopper className="w-4 h-4 text-emerald-600" /> : <MessageCircle className="w-4 h-4 text-indigo-600" />}</span>
+            <span className="shrink-0 mt-0.5">{trafficLightCounts.red === 0 ? <PartyPopper className="w-4 h-4 text-emerald-600" /> : <MessageCircle className="w-4 h-4 text-[var(--portal-primary)]" />}</span>
             {isFeedLoading ? (
               <div className="space-y-1.5 py-0.5">
                 <SkeletonBar className="h-3 w-64" />
@@ -1885,7 +1893,7 @@ export default function CompleteOperationalClientPortal() {
                 {trafficLightCounts.red === 0
                   ? 'All clear — 0 urgent items awaiting callback. '
                   : 'System is guarding your line. '}
-                <span className="text-indigo-600 font-semibold font-mono tabular-nums">{filteredFeed.length}</span> active leads today (<span className="font-mono tabular-nums">${missedRevenueAtRisk.toLocaleString()}</span> at risk) • <span className="text-emerald-600 font-bold font-mono tabular-nums">${totalClosedRevenue.toLocaleString()} won</span> (<span className="font-mono tabular-nums">{netRoiRatio}x</span> ROI)
+                <span className="text-[var(--portal-primary)] font-semibold font-mono tabular-nums">{filteredFeed.length}</span> active leads today (<span className="font-mono tabular-nums">${missedRevenueAtRisk.toLocaleString()}</span> at risk) • <span className="text-emerald-600 font-bold font-mono tabular-nums">${totalClosedRevenue.toLocaleString()} won</span> (<span className="font-mono tabular-nums">{netRoiRatio}x</span> ROI)
               </p>
             )}
           </div>
@@ -1988,7 +1996,7 @@ export default function CompleteOperationalClientPortal() {
                     className="w-20 bg-slate-50 border border-slate-300 rounded px-1 text-slate-800 text-sm font-mono tabular-nums"
                   />
                 ) : (
-                  <button onClick={() => setIsEditingRetainer(true)} className="text-xl font-bold text-slate-800 font-mono tabular-nums hover:text-indigo-600 cursor-pointer text-left">
+                  <button onClick={() => setIsEditingRetainer(true)} className="text-xl font-bold text-slate-800 font-mono tabular-nums hover:text-[var(--portal-primary)] cursor-pointer text-left">
                     ${monthlyRetainer}/mo
                   </button>
                 )}
@@ -2020,7 +2028,7 @@ export default function CompleteOperationalClientPortal() {
                 <Smartphone className="w-3.5 h-3.5" /> EOD SMS Push
               </button>
 
-              <button onClick={() => window.print()} className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-sans font-bold rounded-xl transition-all active:scale-95 cursor-pointer min-h-[44px] sm:min-h-0 flex items-center gap-1.5">
+              <button onClick={() => window.print()} className="px-4 py-2.5 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white text-xs font-sans font-bold rounded-xl transition-all active:scale-95 cursor-pointer min-h-[44px] sm:min-h-0 flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5" /> Export PDF
               </button>
             </div>
@@ -2058,7 +2066,7 @@ export default function CompleteOperationalClientPortal() {
                   <div className="bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 rounded-2xl p-4 space-y-3">
                     
                     <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-200 text-xs">
-                      <button onClick={() => setQuickToolTab('review')} className={`flex-1 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${quickToolTab === 'review' ? 'bg-indigo-600 text-white ' : 'text-slate-600'}`}>
+                      <button onClick={() => setQuickToolTab('review')} className={`flex-1 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${quickToolTab === 'review' ? 'bg-[var(--portal-primary)] text-white ' : 'text-slate-600'}`}>
                         <Star className="w-3.5 h-3.5" /> <span>Review</span>
                       </button>
                       <button onClick={() => setQuickToolTab('pay')} className={`flex-1 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${quickToolTab === 'pay' ? 'bg-emerald-600 text-white ' : 'text-slate-600'}`}>
@@ -2073,10 +2081,10 @@ export default function CompleteOperationalClientPortal() {
                       <form onSubmit={(e) => { e.preventDefault(); if (!reviewPhone) return; toast.success(`Review SMS sent to ${reviewPhone}`); setReviewPhone(''); }} className="space-y-2 text-xs">
                         <div className="flex justify-between items-center text-xs text-slate-600">
                           <span>Send Review Request SMS</span>
-                          <button type="button" onClick={() => setIsEditingTemplates(true)} className="text-indigo-600 hover:underline">Edit Script</button>
+                          <button type="button" onClick={() => setIsEditingTemplates(true)} className="text-[var(--portal-primary)] hover:underline">Edit Script</button>
                         </div>
-                        <input type="tel" value={reviewPhone} onChange={(e) => setReviewPhone(e.target.value)} placeholder="Customer Phone (555-000-0000)" aria-label="Customer phone number for review request" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 font-mono tabular-nums min-h-[44px] sm:min-h-0" />
-                        <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition-all active:scale-95 cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center">Send Review Request</button>
+                        <input type="tel" value={reviewPhone} onChange={(e) => setReviewPhone(e.target.value)} placeholder="Customer Phone (555-000-0000)" aria-label="Customer phone number for review request" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] font-mono tabular-nums min-h-[44px] sm:min-h-0" />
+                        <button type="submit" className="w-full py-2.5 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold rounded-xl transition-all active:scale-95 cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center">Send Review Request</button>
                       </form>
                     )}
 
@@ -2084,10 +2092,10 @@ export default function CompleteOperationalClientPortal() {
                       <form onSubmit={(e) => { e.preventDefault(); if (!payPhone || !payAmount) return; toast.success(`Payment link for $${payAmount} sent to ${payPhone}`); setPayPhone(''); setPayAmount(''); }} className="space-y-2 text-xs">
                         <div className="flex justify-between items-center text-xs text-slate-600">
                           <span>Send Text-to-Pay Invoice</span>
-                          <button type="button" onClick={() => setIsEditingTemplates(true)} className="text-indigo-600 hover:underline">Edit Script</button>
+                          <button type="button" onClick={() => setIsEditingTemplates(true)} className="text-[var(--portal-primary)] hover:underline">Edit Script</button>
                         </div>
                         
-                        <input type="tel" value={payPhone} onChange={(e) => setPayPhone(e.target.value)} placeholder="Customer Phone" aria-label="Customer phone number for pay request" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 font-mono tabular-nums min-h-[44px] sm:min-h-0" />
+                        <input type="tel" value={payPhone} onChange={(e) => setPayPhone(e.target.value)} placeholder="Customer Phone" aria-label="Customer phone number for pay request" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] font-mono tabular-nums min-h-[44px] sm:min-h-0" />
 
                         <div className="flex items-center gap-1 text-xs">
                           <span className="text-slate-600 uppercase font-bold shrink-0">Quick:</span>
@@ -2140,10 +2148,10 @@ export default function CompleteOperationalClientPortal() {
                   </div>
 
                   <div className="bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 hover:border-slate-300 transition-all duration-200 rounded-2xl p-4 text-xs space-y-1.5">
-                    <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Peak Call Times (24h)</span>
+                    <span className="text-xs font-bold text-[var(--portal-primary)] uppercase tracking-wider flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> Peak Call Times (24h)</span>
                     <div className="flex items-end gap-1 h-12 pt-1 border-b border-slate-200">
                       {peakCallHours.map((count, hr) => (
-                        <div key={hr} className="flex-1 bg-indigo-500/20 hover:bg-indigo-500 rounded-t transition-all relative group" style={{ height: `${Math.max(15, count * 40)}%` }}>
+                        <div key={hr} className="flex-1 bg-[var(--portal-primary)]/20 hover:bg-[var(--portal-primary)] rounded-t transition-all relative group" style={{ height: `${Math.max(15, count * 40)}%` }}>
                           <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-xs bg-black text-slate-800 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
                             {hr}:00 ({count})
                           </span>
@@ -2172,7 +2180,7 @@ export default function CompleteOperationalClientPortal() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search..."
                         aria-label="Search leads by name, phone, title, or job category"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-8 py-1.5 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 text-xs min-h-[44px] sm:min-h-0"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-8 py-1.5 text-slate-800 placeholder-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] text-xs min-h-[44px] sm:min-h-0"
                       />
                       <button
                         onClick={handleVoiceSearch}
@@ -2189,19 +2197,19 @@ export default function CompleteOperationalClientPortal() {
                     <div className="flex bg-slate-50 p-0.5 rounded-xl border border-slate-200 text-xs">
                       <button
                         onClick={() => setViewMode('list')}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'list' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}
                       >
                         <List className="w-3.5 h-3.5" /> Feed
                       </button>
                       <button
                         onClick={() => setViewMode('board')}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'board' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'board' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}
                       >
                         <LayoutGrid className="w-3.5 h-3.5" /> Board
                       </button>
                       <button
                         onClick={() => setViewMode('calendar')}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'calendar' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${viewMode === 'calendar' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}
                       >
                         <CalendarClock className="w-3.5 h-3.5" /> Schedule
                       </button>
@@ -2210,13 +2218,13 @@ export default function CompleteOperationalClientPortal() {
                     <div className="flex bg-slate-50 p-0.5 rounded-xl border border-slate-200 text-xs">
                       <button
                         onClick={() => setLayoutDensity('comfortable')}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${layoutDensity === 'comfortable' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${layoutDensity === 'comfortable' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}
                       >
                         <Maximize2 className="w-3.5 h-3.5" /> Cozy
                       </button>
                       <button
                         onClick={() => setLayoutDensity('compact')}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${layoutDensity === 'compact' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
+                        className={`px-2 py-1 rounded-lg font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${layoutDensity === 'compact' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}
                       >
                         <Minimize2 className="w-3.5 h-3.5" /> Dense
                       </button>
@@ -2243,7 +2251,7 @@ export default function CompleteOperationalClientPortal() {
                   </div>
                   
                   <div className="flex gap-1 overflow-x-auto w-full sm:w-auto pt-1 sm:pt-0">
-                    <button onClick={() => setActiveFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all min-h-[44px] sm:min-h-0 ${activeFilter === 'all' ? 'bg-indigo-600 text-white ' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
+                    <button onClick={() => setActiveFilter('all')} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all min-h-[44px] sm:min-h-0 ${activeFilter === 'all' ? 'bg-[var(--portal-primary)] text-white ' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
                       <span>All (<span className="font-mono tabular-nums">{filterCounts.all}</span>)</span>
                     </button>
                     <button onClick={() => setActiveFilter('unreplied')} className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all min-h-[44px] sm:min-h-0 flex items-center gap-1 ${activeFilter === 'unreplied' ? 'bg-amber-600 text-white ' : 'bg-slate-50 text-slate-600 border border-slate-200'}`}>
@@ -2271,7 +2279,7 @@ export default function CompleteOperationalClientPortal() {
                       <>
                         {todayLeads.length > 0 && (
                           <div className="space-y-2">
-                            <div className="sticky top-0 bg-slate-50 border-b border-indigo-500/30 py-1.5 px-2 backdrop-blur-md z-10 flex justify-between items-center text-xs text-indigo-600 font-bold uppercase tracking-wider font-sans">
+                            <div className="sticky top-0 bg-slate-50 border-b border-[var(--portal-primary)]/30 py-1.5 px-2 backdrop-blur-md z-10 flex justify-between items-center text-xs text-[var(--portal-primary)] font-bold uppercase tracking-wider font-sans">
                               <span className="inline-flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Today (<span className="font-mono tabular-nums">{todayLeads.length}</span> Action Item Jobs)</span>
                               <span className="text-slate-600 text-xs">Use J/K keys to traverse</span>
                             </div>
@@ -2330,11 +2338,11 @@ export default function CompleteOperationalClientPortal() {
                     </div>
 
                     <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
-                      <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 text-xs text-indigo-600 uppercase font-bold">
+                      <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 text-xs text-[var(--portal-primary)] uppercase font-bold">
                         <span className="inline-flex items-center gap-1"><Send className="w-3.5 h-3.5" /> Dispatched (<span className="font-mono tabular-nums">{activityFeed.filter((i) => i.status === 'in_progress').length}</span>)</span>
                       </div>
                       {activityFeed.filter((i) => i.status === 'in_progress').map((item) => (
-                        <div key={item.id} className="p-2.5 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-indigo-500/30 rounded-lg space-y-1 text-xs">
+                        <div key={item.id} className="p-2.5 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-[var(--portal-primary)]/30 rounded-lg space-y-1 text-xs">
                           <div className="font-bold text-slate-800">{item.customerName}</div>
                           <div className="text-xs text-slate-600 font-sans">{item.jobCategory}</div>
                           <button onClick={() => updateLeadStatus(item.id, 'won')} className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded font-sans mt-1 min-h-[44px] sm:min-h-0 flex items-center justify-center">Mark Won</button>
@@ -2362,7 +2370,7 @@ export default function CompleteOperationalClientPortal() {
                     {scheduledAgenda.length > 0 ? (
                       scheduledAgenda.map((group) => (
                         <div key={group.key} className="space-y-2">
-                          <div className="sticky top-0 bg-slate-50 border-b border-indigo-500/30 py-1.5 px-2 backdrop-blur-md z-10 text-xs font-mono tabular-nums text-indigo-600 font-bold uppercase tracking-wider">
+                          <div className="sticky top-0 bg-slate-50 border-b border-[var(--portal-primary)]/30 py-1.5 px-2 backdrop-blur-md z-10 text-xs font-mono tabular-nums text-[var(--portal-primary)] font-bold uppercase tracking-wider">
                             {group.label}
                           </div>
                           <div className="space-y-2">
@@ -2372,7 +2380,7 @@ export default function CompleteOperationalClientPortal() {
                               return (
                                 <div key={item.id} className="p-3 bg-white/90 backdrop-blur-xl ring-1 ring-black/[0.04] border border-slate-200 rounded-xl flex items-center gap-3 text-xs">
                                   <div className="w-16 shrink-0 text-center">
-                                    <span className="text-sm font-black text-indigo-600 font-mono tabular-nums block">{time}</span>
+                                    <span className="text-sm font-black text-[var(--portal-primary)] font-mono tabular-nums block">{time}</span>
                                   </div>
                                   <div className="w-px h-10 bg-slate-100 shrink-0" />
                                   <div className="flex-1 min-w-0">
@@ -2387,7 +2395,7 @@ export default function CompleteOperationalClientPortal() {
                                     <a href={`tel:${item.phone}`} onClick={() => playSynthesizerChime('click')} className="p-2 bg-emerald-600/30 hover:bg-emerald-600 border border-emerald-500/40 text-emerald-700 hover:text-white rounded-lg transition-all">
                                       <Phone className="w-3.5 h-3.5" />
                                     </a>
-                                    <button onClick={() => { playSynthesizerChime('click'); setActiveChatLead(item); }} className="p-2 bg-indigo-600/30 hover:bg-indigo-600 border border-indigo-500/40 text-indigo-700 hover:text-white rounded-lg cursor-pointer transition-all">
+                                    <button onClick={() => { playSynthesizerChime('click'); setActiveChatLead(item); }} className="p-2 bg-[var(--portal-primary)]/30 hover:bg-[var(--portal-primary)] border border-[var(--portal-primary)]/40 text-[var(--portal-primary)] hover:text-white rounded-lg cursor-pointer transition-all">
                                       <MessageCircle className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
@@ -2574,7 +2582,7 @@ export default function CompleteOperationalClientPortal() {
                 <div className="space-y-1.5 font-sans">
                   <h4 className="text-xs font-bold text-slate-800">Google Review Pass</h4>
                   <p className="text-xs text-slate-600">Scan to leave a review</p>
-                  <button onClick={() => window.print()} className="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-lg transition-all active:scale-95 min-h-[44px] sm:min-h-0 flex items-center">
+                  <button onClick={() => window.print()} className="px-3 py-2 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold text-xs rounded-lg transition-all active:scale-95 min-h-[44px] sm:min-h-0 flex items-center">
                     Print Sheet
                   </button>
                 </div>
@@ -2589,7 +2597,7 @@ export default function CompleteOperationalClientPortal() {
       <div className="no-print lg:hidden fixed bottom-0 left-0 right-0 bg-slate-50/95 border-t border-slate-200 p-2.5 backdrop-blur-2xl z-40 flex items-center justify-around font-sans text-xs pb-[calc(0.6rem+env(safe-area-inset-bottom))]">
         {selectedLeadIds.length > 0 ? (
           <div className="flex items-center justify-between w-full px-2">
-            <span className="text-indigo-600 font-mono tabular-nums font-bold">{selectedLeadIds.length} Selected</span>
+            <span className="text-[var(--portal-primary)] font-mono tabular-nums font-bold">{selectedLeadIds.length} Selected</span>
             <div className="flex items-center gap-2">
               <button onClick={handleBatchWon} className="px-3 py-1.5 bg-emerald-600 text-white font-bold rounded-xl text-xs">Mark Won</button>
               <button onClick={handleBatchSnooze} className="px-3 py-1.5 bg-slate-100 text-slate-800 font-bold rounded-xl text-xs">Snooze</button>
@@ -2605,13 +2613,13 @@ export default function CompleteOperationalClientPortal() {
             <div className="flex items-center gap-1.5 font-sans">
               <button onClick={() => setDispatchTargetLead(mobileFocusedLead)} className="px-2.5 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-xl">Dispatch</button>
               <a href={`tel:${mobileFocusedLead.phone}`} className="px-2.5 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-xl">Call</a>
-              <button onClick={() => setActiveChatLead(mobileFocusedLead)} className="px-2.5 py-1.5 bg-indigo-600/40 text-indigo-700 border border-indigo-500/40 text-xs font-bold rounded-xl">Chat</button>
+              <button onClick={() => setActiveChatLead(mobileFocusedLead)} className="px-2.5 py-1.5 bg-[var(--portal-primary)]/40 text-[var(--portal-primary)] border border-[var(--portal-primary)]/40 text-xs font-bold rounded-xl">Chat</button>
               <button onClick={() => setMobileFocusedLead(null)} aria-label="Close lead details" className="min-h-[44px] min-w-[44px] text-slate-600 p-1 font-bold flex items-center justify-center"><X className="w-4 h-4" /></button>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-around w-full">
-            <button onClick={() => { setActiveTab('command'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center min-h-[40px] justify-center ${activeTab === 'command' ? 'text-indigo-600 font-bold' : 'text-slate-600'}`}>
+            <button onClick={() => { setActiveTab('command'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`flex flex-col items-center min-h-[40px] justify-center ${activeTab === 'command' ? 'text-[var(--portal-primary)] font-bold' : 'text-slate-600'}`}>
               <Zap className="w-4 h-4" />
               <span className="text-xs">Command</span>
             </button>
@@ -2619,7 +2627,7 @@ export default function CompleteOperationalClientPortal() {
               <MessageCircle className="w-4 h-4" />
               <span className="text-xs">Scripts</span>
             </button>
-            <button onClick={() => setIsSupportOpen(true)} className="flex flex-col items-center text-indigo-600 font-bold min-h-[40px] justify-center">
+            <button onClick={() => setIsSupportOpen(true)} className="flex flex-col items-center text-[var(--portal-primary)] font-bold min-h-[40px] justify-center">
               <Headphones className="w-4 h-4" />
               <span className="text-xs">Support</span>
             </button>
@@ -2659,9 +2667,9 @@ export default function CompleteOperationalClientPortal() {
             <div className="space-y-2">
               <label className="text-xs text-slate-600 uppercase font-bold block">User View Role:</label>
               <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-50 rounded-xl border border-slate-200">
-                <button onClick={() => { handleRoleChange('owner'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'owner' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><Crown className="w-3.5 h-3.5" /> Owner</button>
-                <button onClick={() => { handleRoleChange('manager'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'manager' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><ClipboardList className="w-3.5 h-3.5" /> Office</button>
-                <button onClick={() => { handleRoleChange('tech'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'tech' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Tech</button>
+                <button onClick={() => { handleRoleChange('owner'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'owner' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><Crown className="w-3.5 h-3.5" /> Owner</button>
+                <button onClick={() => { handleRoleChange('manager'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'manager' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><ClipboardList className="w-3.5 h-3.5" /> Office</button>
+                <button onClick={() => { handleRoleChange('tech'); setIsSettingsOpen(false); }} className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 ${currentRole === 'tech' ? 'bg-[var(--portal-primary)] text-white' : 'text-slate-600'}`}><Wrench className="w-3.5 h-3.5" /> Tech</button>
               </div>
             </div>
 
@@ -2684,10 +2692,10 @@ export default function CompleteOperationalClientPortal() {
 
               <button
                 onClick={() => { setIsSettingsOpen(false); router.push('/portal/settings/branding'); }}
-                className="w-full py-3 px-3 bg-indigo-50 border border-indigo-500/30 text-indigo-700 font-bold rounded-xl text-left text-xs flex justify-between items-center min-h-[44px]"
+                className="w-full py-3 px-3 bg-indigo-50 border border-[var(--portal-primary)]/30 text-[var(--portal-primary)] font-bold rounded-xl text-left text-xs flex justify-between items-center min-h-[44px]"
               >
                 <span className="inline-flex items-center gap-1.5"><Palette className="w-3.5 h-3.5" /> Branding Options</span>
-                <span className="text-xs bg-indigo-500/20 px-2 py-0.5 rounded-full">Logo &amp; Color</span>
+                <span className="text-xs bg-[var(--portal-primary)]/20 px-2 py-0.5 rounded-full">Logo &amp; Color</span>
               </button>
             </div>
 
@@ -2719,7 +2727,7 @@ export default function CompleteOperationalClientPortal() {
                   <div key={msg.id} className={`flex flex-col ${msg.sender === 'staff' ? 'items-end' : 'items-start'}`}>
                     <div className={`p-2.5 rounded-2xl max-w-[85%] text-xs ${
                       msg.sender === 'staff'
-                        ? 'bg-indigo-600 text-white rounded-br-none'
+                        ? 'bg-[var(--portal-primary)] text-white rounded-br-none'
                         : msg.sender === 'system'
                         ? 'bg-slate-100 text-slate-500 rounded-bl-none'
                         : 'bg-emerald-50 border border-emerald-500/40 text-emerald-700 rounded-bl-none'
@@ -2733,7 +2741,7 @@ export default function CompleteOperationalClientPortal() {
                           {msg.status === 'sending' && <Clock className="w-3 h-3 text-slate-400 animate-pulse" />}
                           {msg.status === 'sent' && <Check className="w-3 h-3 text-slate-400" />}
                           {msg.status === 'delivered' && <CheckCheck className="w-3 h-3 text-slate-400" />}
-                          {msg.status === 'read' && <CheckCheck className="w-3 h-3 text-indigo-500" />}
+                          {msg.status === 'read' && <CheckCheck className="w-3 h-3 text-[var(--portal-primary)]" />}
                           {msg.status === 'failed' && (
                             <span className="inline-flex items-center gap-0.5 text-rose-500">
                               <AlertCircle className="w-3 h-3" /> Failed
@@ -2781,9 +2789,9 @@ export default function CompleteOperationalClientPortal() {
                 value={replyMessageText} 
                 onChange={(e) => setReplyMessageText(e.target.value)} 
                 placeholder="Type SMS reply to homeowner..." 
-                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-sans text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 min-h-[44px] sm:min-h-0" 
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-sans text-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] min-h-[44px] sm:min-h-0" 
               />
-              <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs cursor-pointer font-sans min-h-[44px] sm:min-h-0 flex items-center justify-center">
+              <button type="submit" className="px-4 py-2 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold rounded-xl text-xs cursor-pointer font-sans min-h-[44px] sm:min-h-0 flex items-center justify-center">
                 Send SMS
               </button>
             </form>
@@ -2912,7 +2920,7 @@ export default function CompleteOperationalClientPortal() {
               </button>
               <button 
                 onClick={() => { setIsWebhookModalOpen(false); toast.success('Webhook Endpoint Saved'); }}
-                className="py-3 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-center text-xs cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center"
+                className="py-3 px-3 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold rounded-xl text-center text-xs cursor-pointer min-h-[44px] sm:min-h-0 flex items-center justify-center"
               >
                 Save Settings
               </button>
@@ -2975,7 +2983,7 @@ export default function CompleteOperationalClientPortal() {
 
             <div className="flex justify-between items-start border-b border-slate-200 pb-3">
               <div>
-                <span className="text-xs font-bold text-indigo-600 uppercase block">Customer CRM Record</span>
+                <span className="text-xs font-bold text-[var(--portal-primary)] uppercase block">Customer CRM Record</span>
                 <h3 className="text-base font-bold text-slate-800 font-sans">{selectedCustomer.customerName}</h3>
                 <p className="text-xs text-slate-600">{selectedCustomer.phone} • {selectedCustomer.address || 'No Address'}</p>
               </div>
@@ -3026,15 +3034,15 @@ export default function CompleteOperationalClientPortal() {
 
             <div className="space-y-1 font-sans">
               <label htmlFor="review-script" className="text-xs text-slate-600 uppercase font-bold block">Review Request Script</label>
-              <textarea id="review-script" rows={3} value={reviewTemplate} onChange={(e) => setReviewTemplate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 text-xs" />
+              <textarea id="review-script" rows={3} value={reviewTemplate} onChange={(e) => setReviewTemplate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] text-xs" />
             </div>
 
             <div className="space-y-1 font-sans">
               <label htmlFor="pay-script" className="text-xs text-slate-600 uppercase font-bold block">Text-to-Pay Script</label>
-              <textarea id="pay-script" rows={3} value={payTemplate} onChange={(e) => setPayTemplate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500 text-xs" />
+              <textarea id="pay-script" rows={3} value={payTemplate} onChange={(e) => setPayTemplate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)] text-xs" />
             </div>
 
-            <button onClick={() => { setIsEditingTemplates(false); toast.success('SMS Scripts Updated!'); }} className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl cursor-pointer font-sans min-h-[44px] sm:min-h-0 flex items-center justify-center">Save Templates</button>
+            <button onClick={() => { setIsEditingTemplates(false); toast.success('SMS Scripts Updated!'); }} className="w-full py-3 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold rounded-xl cursor-pointer font-sans min-h-[44px] sm:min-h-0 flex items-center justify-center">Save Templates</button>
           </div>
         </div>
       )}
@@ -3058,9 +3066,9 @@ export default function CompleteOperationalClientPortal() {
                 value={supportMessage} 
                 onChange={(e) => setSupportMessage(e.target.value)} 
                 placeholder="Describe request or AI prompt tweak..." 
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-indigo-500" 
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-slate-800 text-xs outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/50 focus:border-[var(--portal-primary)]" 
               />
-              <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl cursor-pointer transition-all min-h-[44px] sm:min-h-0 flex items-center justify-center">
+              <button type="submit" className="w-full py-3 bg-[var(--portal-primary)] hover:bg-[var(--portal-primary)] text-white font-bold rounded-xl cursor-pointer transition-all min-h-[44px] sm:min-h-0 flex items-center justify-center">
                 Dispatch Support Ticket
               </button>
             </form>
@@ -3072,7 +3080,7 @@ export default function CompleteOperationalClientPortal() {
       <div className="hidden print:block w-full max-w-3xl mx-auto p-8 bg-white text-gray-900 font-sans leading-relaxed">
         <div className="flex justify-between items-start border-b-2 border-gray-900 pb-4 mb-6">
           <div>
-            <span className="text-xs font-sans font-bold tracking-widest text-indigo-600 uppercase block">APEX MECHANICAL SERVICES // FIELD WORK ORDER TICKET</span>
+            <span className="text-xs font-sans font-bold tracking-widest text-[var(--portal-primary)] uppercase block">APEX MECHANICAL SERVICES // FIELD WORK ORDER TICKET</span>
             <h1 className="text-2xl font-black text-gray-900 mt-0.5">Customer Dispatch Ticket</h1>
           </div>
           <div className="text-right border-2 border-gray-900 px-4 py-2 rounded-xl bg-gray-50 font-sans">
@@ -3092,7 +3100,7 @@ export default function CompleteOperationalClientPortal() {
               <div>
                 <strong className="text-gray-500 uppercase text-xs block font-sans">Service Location:</strong>
                 <p className="font-bold">{dispatchTargetLead.address}</p>
-                <p className="text-indigo-600 font-bold">{dispatchTargetLead.jobCategory}</p>
+                <p className="text-[var(--portal-primary)] font-bold">{dispatchTargetLead.jobCategory}</p>
               </div>
             </div>
 
