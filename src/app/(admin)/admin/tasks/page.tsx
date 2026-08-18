@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
@@ -48,6 +48,8 @@ const COLUMNS: { id: FocusTask['status']; label: string }[] = [
   { id: 'DONE', label: 'Done' },
 ];
 
+const LOW_BATTERY_STORAGE_KEY = 'wp-low-battery-mode';
+
 function formatMinutesTotal(total: number): string {
   if (total < 60) return `${total}m`;
   const hours = Math.round((total / 60) * 10) / 10;
@@ -88,6 +90,7 @@ function TasksBoardContent() {
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
+  const [isLowBatteryMode, setIsLowBatteryMode] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
 
@@ -104,6 +107,22 @@ function TasksBoardContent() {
 
   useEffect(load, []);
   useEffect(() => setStreak(getTaskStreak()), []);
+
+  useEffect(() => {
+    try {
+      setIsLowBatteryMode(localStorage.getItem(LOW_BATTERY_STORAGE_KEY) === '1');
+    } catch {}
+  }, []);
+
+  function toggleLowBatteryMode() {
+    setIsLowBatteryMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(LOW_BATTERY_STORAGE_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  }
 
   // Tracks Focus Mode session length for the Bingo FOCUS_SESSION_COUNT / FOCUS_MINUTES goals.
   useEffect(() => {
@@ -275,6 +294,8 @@ function TasksBoardContent() {
   const overlayTasks = pickedTaskId ? openTasks.filter((t) => t.id === pickedTaskId) : openTasks;
   const parkedTasks = tasks.filter((t) => t.isParked);
   const totalMinutesRemaining = openTasks.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0);
+  const lowBatteryTask =
+    focusTasks[0] ?? [...openTasks].sort((a, b) => b.priority - a.priority)[0] ?? null;
 
   function closeOverlay() {
     setFocusOverlayIndex(null);
@@ -308,6 +329,42 @@ function TasksBoardContent() {
     }
     setPickedTaskId(chosen.id);
     setFocusOverlayIndex(0);
+  }
+
+  if (isLowBatteryMode) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm p-6">
+        <button
+          onClick={toggleLowBatteryMode}
+          className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+        >
+          <X className="w-3.5 h-3.5" /> Exit Low-Battery Mode
+        </button>
+        {lowBatteryTask ? (
+          <div className="w-full max-w-md border border-amber-500/30 bg-amber-500/5 rounded-2xl p-8 text-center space-y-4">
+            <div className="text-[11px] font-mono uppercase text-amber-400 flex items-center justify-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" /> One thing at a time
+            </div>
+            <div className="text-xl font-bold text-white">{lowBatteryTask.title}</div>
+            {lowBatteryTask.energyLevel && (
+              <div className="flex justify-center">
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium border ${ENERGY_META[lowBatteryTask.energyLevel].badge}`}>
+                  {ENERGY_META[lowBatteryTask.energyLevel].emoji} {ENERGY_META[lowBatteryTask.energyLevel].short}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={() => completeTask(lowBatteryTask.id)}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-medium"
+            >
+              Mark Done
+            </button>
+          </div>
+        ) : (
+          <div className="text-gray-400 text-sm">Nothing left to do. Nice work.</div>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -381,6 +438,12 @@ function TasksBoardContent() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-fuchsia-500/20 text-fuchsia-300 hover:bg-fuchsia-500/30"
           >
             <Target className="w-3.5 h-3.5" /> Bingo
+          </button>
+          <button
+            onClick={toggleLowBatteryMode}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-gray-400 hover:bg-white/10"
+          >
+            <Zap className="w-3.5 h-3.5" /> Low-Battery Mode
           </button>
         </div>
       </div>
