@@ -61,7 +61,7 @@ export default function AdminLayout({
       <AdminNav />
 
       {/* 💻 MAIN DYNAMIC CONTENT CONTAINER */}
-      <main className="flex-1 overflow-y-auto relative z-10 w-full pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-8">
+      <main className="flex-1 overflow-y-auto relative z-10 w-full pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-8">
         {children}
       </main>
 
