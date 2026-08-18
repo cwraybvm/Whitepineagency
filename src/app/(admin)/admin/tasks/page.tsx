@@ -4,9 +4,10 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter, Calendar } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
+import TaskScheduleModal from '@/components/admin/TaskScheduleModal';
 import BrainDumpModal from '@/components/admin/BrainDumpModal';
 import DopamineResetDrawer from '@/components/admin/DopamineResetDrawer';
 import ParkedTasksDrawer from '@/components/admin/ParkedTasksDrawer';
@@ -28,6 +29,7 @@ import {
   DURATION_OPTIONS,
   formatDuration,
   nextDuration,
+  formatScheduledBadge,
 } from '@/lib/taskFields';
 
 interface FocusTask {
@@ -46,6 +48,9 @@ interface FocusTask {
   completedAt: string | null;
   isUrgent: boolean;
   isImportant: boolean;
+  scheduledAt: string | null;
+  googleCalendarEventId: string | null;
+  syncToGoogleCalendar: boolean;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -99,6 +104,9 @@ function TasksBoardContent() {
   const [streak, setStreak] = useState<StreakState | null>(null);
   const [parkedDrawerOpen, setParkedDrawerOpen] = useState(false);
   const [quickAddMinutes, setQuickAddMinutes] = useState<number | null>(null);
+  const [quickAddScheduledAt, setQuickAddScheduledAt] = useState('');
+  const [showQuickAddSchedule, setShowQuickAddSchedule] = useState(false);
+  const [scheduleModalTaskId, setScheduleModalTaskId] = useState<string | null>(null);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
   const [bingoOpen, setBingoOpen] = useState(false);
@@ -198,12 +206,19 @@ function TasksBoardContent() {
     const res = await fetch('/api/focus-tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: quickAddValue.trim(), energyLevel: quickAddEnergy, estimatedMinutes: quickAddMinutes }),
+      body: JSON.stringify({
+        title: quickAddValue.trim(),
+        energyLevel: quickAddEnergy,
+        estimatedMinutes: quickAddMinutes,
+        scheduledAt: quickAddScheduledAt ? new Date(quickAddScheduledAt).toISOString() : null,
+      }),
     });
     if (!res.ok) return;
     setQuickAddValue('');
     setQuickAddEnergy(null);
     setQuickAddMinutes(null);
+    setQuickAddScheduledAt('');
+    setShowQuickAddSchedule(false);
     load();
   }
 
@@ -758,6 +773,26 @@ function TasksBoardContent() {
                     </button>
                   ))}
                 </div>
+                <button
+                  type="button"
+                  title="Schedule date/time"
+                  onClick={() => setShowQuickAddSchedule((v) => !v)}
+                  className={`flex items-center justify-center px-2 rounded-xl border ${
+                    quickAddScheduledAt || showQuickAddSchedule
+                      ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  📅
+                </button>
+                {showQuickAddSchedule && (
+                  <input
+                    type="datetime-local"
+                    value={quickAddScheduledAt}
+                    onChange={(e) => setQuickAddScheduledAt(e.target.value)}
+                    className="bg-white/5 border border-white/10 rounded-xl px-2 py-1 text-xs text-white"
+                  />
+                )}
                 <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </button>
@@ -878,8 +913,21 @@ function TasksBoardContent() {
                                   >
                                     <Package className="w-3.5 h-3.5" />
                                   </button>
+                                  <button
+                                    onClick={() => setScheduleModalTaskId(t.id)}
+                                    className={t.scheduledAt ? 'text-emerald-400 p-0.5' : 'text-gray-600 hover:text-emerald-400 p-0.5'}
+                                    title="Schedule"
+                                  >
+                                    <Calendar className="w-3.5 h-3.5" />
+                                  </button>
                                 </div>
                               </div>
+
+                              {t.scheduledAt && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  📅 {formatScheduledBadge(t.scheduledAt)}
+                                </span>
+                              )}
 
                               <div className="flex items-center gap-1.5">
                                 <button
@@ -1011,6 +1059,20 @@ function TasksBoardContent() {
       {bingoOpen && <DopamineBingoModal onClose={() => setBingoOpen(false)} />}
 
       {vaultOpen && <DopamineVaultModal onClose={() => setVaultOpen(false)} />}
+
+      {scheduleModalTaskId && (() => {
+        const scheduleTask = tasks.find((t) => t.id === scheduleModalTaskId);
+        if (!scheduleTask) return null;
+        return (
+          <TaskScheduleModal
+            task={scheduleTask}
+            onClose={() => setScheduleModalTaskId(null)}
+            onSaved={(updated) =>
+              setTasks((prev) => prev.map((t) => (t.id === scheduleModalTaskId ? { ...t, ...updated } : t)))
+            }
+          />
+        );
+      })()}
 
       {bossBattleTask && (
         <BossBattleModal
