@@ -287,12 +287,22 @@ function TasksBoardContent() {
   }
 
   async function patchSubtasks(taskId: string, subtasks: FocusSubtask[]) {
+    const previous = tasks.find((t) => t.id === taskId)?.subtasks ?? null;
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks } : t)));
-    await fetch(`/api/focus-tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subtasks }),
-    });
+    try {
+      const res = await fetch(`/api/focus-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subtasks }),
+      });
+      if (!res.ok) throw new Error(`PATCH /api/focus-tasks/${taskId} failed with ${res.status}`);
+    } catch (err) {
+      // Roll back the optimistic update -- a failed save (e.g. the task was
+      // deleted elsewhere, a P2025 "record not found") must not leave the
+      // UI showing subtask state the server never persisted.
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks: previous } : t)));
+      toast.error('Could not save subtask changes. Please try again.');
+    }
   }
 
   async function unstickTask(taskId: string) {
@@ -311,11 +321,15 @@ function TasksBoardContent() {
     }
   }
 
-  function toggleSubtask(taskId: string, subtaskId: string) {
+  async function toggleSubtask(taskId: string, subtaskId: string) {
     const task = tasks.find((t) => t.id === taskId);
     if (!task?.subtasks) return;
     const next = task.subtasks.map((st) => (st.id === subtaskId ? { ...st, done: !st.done } : st));
-    patchSubtasks(taskId, next);
+    try {
+      await patchSubtasks(taskId, next);
+    } catch {
+      toast.error('Could not update subtask. Please try again.');
+    }
   }
 
   async function completeTask(taskId: string) {
@@ -785,11 +799,12 @@ function TasksBoardContent() {
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
+                    data-testid={`column-${col.id}`}
                     className={`${mobileColumnTab === col.id ? 'block' : 'hidden'} md:block border border-slate-800 bg-slate-900/40 backdrop-blur-sm shadow-inner shadow-emerald-500/5 rounded-2xl p-5 space-y-3 min-h-[220px]`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-bold text-gray-200">{col.label}</span>
-                      <span className="text-[11px] font-mono text-gray-500 bg-white/5 rounded-full px-2 py-0.5">{colTasks.length}</span>
+                      <span data-testid={`column-count-${col.id}`} className="text-[11px] font-mono text-gray-500 bg-white/5 rounded-full px-2 py-0.5">{colTasks.length}</span>
                     </div>
                     {colTasks.length === 0 && (
                       <div className="flex flex-col items-center justify-center text-center py-14 px-4 text-gray-400">
@@ -807,6 +822,7 @@ function TasksBoardContent() {
                               ref={dragProvided.innerRef}
                               {...dragProvided.draggableProps}
                               {...dragProvided.dragHandleProps}
+                              data-testid={`task-card-${t.id}`}
                               className={`bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white space-y-2 transition-all duration-300 ease-in-out overflow-hidden ${
                                 matchesEnergy
                                   ? 'max-h-[500px] opacity-100 p-3 mb-0'

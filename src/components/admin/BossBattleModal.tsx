@@ -89,13 +89,13 @@ export default function BossBattleModal({ task, onToggleSubtask, onComplete, onC
   const barColor = hpPercent > 50 ? 'bg-emerald-500' : hpPercent > 20 ? 'bg-amber-500' : 'bg-red-500';
 
   return (
-    <div className="fixed inset-0 z-[220] bg-[#050810]/95 backdrop-blur-xl flex items-center justify-center p-6">
+    <div data-testid="boss-battle-modal" className="fixed inset-0 z-[220] bg-[#050810]/95 backdrop-blur-xl flex items-center justify-center p-6">
       <div className="w-full max-w-lg bg-[#0F172A] border border-white/10 rounded-2xl p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-white font-bold">
             <Swords className="w-4 h-4 text-red-400" /> Boss Battle
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white p-1">
+          <button onClick={onClose} aria-label="Close modal" className="text-gray-400 hover:text-white p-1">
             <X className="w-4 h-4" />
           </button>
         </div>

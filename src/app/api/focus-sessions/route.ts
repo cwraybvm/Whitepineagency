@@ -16,7 +16,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { durationSeconds } = await req.json();
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    // Empty or malformed body -- a client-input problem, not a server fault.
+    return NextResponse.json({ error: 'Invalid request format' }, { status: 400 });
+  }
+
+  const { durationSeconds } = (body ?? {}) as { durationSeconds?: unknown };
   if (typeof durationSeconds !== 'number' || durationSeconds <= 0) {
     return NextResponse.json({ error: 'durationSeconds must be a positive number' }, { status: 400 });
   }
