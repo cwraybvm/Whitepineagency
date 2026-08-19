@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { AnimatePresence, motion } from 'framer-motion';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock, Zap } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 import BillingTimerWidget from '@/components/BillingTimerWidget';
+import FocusSprintTimer from '@/components/admin/FocusSprintTimer';
 
 interface CellDatum {
   cellNumber: number;
@@ -80,7 +82,7 @@ export default function CallConsistencyPage() {
   const [recallingKey, setRecallingKey] = useState<string | null>(null);
   const [eodRecipient, setEodRecipient] = useState('');
   const [sendingEod, setSendingEod] = useState(false);
-  const [billingWidgetOpen, setBillingWidgetOpen] = useState(false);
+  const [openTimer, setOpenTimer] = useState<'billing' | 'focus' | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
 
@@ -333,24 +335,30 @@ New Addresses Entered Today: ${addressesToday.length}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Docked here instead of floating fixed over page content -- same
-              pattern /admin/tasks uses (BillingTimerWidget suppresses its own
-              floating instance on this route, see BillingTimerWidget.tsx). */}
-          <div className="hidden md:block">
-            <BillingTimerWidget variant="inline" />
-          </div>
+          {/* Both timers dock in-flow below the header instead of floating
+              fixed over page content (BillingTimerWidget suppresses its own
+              floating instance on this route, see BillingTimerWidget.tsx).
+              Only one can be open at a time -- opening one collapses the
+              other via the AnimatePresence block below. */}
           <button
             type="button"
-            onClick={() => setBillingWidgetOpen((v) => !v)}
-            className={`md:hidden flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
-              billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
+            onClick={() => setOpenTimer((v) => (v === 'billing' ? null : 'billing'))}
+            className={`flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
+              openTimer === 'billing' ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
             }`}
             title="Billing timer"
           >
-            {/* Swap to X while open -- the expanded bar below already shows
-                its own clock icon, so keeping this one too read as two
-                duplicate clock icons stacked right next to each other. */}
-            {billingWidgetOpen ? <X className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+            <Clock className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpenTimer((v) => (v === 'focus' ? null : 'focus'))}
+            className={`flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
+              openTimer === 'focus' ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' : 'bg-white/5 border-white/10 text-gray-400'
+            }`}
+            title="Focus sprint timer"
+          >
+            <Zap className="w-4 h-4" />
           </button>
           <input
             type="date"
@@ -361,13 +369,35 @@ New Addresses Entered Today: ${addressesToday.length}
         </div>
       </div>
 
-      {/* Dedicated in-flow bar (not absolute/fixed) so the expanded timer
-          pushes the pace card below it down instead of floating over it. */}
-      {billingWidgetOpen && (
-        <div className="md:hidden">
-          <BillingTimerWidget variant="inline" />
-        </div>
-      )}
+      {/* In-flow (not absolute/fixed) so an expanded timer pushes the pace
+          card below it down instead of floating over it. mode="wait" is
+          what makes opening one smoothly collapse the other first. */}
+      <AnimatePresence mode="wait">
+        {openTimer === 'billing' && (
+          <motion.div
+            key="billing"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <BillingTimerWidget variant="inline" />
+          </motion.div>
+        )}
+        {openTimer === 'focus' && (
+          <motion.div
+            key="focus"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <FocusSprintTimer />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
         <div className="flex items-center gap-2">
