@@ -19,3 +19,18 @@ export function buildAppleMapsUrl(start: string, stopAddresses: string[]): strin
 export function buildRouteSummary(stops: { businessName: string; address: string }[]): string {
   return stops.map((s, i) => `${i + 1}. ${s.businessName} — ${s.address}`).join('\n');
 }
+
+// Single-leg navigation for the turn-by-turn checklist — destination only, no
+// origin. Both Google Maps and Apple Maps default origin to the device's live
+// location when it's omitted, which is what "navigate to this one stop from
+// wherever I am right now mid-route" needs (the route's starting address or
+// the previous stop would be stale once the driver has moved).
+export function buildSingleGoogleMapsUrl(destination: string): string {
+  const params = new URLSearchParams({ api: '1', destination });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+export function buildSingleAppleMapsUrl(destination: string): string {
+  const params = new URLSearchParams({ daddr: destination });
+  return `https://maps.apple.com/?${params.toString()}`;
+}

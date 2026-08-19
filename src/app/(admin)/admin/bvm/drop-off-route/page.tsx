@@ -2,18 +2,36 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { Truck, Search, MapPin, Loader2, ChevronUp, ChevronDown, Navigation, AlertTriangle } from 'lucide-react';
-import { nearestNeighborOrder } from '@/lib/routeOptimizer';
-import { buildGoogleMapsUrl, buildAppleMapsUrl, buildRouteSummary } from '@/lib/mapLinks';
+import {
+  Truck,
+  Search,
+  MapPin,
+  Loader2,
+  ChevronUp,
+  ChevronDown,
+  Navigation,
+  AlertTriangle,
+  Phone,
+  Check,
+  Rocket,
+  X,
+  Radar,
+  Plus,
+} from 'lucide-react';
+import { nearestNeighborOrder, haversineMiles } from '@/lib/routeOptimizer';
+import { buildGoogleMapsUrl, buildAppleMapsUrl, buildRouteSummary, buildSingleGoogleMapsUrl, buildSingleAppleMapsUrl } from '@/lib/mapLinks';
 
 interface Stop {
   id: string;
   businessName: string;
   contactName: string | null;
+  phone: string | null;
   address: string;
   lat: number | null;
   lng: number | null;
 }
+
+const RADIUS_OPTIONS = [1, 3, 5, 10];
 
 export default function DropOffRoutePage() {
   const [stops, setStops] = useState<Stop[]>([]);
@@ -23,6 +41,14 @@ export default function DropOffRoutePage() {
   const [startAddress, setStartAddress] = useState('');
   const [startCoords, setStartCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [optimizing, setOptimizing] = useState(false);
+  const [executionMode, setExecutionMode] = useState(false);
+  const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [markingId, setMarkingId] = useState<string | null>(null);
+  const [radarOpen, setRadarOpen] = useState(false);
+  const [radarRadius, setRadarRadius] = useState(5);
+  const [radarLoading, setRadarLoading] = useState(false);
+  const [radarError, setRadarError] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     fetch('/api/bvm/drop-off-route')
@@ -44,6 +70,14 @@ export default function DropOffRoutePage() {
   }, [stops, search]);
 
   const stopsById = useMemo(() => new Map(stops.map((s) => [s.id, s])), [stops]);
+  const radarResults = useMemo(() => {
+    if (!userCoords) return [];
+    return stops
+      .filter((s) => s.lat != null && s.lng != null)
+      .map((s) => ({ stop: s, distance: haversineMiles(userCoords, { lat: s.lat as number, lng: s.lng as number }) }))
+      .filter((r) => r.distance <= radarRadius)
+      .sort((a, b) => a.distance - b.distance);
+  }, [stops, userCoords, radarRadius]);
   const selectedStops = useMemo(
     () => selectedIds.map((id) => stopsById.get(id)).filter((s): s is Stop => Boolean(s)),
     [selectedIds, stopsById]
@@ -115,6 +149,14 @@ export default function DropOffRoutePage() {
     window.open(buildAppleMapsUrl(startAddress, selectedStops.map((s) => s.address)), '_blank');
   }
 
+  function openSingleGoogleMaps(stop: Stop) {
+    window.open(buildSingleGoogleMapsUrl(stop.address), '_blank');
+  }
+
+  function openSingleAppleMaps(stop: Stop) {
+    window.open(buildSingleAppleMapsUrl(stop.address), '_blank');
+  }
+
   async function copySummary() {
     if (selectedStops.length === 0) return;
     try {
@@ -123,6 +165,66 @@ export default function DropOffRoutePage() {
     } catch {
       toast.error('Could not copy to clipboard');
     }
+  }
+
+  function startExecutionMode() {
+    setCompletedIds(new Set());
+    setExecutionMode(true);
+  }
+
+  async function markDroppedOff(stop: Stop) {
+    setMarkingId(stop.id);
+    try {
+      const res = await fetch('/api/bvm/drop-off-route/mark-dropped-off', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId: stop.id }),
+      });
+      if (!res.ok) throw new Error();
+      setCompletedIds((prev) => new Set(prev).add(stop.id));
+      toast.success(`${stop.businessName} marked dropped off`);
+    } catch {
+      toast.error('Failed to mark dropped off');
+    } finally {
+      setMarkingId(null);
+    }
+  }
+
+  function findClientsNearMe() {
+    if (!navigator.geolocation) {
+      setRadarError("Geolocation isn't available in this browser.");
+      setRadarOpen(true);
+      return;
+    }
+
+    setRadarOpen(true);
+    setRadarLoading(true);
+    setRadarError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+        setRadarLoading(false);
+      },
+      (error) => {
+        const messages: Record<number, string> = {
+          1: 'Location access denied — enable it in your browser/device settings to use the radar.',
+          2: "Couldn't determine your location — try again in a moment.",
+          3: 'Location request timed out — try again.',
+        };
+        setRadarError(messages[error.code] || 'Failed to get your location.');
+        setRadarLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+
+  function addNearbyToRoute() {
+    setSelectedIds((prev) => {
+      const toAdd = radarResults.map((r) => r.stop.id).filter((id) => !prev.includes(id));
+      return [...prev, ...toAdd];
+    });
+    toast.success('Nearby clients added to route');
   }
 
   return (
@@ -135,7 +237,73 @@ export default function DropOffRoutePage() {
           </div>
           <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Plan and optimize a multi-stop drop-off run</p>
         </div>
+        <button
+          onClick={findClientsNearMe}
+          className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-4 rounded-xl"
+        >
+          <Radar className="w-4 h-4" /> Find Clients Near Me
+        </button>
       </div>
+
+      {radarOpen && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <Radar className="w-4 h-4 text-sky-400" /> Nearby Clients
+            </h2>
+            <button onClick={() => setRadarOpen(false)} className="text-gray-400 hover:text-white p-1" aria-label="Close radar">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-mono uppercase text-slate-500">Radius:</span>
+            {RADIUS_OPTIONS.map((r) => (
+              <button
+                key={r}
+                onClick={() => setRadarRadius(r)}
+                className={`min-h-[36px] px-3 rounded-lg text-xs font-bold ${
+                  radarRadius === r ? 'bg-sky-600 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                {r} Mile{r === 1 ? '' : 's'}
+              </button>
+            ))}
+          </div>
+
+          {radarLoading ? (
+            <div className="flex items-center justify-center h-24">
+              <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+            </div>
+          ) : radarError ? (
+            <div className="flex items-start gap-2 text-amber-400 text-xs bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> {radarError}
+            </div>
+          ) : radarResults.length === 0 ? (
+            <p className="text-sm text-slate-500 text-center py-4">No geocoded clients within {radarRadius} miles.</p>
+          ) : (
+            <>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {radarResults.map(({ stop, distance }) => (
+                  <div key={stop.id} className="flex items-center justify-between gap-3 bg-slate-950 border border-slate-800 rounded-xl p-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{stop.businessName}</p>
+                      <p className="text-[11px] text-slate-500 font-mono truncate">{stop.address}</p>
+                    </div>
+                    <span className="shrink-0 text-xs font-mono font-bold text-sky-400">{distance.toFixed(1)} miles away</span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={addNearbyToRoute}
+                className="w-full min-h-[44px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 rounded-xl"
+              >
+                <Plus className="w-4 h-4" /> Add Nearby Clients to Route
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
         <label className="text-[11px] font-mono uppercase text-slate-500 block">Starting Location</label>
@@ -206,20 +374,28 @@ export default function DropOffRoutePage() {
         )}
       </div>
 
-      {selectedStops.length > 0 && (
+      {selectedStops.length > 0 && !executionMode && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xs font-bold text-white uppercase tracking-wider">
               Route ({selectedStops.length} stop{selectedStops.length === 1 ? '' : 's'})
             </h2>
-            <button
-              onClick={optimizeRoute}
-              disabled={optimizing}
-              className="min-h-[44px] flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 rounded-xl disabled:opacity-50"
-            >
-              {optimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⚡</span>}
-              Optimize Route
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={optimizeRoute}
+                disabled={optimizing}
+                className="min-h-[44px] flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 rounded-xl disabled:opacity-50"
+              >
+                {optimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>⚡</span>}
+                Optimize Route
+              </button>
+              <button
+                onClick={startExecutionMode}
+                className="min-h-[44px] flex items-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm px-4 rounded-xl"
+              >
+                <Rocket className="w-4 h-4" /> Start Drop-Off Route
+              </button>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -273,6 +449,88 @@ export default function DropOffRoutePage() {
             >
               <span>📋</span> Copy Route Summary
             </button>
+          </div>
+        </div>
+      )}
+
+      {executionMode && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-xs font-bold text-white uppercase tracking-wider">
+              {completedIds.size} / {selectedStops.length} Drop-Offs Completed
+            </h2>
+            <button
+              onClick={() => setExecutionMode(false)}
+              className="min-h-[44px] flex items-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-sm px-4 rounded-xl"
+            >
+              <X className="w-4 h-4" /> Exit
+            </button>
+          </div>
+
+          <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all"
+              style={{ width: `${selectedStops.length > 0 ? (completedIds.size / selectedStops.length) * 100 : 0}%` }}
+            />
+          </div>
+
+          <div className="space-y-2">
+            {selectedStops.map((s, i) => {
+              const done = completedIds.has(s.id);
+              return (
+                <div
+                  key={s.id}
+                  className={`bg-slate-950 border rounded-xl p-3 space-y-2 ${done ? 'border-emerald-600/40 opacity-50' : 'border-slate-800'}`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full bg-emerald-600/20 text-emerald-400 text-[11px] font-bold font-mono">
+                      {i + 1}
+                    </span>
+                    <div className={`min-w-0 flex-1 ${done ? 'line-through' : ''}`}>
+                      <p className="text-sm font-bold text-white">{s.businessName}</p>
+                      {s.contactName && <p className="text-xs text-slate-400">{s.contactName}</p>}
+                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">{s.address}</p>
+                    </div>
+                  </div>
+
+                  {done ? (
+                    <div className="flex items-center gap-2 min-h-[44px] justify-center bg-emerald-600/10 text-emerald-400 font-bold text-sm rounded-lg">
+                      <Check className="w-4 h-4" /> Dropped Off
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {s.phone && (
+                        <a
+                          href={`tel:${s.phone}`}
+                          className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                        >
+                          <Phone className="w-3.5 h-3.5" /> Call
+                        </a>
+                      )}
+                      <button
+                        onClick={() => openSingleGoogleMaps(s)}
+                        className="min-h-[44px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                      >
+                        <Navigation className="w-3.5 h-3.5" /> Navigate
+                      </button>
+                      <button
+                        onClick={() => openSingleAppleMaps(s)}
+                        className="min-h-[44px] flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                      >
+                        <MapPin className="w-3.5 h-3.5" /> Apple Maps
+                      </button>
+                      <button
+                        onClick={() => markDroppedOff(s)}
+                        disabled={markingId === s.id}
+                        className="min-h-[44px] w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 rounded-lg disabled:opacity-50"
+                      >
+                        {markingId === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <span>✅</span>} Mark Dropped Off
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

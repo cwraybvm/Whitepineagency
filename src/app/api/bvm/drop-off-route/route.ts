@@ -42,6 +42,7 @@ export async function GET() {
       id: c.id,
       businessName: c.clientName,
       contactName: c.contactName,
+      phone: c.address.phone,
       address: `${c.address.street}, ${c.address.city}, ${c.address.state} ${c.address.zip}`,
       lat,
       lng,

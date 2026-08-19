@@ -4,7 +4,7 @@ export interface RouteStop {
   lng: number | null;
 }
 
-function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+export function haversineMiles(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 3958.8;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
