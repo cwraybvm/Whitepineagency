@@ -204,24 +204,58 @@ function TasksBoardContent() {
 
   async function handleQuickAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!quickAddValue.trim()) return;
-    const res = await fetch('/api/focus-tasks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: quickAddValue.trim(),
-        energyLevel: quickAddEnergy,
-        estimatedMinutes: quickAddMinutes,
-        scheduledAt: quickAddScheduledAt ? new Date(quickAddScheduledAt).toISOString() : null,
-      }),
-    });
-    if (!res.ok) return;
+    const title = quickAddValue.trim();
+    if (!title) {
+      quickAddRef.current?.focus();
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask: FocusTask = {
+      id: tempId,
+      title,
+      status: 'INBOX',
+      priority: 0,
+      dueDate: null,
+      isFocusToday: false,
+      focusOrder: null,
+      subtasks: null,
+      organizationId: null,
+      energyLevel: quickAddEnergy,
+      isParked: false,
+      estimatedMinutes: quickAddMinutes,
+      completedAt: null,
+      isUrgent: false,
+      isImportant: false,
+      scheduledAt: quickAddScheduledAt ? new Date(quickAddScheduledAt).toISOString() : null,
+      googleCalendarEventId: null,
+      syncToGoogleCalendar: true,
+    };
+    setTasks((prev) => [...prev, optimisticTask]);
     setQuickAddValue('');
     setQuickAddEnergy(null);
     setQuickAddMinutes(null);
     setQuickAddScheduledAt('');
     setShowQuickAddSchedule(false);
-    load();
+
+    try {
+      const res = await fetch('/api/focus-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          energyLevel: optimisticTask.energyLevel,
+          estimatedMinutes: optimisticTask.estimatedMinutes,
+          scheduledAt: optimisticTask.scheduledAt,
+        }),
+      });
+      if (!res.ok) throw new Error(`POST /api/focus-tasks failed with ${res.status}`);
+      const created: FocusTask = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === tempId ? created : t)));
+    } catch {
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      toast.error('Could not add task. Please try again.');
+    }
   }
 
   function cycleEnergyLevel(task: FocusTask) {
@@ -427,6 +461,10 @@ function TasksBoardContent() {
   }
 
   function focusQuickAdd() {
+    if (quickAddValue.trim()) {
+      handleQuickAdd({ preventDefault() {} } as React.FormEvent);
+      return;
+    }
     quickAddRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     quickAddRef.current?.focus();
   }
@@ -512,12 +550,12 @@ function TasksBoardContent() {
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={focusQuickAdd}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white"
+            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
           >
-            <Plus className="w-4 h-4" /> New Task
+            <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Task</span>
           </button>
 
           {/* Every launcher/toggle feature lives behind this one dropdown so
@@ -525,14 +563,14 @@ function TasksBoardContent() {
               buttons. Sections below give quick "am I in a mode?" cues via
               inline ON badges since those toggles are no longer visible
               buttons in their own right. */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setToolkitOpen((v) => !v)}
-              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium ${
+              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap ${
                 toolkitOpen ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
-              🎯 ADHD Toolkit
+              🎯 <span className="hidden sm:inline">ADHD Toolkit</span><span className="sm:hidden">Toolkit</span>
               {(focusMode || isLowBatteryMode || (recommendation && energyFilter === recommendation.level)) && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400" />
               )}
@@ -734,13 +772,13 @@ function TasksBoardContent() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              <form onSubmit={handleQuickAdd} className="flex gap-2 flex-1 sm:min-w-[220px]">
+              <form onSubmit={handleQuickAdd} className="flex flex-wrap gap-2 flex-1 sm:min-w-[220px]">
                 <input
                   ref={quickAddRef}
                   value={quickAddValue}
                   onChange={(e) => setQuickAddValue(e.target.value)}
                   placeholder="Quick add a task, press N to focus this box"
-                  className="flex-1 min-w-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+                  className="flex-1 min-w-[140px] bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
                 />
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
                   {ENERGY_LEVELS.map((lvl) => (
@@ -795,7 +833,8 @@ function TasksBoardContent() {
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
                     }`}
                   >
-                    📅{quickAddScheduledAt && new Date(quickAddScheduledAt).getDate()}
+                    <Calendar className="w-3.5 h-3.5" />
+                    {quickAddScheduledAt && new Date(quickAddScheduledAt).getDate()}
                   </button>
                   {showQuickAddSchedule && (
                     <>
