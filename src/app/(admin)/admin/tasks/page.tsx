@@ -743,7 +743,7 @@ function TasksBoardContent() {
   }
 
   return (
-    <div className="px-6 pb-6 pt-[calc(max(24px,env(safe-area-inset-top))+8px)] md:px-8 md:pb-8 space-y-6 max-w-5xl mx-auto">
+    <div className="px-6 pb-6 pt-[calc(max(24px,env(safe-area-inset-top))+20px)] md:px-8 md:pb-8 space-y-6 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <ListTodo className="w-5 h-5 text-emerald-400" />

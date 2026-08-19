@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
+import BillingTimerWidget from '@/components/BillingTimerWidget';
 
 interface CellDatum {
   cellNumber: number;
@@ -79,6 +80,7 @@ export default function CallConsistencyPage() {
   const [recallingKey, setRecallingKey] = useState<string | null>(null);
   const [eodRecipient, setEodRecipient] = useState('');
   const [sendingEod, setSendingEod] = useState(false);
+  const [billingWidgetOpen, setBillingWidgetOpen] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
 
@@ -331,6 +333,32 @@ New Addresses Entered Today: ${addressesToday.length}
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Docked here instead of floating fixed over page content -- same
+              pattern /admin/tasks uses (BillingTimerWidget suppresses its own
+              floating instance on this route, see BillingTimerWidget.tsx). */}
+          <div className="hidden md:block">
+            <BillingTimerWidget variant="inline" />
+          </div>
+          <div className="relative md:hidden">
+            <button
+              type="button"
+              onClick={() => setBillingWidgetOpen((v) => !v)}
+              className={`flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
+                billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
+              }`}
+              title="Billing timer"
+            >
+              <Clock className="w-4 h-4" />
+            </button>
+            {billingWidgetOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setBillingWidgetOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-40">
+                  <BillingTimerWidget variant="inline" />
+                </div>
+              </>
+            )}
+          </div>
           <input
             type="date"
             value={date}

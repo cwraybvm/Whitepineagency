@@ -44,6 +44,11 @@ export default function RootLayout({
             position="top-center"
             theme="dark"
             richColors
+            // viewportFit: "cover" above lets content run under the notch/
+            // Dynamic Island, so top-center toasts need their own safe-area
+            // offset or they render partly hidden behind the status bar.
+            offset={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+            mobileOffset={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
             toastOptions={{
               style: {
                 background: "#090D16",
