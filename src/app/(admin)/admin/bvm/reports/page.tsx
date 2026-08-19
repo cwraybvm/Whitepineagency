@@ -3,8 +3,22 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, FunnelChart, Funnel, LabelList } from 'recharts';
-import { FileBarChart2, Loader2, Filter } from 'lucide-react';
+import { FileBarChart2, Loader2, Filter, Target } from 'lucide-react';
 import { BVM_STATUS_OPTIONS } from '@/lib/bvmStatus';
+import { weekRange } from '@/lib/weekRange';
+
+interface DisciplineLog {
+  date: string;
+  pagesRead: number;
+  jiuJitsu: boolean;
+  workout: boolean;
+  waterGlasses: number;
+}
+
+const PAGES_TARGET = 10;
+const WATER_TARGET = 7;
+const WEEKLY_TARGET = 2;
+const WEEK_DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 type Range = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -43,6 +57,8 @@ export default function BvmReportsPage() {
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPercent, setShowPercent] = useState(false);
+  const [disciplineWeek, setDisciplineWeek] = useState<DisciplineLog[]>([]);
+  const [disciplineLoading, setDisciplineLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -53,6 +69,19 @@ export default function BvmReportsPage() {
       .finally(() => setLoading(false));
   }, [range, date]);
 
+  // Always the calendar week containing `date`, independent of the
+  // daily/weekly/monthly/yearly range tabs above -- "2 days/week" and
+  // "10 pages/day avg" targets only mean something against a real week.
+  useEffect(() => {
+    setDisciplineLoading(true);
+    const { start, end } = weekRange(date);
+    fetch(`/api/consistent-discipline?start=${start}&end=${end}`)
+      .then((res) => res.json())
+      .then(setDisciplineWeek)
+      .catch(() => toast.error('Failed to load discipline report'))
+      .finally(() => setDisciplineLoading(false));
+  }, [date]);
+
   const chartData = data
     ? BVM_STATUS_OPTIONS.map((o) => ({
         name: o.label,
@@ -60,6 +89,24 @@ export default function BvmReportsPage() {
         value: showPercent && data.totalCalls > 0 ? Math.round((data.statusCounts[o.value] / data.totalCalls) * 100) : data.statusCounts[o.value],
       }))
     : [];
+
+  const disciplineByDate = new Map(disciplineWeek.map((l) => [l.date, l]));
+  const weekStart = weekRange(date).start;
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${weekStart}T00:00:00.000Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const log = disciplineByDate.get(dateStr);
+    const compliance = log
+      ? [log.pagesRead >= PAGES_TARGET, log.waterGlasses >= WATER_TARGET, log.jiuJitsu, log.workout].filter(Boolean).length
+      : 0;
+    return { label: WEEK_DAY_LABELS[i], dateStr, compliance };
+  });
+  const jiuJitsuWeekCount = disciplineWeek.filter((l) => l.jiuJitsu).length;
+  const workoutWeekCount = disciplineWeek.filter((l) => l.workout).length;
+  const avgPagesRead = disciplineWeek.length > 0 ? Math.round(disciplineWeek.reduce((sum, l) => sum + l.pagesRead, 0) / 7) : 0;
+  const avgWaterGlasses = disciplineWeek.length > 0 ? Math.round(disciplineWeek.reduce((sum, l) => sum + l.waterGlasses, 0) / 7) : 0;
+  const COMPLIANCE_COLORS = ['#1e293b', '#0c4a6e', '#0369a1', '#0284c7', '#22c55e'];
 
   const funnelData = data
     ? [
@@ -184,6 +231,67 @@ export default function BvmReportsPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Target className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white">Consistent Discipline Weekly Overview</h3>
+            </div>
+            {disciplineLoading ? (
+              <div className="h-32 flex items-center justify-center">
+                <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-[11px] font-mono uppercase text-slate-500">Jiu-Jitsu</p>
+                    <p className="text-lg font-bold text-white tabular-nums">{jiuJitsuWeekCount} / {WEEKLY_TARGET} days</p>
+                    <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1">
+                      <div className="h-full bg-amber-500 rounded-full" style={{ width: `${Math.min(100, (jiuJitsuWeekCount / WEEKLY_TARGET) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-mono uppercase text-slate-500">Workout</p>
+                    <p className="text-lg font-bold text-white tabular-nums">{workoutWeekCount} / {WEEKLY_TARGET} days</p>
+                    <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1">
+                      <div className="h-full bg-red-500 rounded-full" style={{ width: `${Math.min(100, (workoutWeekCount / WEEKLY_TARGET) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-mono uppercase text-slate-500">Avg. Pages Read</p>
+                    <p className="text-lg font-bold text-white tabular-nums">{avgPagesRead} / {PAGES_TARGET}</p>
+                    <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1">
+                      <div className="h-full bg-sky-500 rounded-full" style={{ width: `${Math.min(100, (avgPagesRead / PAGES_TARGET) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-mono uppercase text-slate-500">Avg. Water</p>
+                    <p className="text-lg font-bold text-white tabular-nums">{avgWaterGlasses} / {WATER_TARGET}</p>
+                    <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden mt-1">
+                      <div className="h-full bg-cyan-500 rounded-full" style={{ width: `${Math.min(100, (avgWaterGlasses / WATER_TARGET) * 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-[11px] font-mono uppercase text-slate-500 mb-2">Habit Compliance This Week</p>
+                  <div className="flex gap-2">
+                    {weekDays.map((d) => (
+                      <div key={d.dateStr} className="flex-1 flex flex-col items-center gap-1">
+                        <div
+                          className="w-full aspect-square rounded-lg border border-slate-800"
+                          style={{ backgroundColor: COMPLIANCE_COLORS[d.compliance] }}
+                          title={`${d.dateStr}: ${d.compliance}/4 habits hit`}
+                        />
+                        <span className="text-[9px] font-mono text-slate-500">{d.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
