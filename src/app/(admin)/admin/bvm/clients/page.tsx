@@ -22,7 +22,7 @@ interface AddressOption {
   city: string;
 }
 
-const STAGES = ['Lead', 'First Contact', 'Appointment Set', 'Closed/Won', 'Follow-up Needed'];
+const STAGES = ['Lead', 'First Contact', 'Appointment Set', 'Closed/Won', 'Follow-up Needed', 'Magazine Dropped'];
 const STALE_DAYS = 14;
 
 function isStale(lastContacted: string | null): boolean {
@@ -176,7 +176,7 @@ export default function ClientKanbanPage() {
           <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
         </div>
       ) : (
-        <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto snap-x snap-mandatory md:snap-none no-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
+        <div className="flex md:grid md:grid-cols-6 gap-3 overflow-x-auto snap-x snap-mandatory md:snap-none no-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
           {STAGES.map((stage) => (
             <div
               key={stage}
