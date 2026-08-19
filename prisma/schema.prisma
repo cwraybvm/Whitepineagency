@@ -815,6 +815,9 @@ model BvmClientKanban {
   lastContacted  DateTime?
   nextContacted  DateTime?
   contactNotes   String    @default("") @db.Text
+  contactName    String?
+  addressId      String?     @unique
+  address        BvmAddress? @relation(fields: [addressId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -834,6 +837,10 @@ model BvmAddress {
   publicationName String?
   magazineZone    String?
   sentToBvm       Boolean  @default(false)
+  lat             Float?
+  lng             Float?
+
+  client BvmClientKanban?
 
   createdAt DateTime @default(now())
 

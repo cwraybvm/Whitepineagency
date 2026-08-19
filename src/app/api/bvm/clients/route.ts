@@ -50,7 +50,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { id, stage, lastContacted, nextContacted, contactNotes } = await request.json();
+    const { id, stage, lastContacted, nextContacted, contactNotes, contactName, addressId } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Missing client ID' }, { status: 400 });
@@ -61,6 +61,8 @@ export async function PATCH(request: Request) {
     if (lastContacted !== undefined) data.lastContacted = lastContacted ? new Date(lastContacted) : null;
     if (nextContacted !== undefined) data.nextContacted = nextContacted ? new Date(nextContacted) : null;
     if (contactNotes !== undefined) data.contactNotes = contactNotes;
+    if (contactName !== undefined) data.contactName = contactName;
+    if (addressId !== undefined) data.addressId = addressId || null;
 
     const client = await prisma.bvmClientKanban.update({ where: { id }, data });
     return NextResponse.json({ success: true, client });
