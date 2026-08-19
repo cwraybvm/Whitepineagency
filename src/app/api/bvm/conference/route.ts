@@ -20,7 +20,18 @@ export async function GET(request: Request) {
 
   if (date) {
     const call = await prisma.bvmConferenceCall.findUnique({ where: { date } });
-    return NextResponse.json(call || { id: null, date, attended: false, notes: '' });
+    return NextResponse.json(
+      call || {
+        id: null,
+        date,
+        attended: false,
+        notes: '',
+        callType: 'Custom',
+        keyTakeaways: '',
+        objectionScripts: '',
+        actionItems: '',
+      }
+    );
   }
 
   const calls = await prisma.bvmConferenceCall.findMany({ orderBy: { date: 'desc' }, take: 30 });
@@ -34,16 +45,25 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { date, attended, notes } = await request.json();
+    const { date, attended, notes, callType, keyTakeaways, objectionScripts, actionItems } = await request.json();
 
     if (!date) {
       return NextResponse.json({ error: 'Missing date' }, { status: 400 });
     }
 
+    const shared = {
+      attended: Boolean(attended),
+      notes: notes || '',
+      callType: callType || 'Custom',
+      keyTakeaways: keyTakeaways || '',
+      objectionScripts: objectionScripts || '',
+      actionItems: actionItems || '',
+    };
+
     const call = await prisma.bvmConferenceCall.upsert({
       where: { date },
-      create: { date, attended: Boolean(attended), notes: notes || '' },
-      update: { attended: Boolean(attended), notes: notes || '' },
+      create: { date, ...shared },
+      update: shared,
     });
 
     return NextResponse.json({ success: true, call });

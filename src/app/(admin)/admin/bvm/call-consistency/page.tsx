@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 
 interface CellDatum {
@@ -11,11 +11,24 @@ interface CellDatum {
   status: string | null;
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+}
+
 const MIN_CELLS = 45;
 const MAX_CELLS = 70;
 const STEP = 5;
 const DAILY_TARGET = 45;
 const FOLLOW_UP_STATUSES = new Set(['LVM', 'NA']);
+const QUICK_EMAIL_STATUSES = new Set(['LMGK', 'LVM', 'Yes']);
+
+function fillTemplate(text: string, vars: Record<string, string>): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || '');
+}
 // BVM's working day for pace comparison -- calls logged vs. expected-by-now.
 const WORKDAY_START_MIN = 9 * 60;
 const WORKDAY_END_MIN = 17 * 60;
@@ -48,6 +61,13 @@ export default function CallConsistencyPage() {
   const [saving, setSaving] = useState(false);
   const [spawnedCells, setSpawnedCells] = useState<Set<number>>(new Set());
   const [spawningCell, setSpawningCell] = useState<number | null>(null);
+  const [emailCell, setEmailCell] = useState<CellDatum | null>(null);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [emailForm, setEmailForm] = useState({ to: '', clientName: '', magazineZone: '', senderName: '' });
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailedCells, setEmailedCells] = useState<Set<number>>(new Set());
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
 
@@ -55,6 +75,7 @@ export default function CallConsistencyPage() {
     setLoading(true);
     loadedForDate.current = null;
     setSpawnedCells(new Set());
+    setEmailedCells(new Set());
     fetch(`/api/bvm/call-log?date=${date}`)
       .then((res) => res.json())
       .then((data) => {
@@ -127,6 +148,45 @@ export default function CallConsistencyPage() {
       toast.error('Failed to spawn follow-up task');
     } finally {
       setSpawningCell(null);
+    }
+  }
+
+  function openQuickEmail(cell: CellDatum) {
+    setEmailCell(cell);
+    setSelectedTemplateId('');
+    setEmailForm({ to: '', clientName: '', magazineZone: '', senderName: '' });
+    if (templates.length === 0) {
+      setTemplatesLoading(true);
+      fetch('/api/bvm/email-templates')
+        .then((res) => res.json())
+        .then(setTemplates)
+        .catch(() => toast.error('Failed to load email templates'))
+        .finally(() => setTemplatesLoading(false));
+    }
+  }
+
+  const selectedTemplate = templates.find((t) => t.id === selectedTemplateId) || null;
+  const previewSubject = selectedTemplate ? fillTemplate(selectedTemplate.subject, emailForm) : '';
+  const previewBody = selectedTemplate ? fillTemplate(selectedTemplate.body, emailForm) : '';
+
+  async function sendQuickEmail() {
+    if (!emailCell || !selectedTemplate || !emailForm.to) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: emailForm.to, subject: previewSubject, body: previewBody }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      setEmailedCells((prev) => new Set(prev).add(emailCell.cellNumber));
+      toast.success(`Email sent to ${emailForm.to}`);
+      setEmailCell(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send email');
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -248,6 +308,17 @@ export default function CallConsistencyPage() {
                       </button>
                     )
                   )}
+                  {cell.status && QUICK_EMAIL_STATUSES.has(cell.status) && (
+                    <button
+                      onClick={() => openQuickEmail(cell)}
+                      title="Quick email"
+                      className={`flex items-center justify-center gap-1 text-[8px] font-bold py-1 bg-slate-950 hover:bg-slate-800 ${
+                        emailedCells.has(cell.cellNumber) ? 'text-sky-400' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Mail className="w-2.5 h-2.5" /> {emailedCells.has(cell.cellNumber) ? 'Sent' : 'Quick Email'}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -295,6 +366,75 @@ export default function CallConsistencyPage() {
           )}
         </div>
       </div>
+
+      {emailCell && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEmailCell(null)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-3 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                ✉️ Quick Email — Cell #{emailCell.cellNumber} ({emailCell.status})
+              </h2>
+              <button type="button" onClick={() => setEmailCell(null)} className="text-gray-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Template</label>
+            {templatesLoading ? (
+              <div className="flex items-center gap-2 text-xs text-slate-500 py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading templates…
+              </div>
+            ) : (
+              <select
+                value={selectedTemplateId}
+                onChange={(e) => setSelectedTemplateId(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+              >
+                <option value="">Select a template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>{t.category} — {t.name}</option>
+                ))}
+              </select>
+            )}
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">To</label>
+            <input type="email" required placeholder="recipient@example.com" value={emailForm.to} onChange={(e) => setEmailForm((f) => ({ ...f, to: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[11px] font-mono uppercase text-slate-500 block">Client Name</label>
+                <input placeholder="{{clientName}}" value={emailForm.clientName} onChange={(e) => setEmailForm((f) => ({ ...f, clientName: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+              </div>
+              <div>
+                <label className="text-[11px] font-mono uppercase text-slate-500 block">Magazine Zone</label>
+                <input placeholder="{{magazineZone}}" value={emailForm.magazineZone} onChange={(e) => setEmailForm((f) => ({ ...f, magazineZone: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+              </div>
+            </div>
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Sender Name</label>
+            <input placeholder="{{senderName}}" value={emailForm.senderName} onChange={(e) => setEmailForm((f) => ({ ...f, senderName: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+
+            {selectedTemplate && (
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-1">
+                <p className="text-xs font-bold text-white">{previewSubject}</p>
+                <p className="text-[11px] text-slate-400 whitespace-pre-line">{previewBody}</p>
+              </div>
+            )}
+
+            <button
+              onClick={sendQuickEmail}
+              disabled={!selectedTemplate || !emailForm.to || sendingEmail}
+              className="w-full flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50 mt-2"
+            >
+              {sendingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {sendingEmail ? 'Sending…' : 'Send Email'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
