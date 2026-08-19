@@ -48,8 +48,9 @@ export async function GET(request: Request) {
     end = new Date(`${endParam}T00:00:00.000Z`);
     end.setUTCDate(end.getUTCDate() + 1); // end date is inclusive
   } else {
+    // "Year to date" means through today, not the full calendar year.
     start = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-    end = new Date(Date.UTC(now.getUTCFullYear() + 1, 0, 1));
+    end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
   }
 
   const expenses = await prisma.expense.findMany({
