@@ -784,26 +784,55 @@ function TasksBoardContent() {
                     </button>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  title="Schedule date/time"
-                  onClick={() => setShowQuickAddSchedule((v) => !v)}
-                  className={`flex items-center justify-center px-2 rounded-xl border ${
-                    quickAddScheduledAt || showQuickAddSchedule
-                      ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
-                      : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  📅
-                </button>
-                {showQuickAddSchedule && (
-                  <input
-                    type="datetime-local"
-                    value={quickAddScheduledAt}
-                    onChange={(e) => setQuickAddScheduledAt(e.target.value)}
-                    className="bg-white/5 border border-white/10 rounded-xl px-2 py-1 text-xs text-white"
-                  />
-                )}
+                <div className="relative">
+                  <button
+                    type="button"
+                    title="Schedule date/time"
+                    onClick={() => setShowQuickAddSchedule((v) => !v)}
+                    className={`flex items-center gap-1 justify-center px-2 h-full rounded-xl border text-xs font-medium ${
+                      quickAddScheduledAt || showQuickAddSchedule
+                        ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
+                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
+                    }`}
+                  >
+                    📅{quickAddScheduledAt && new Date(quickAddScheduledAt).getDate()}
+                  </button>
+                  {showQuickAddSchedule && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setShowQuickAddSchedule(false)} />
+                      <div className="absolute right-0 top-full mt-2 z-40 w-56 bg-[#0F172A] border border-white/10 rounded-xl p-3 space-y-2 shadow-xl">
+                        <input
+                          type="datetime-local"
+                          autoFocus
+                          value={quickAddScheduledAt}
+                          onChange={(e) => setQuickAddScheduledAt(e.target.value)}
+                          className="w-full bg-white/5 border border-white/10 rounded-xl px-2 py-1.5 text-xs text-white"
+                        />
+                        <div className="flex gap-1.5">
+                          {quickAddScheduledAt && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setQuickAddScheduledAt('');
+                                setShowQuickAddSchedule(false);
+                              }}
+                              className="flex-1 text-[11px] text-gray-400 hover:text-gray-200 px-2 py-1 rounded-lg bg-white/5"
+                            >
+                              Clear
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setShowQuickAddSchedule(false)}
+                            className="flex-1 text-[11px] text-emerald-300 hover:text-emerald-200 px-2 py-1 rounded-lg bg-emerald-500/10"
+                          >
+                            Done
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </button>
