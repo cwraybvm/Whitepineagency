@@ -339,26 +339,19 @@ New Addresses Entered Today: ${addressesToday.length}
           <div className="hidden md:block">
             <BillingTimerWidget variant="inline" />
           </div>
-          <div className="relative md:hidden">
-            <button
-              type="button"
-              onClick={() => setBillingWidgetOpen((v) => !v)}
-              className={`flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
-                billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
-              }`}
-              title="Billing timer"
-            >
-              <Clock className="w-4 h-4" />
-            </button>
-            {billingWidgetOpen && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setBillingWidgetOpen(false)} />
-                <div className="absolute right-0 top-full mt-2 z-40">
-                  <BillingTimerWidget variant="inline" />
-                </div>
-              </>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setBillingWidgetOpen((v) => !v)}
+            className={`md:hidden flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
+              billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
+            }`}
+            title="Billing timer"
+          >
+            {/* Swap to X while open -- the expanded bar below already shows
+                its own clock icon, so keeping this one too read as two
+                duplicate clock icons stacked right next to each other. */}
+            {billingWidgetOpen ? <X className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+          </button>
           <input
             type="date"
             value={date}
@@ -367,6 +360,14 @@ New Addresses Entered Today: ${addressesToday.length}
           />
         </div>
       </div>
+
+      {/* Dedicated in-flow bar (not absolute/fixed) so the expanded timer
+          pushes the pace card below it down instead of floating over it. */}
+      {billingWidgetOpen && (
+        <div className="md:hidden">
+          <BillingTimerWidget variant="inline" />
+        </div>
+      )}
 
       <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
         <div className="flex items-center gap-2">
