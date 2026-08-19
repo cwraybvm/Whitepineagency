@@ -31,6 +31,11 @@ import {
   formatDuration,
   nextDuration,
   formatScheduledBadge,
+  type PriorityLevel,
+  PRIORITY_LEVELS,
+  PRIORITY_META,
+  priorityFromValue,
+  nextPriorityValue,
 } from '@/lib/taskFields';
 
 interface FocusTask {
@@ -110,7 +115,9 @@ function TasksBoardContent() {
   const [scheduleModalTaskId, setScheduleModalTaskId] = useState<string | null>(null);
   const [icalModalOpen, setIcalModalOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
-  const [view, setView] = useState<'KANBAN' | 'MATRIX'>('KANBAN');
+  // Matrix is the default landing view -- the Eisenhower/Roosevelt quadrant
+  // board is meant to be the front page of /admin/tasks, not a buried toggle.
+  const [view, setView] = useState<'KANBAN' | 'MATRIX'>('MATRIX');
   const [bingoOpen, setBingoOpen] = useState(false);
   const [vaultOpen, setVaultOpen] = useState(false);
   const [toolkitOpen, setToolkitOpen] = useState(false);
@@ -127,6 +134,7 @@ function TasksBoardContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [scheduledFilterOn, setScheduledFilterOn] = useState(false);
+  const [quickAddPriority, setQuickAddPriority] = useState(PRIORITY_META.MEDIUM.value);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
   const cancelingEditRef = useRef(false);
@@ -220,7 +228,7 @@ function TasksBoardContent() {
       id: tempId,
       title,
       status: 'INBOX',
-      priority: 0,
+      priority: quickAddPriority,
       dueDate: null,
       isFocusToday: false,
       focusOrder: null,
@@ -242,6 +250,7 @@ function TasksBoardContent() {
     setQuickAddMinutes(null);
     setQuickAddScheduledAt('');
     setShowQuickAddSchedule(false);
+    setQuickAddPriority(PRIORITY_META.MEDIUM.value);
 
     try {
       const res = await fetch('/api/focus-tasks', {
@@ -249,6 +258,7 @@ function TasksBoardContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
+          priority: optimisticTask.priority,
           energyLevel: optimisticTask.energyLevel,
           estimatedMinutes: optimisticTask.estimatedMinutes,
           scheduledAt: optimisticTask.scheduledAt,
@@ -290,10 +300,8 @@ function TasksBoardContent() {
     patchTask(task.id, { estimatedMinutes: nextDuration(task.estimatedMinutes) });
   }
 
-  function toggleMatrixAxis(taskId: string, axis: 'isUrgent' | 'isImportant') {
-    const task = tasks.find((t) => t.id === taskId);
-    if (!task) return;
-    patchTask(taskId, { [axis]: !task[axis] });
+  function cyclePriority(task: FocusTask) {
+    patchTask(task.id, { priority: nextPriorityValue(task.priority) });
   }
 
   function moveMatrixQuadrant(taskId: string, isUrgent: boolean, isImportant: boolean) {
@@ -490,6 +498,199 @@ function TasksBoardContent() {
     }
     setPickedTaskId(chosen.id);
     setFocusOverlayIndex(0);
+  }
+
+  // Single task-card renderer shared by every column so the Inbox can group
+  // by priority (three separate lists feeding one continuous Draggable index)
+  // without duplicating this ~150-line block three times.
+  function renderTaskCard(t: FocusTask, index: number) {
+    const matchesEnergy =
+      (energyFilter === 'ALL' || t.energyLevel === energyFilter) &&
+      (!scheduledFilterOn || !!t.scheduledAt);
+    const priorityLevel = priorityFromValue(t.priority);
+    return (
+      <Draggable draggableId={t.id} index={index} key={t.id}>
+        {(dragProvided) => (
+          <div
+            ref={dragProvided.innerRef}
+            {...dragProvided.draggableProps}
+            {...dragProvided.dragHandleProps}
+            data-testid={`task-card-${t.id}`}
+            className={`bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white space-y-2 transition-all duration-300 ease-in-out overflow-hidden ${
+              matchesEnergy
+                ? 'max-h-[1000px] opacity-100 p-3 mb-0'
+                : 'max-h-0 opacity-0 p-0 mb-0 border-0 pointer-events-none'
+            } ${completingIds.has(t.id) ? 'scale-95 opacity-40' : 'scale-100'}`}
+          >
+            <div className="flex items-start gap-2">
+              <button
+                onClick={() => toggleComplete(t)}
+                title={t.status === 'DONE' ? 'Mark as not done' : 'Mark as done'}
+                data-testid={`task-complete-${t.id}`}
+                className={`shrink-0 flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 sm:w-5 sm:h-5 rounded-full border transition-colors ${
+                  t.status === 'DONE'
+                    ? 'bg-emerald-500 border-emerald-500 text-black'
+                    : 'border-white/20 text-transparent hover:border-emerald-400'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" strokeWidth={3} />
+              </button>
+
+              {editingId === t.id ? (
+                <input
+                  autoFocus
+                  value={editingValue}
+                  onChange={(e) => setEditingValue(e.target.value)}
+                  onBlur={() => {
+                    if (cancelingEditRef.current) { cancelingEditRef.current = false; return; }
+                    commitEdit(t.id);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitEdit(t.id); }
+                    if (e.key === 'Escape') { e.preventDefault(); cancelingEditRef.current = true; setEditingId(null); }
+                  }}
+                  className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-1.5 py-0.5 text-sm text-white"
+                />
+              ) : (
+                <span
+                  className={`flex-1 min-w-0 break-words ${t.status === 'DONE' ? 'text-gray-500 line-through' : ''}`}
+                >
+                  {t.title}
+                </span>
+              )}
+
+              <div className="flex items-center gap-0.5 flex-wrap justify-end shrink-0">
+                <button
+                  onClick={() => {
+                    const idx = openTasks.findIndex((ot) => ot.id === t.id);
+                    if (idx >= 0) setFocusOverlayIndex(idx);
+                  }}
+                  disabled={t.status === 'DONE'}
+                  className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-indigo-400 disabled:opacity-20 p-0.5"
+                  title="Focus on this task"
+                >
+                  <FocusIcon className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => toggleFocus(t)}
+                  className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.isFocusToday ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+                >
+                  <Star className="w-3.5 h-3.5" fill={t.isFocusToday ? 'currentColor' : 'none'} />
+                </button>
+                <button
+                  onClick={() => startEdit(t)}
+                  className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-sky-400 p-0.5"
+                  title="Edit title"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setParked(t.id, true)}
+                  className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-orange-400 p-0.5"
+                  title="Park for later"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => setScheduleModalTaskId(t.id)}
+                  className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.scheduledAt ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}
+                  title="Schedule"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => deleteTask(t.id)}
+                  className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-red-400 p-0.5"
+                  title="Delete task"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {t.scheduledAt && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                📅 {formatScheduledBadge(t.scheduledAt)}
+              </span>
+            )}
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => cyclePriority(t)}
+                title="Click to change priority"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${PRIORITY_META[priorityLevel].badge}`}
+              >
+                {PRIORITY_META[priorityLevel].emoji} {PRIORITY_META[priorityLevel].short}
+              </button>
+              <button
+                onClick={() => cycleEnergyLevel(t)}
+                title="Click to change energy level"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                  t.energyLevel ? ENERGY_META[t.energyLevel].badge : 'border-white/10 text-gray-600 hover:text-gray-400'
+                }`}
+              >
+                {t.energyLevel ? (
+                  <>
+                    {ENERGY_META[t.energyLevel].emoji} {ENERGY_META[t.energyLevel].short}
+                  </>
+                ) : (
+                  '+ Energy'
+                )}
+              </button>
+              <button
+                onClick={() => cycleDuration(t)}
+                title="Click to change time estimate"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
+                  t.estimatedMinutes
+                    ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
+                    : 'border-white/10 text-gray-600 hover:text-gray-400'
+                }`}
+              >
+                {t.estimatedMinutes ? `⏱️ ${formatDuration(t.estimatedMinutes)}` : '+ Time'}
+              </button>
+            </div>
+
+            {t.subtasks && t.subtasks.length > 0 && (
+              <div className="space-y-1 pl-1">
+                {t.subtasks.map((st) => (
+                  <label key={st.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={st.done}
+                      onChange={() => toggleSubtask(t.id, st.id)}
+                      className="w-3 h-3 accent-emerald-500"
+                    />
+                    <span className={st.done ? 'text-gray-600 line-through' : 'text-gray-300'}>{st.title}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => unstickTask(t.id)}
+                disabled={unstickingId === t.id}
+                className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
+              >
+                {unstickingId === t.id ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Lightbulb className="w-3 h-3" />
+                )}
+                {unstickingId === t.id ? 'Breaking down…' : 'Unstick Me'}
+              </button>
+              {((t.subtasks && t.subtasks.length > 0) || (t.isUrgent && t.isImportant)) && (
+                <button
+                  onClick={() => setBossBattleTaskId(t.id)}
+                  className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300"
+                >
+                  <Swords className="w-3 h-3" /> Boss Battle
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </Draggable>
+    );
   }
 
   function focusQuickAdd() {
@@ -837,6 +1038,21 @@ function TasksBoardContent() {
                     </button>
                   ))}
                 </div>
+                <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
+                  {PRIORITY_LEVELS.map((lvl) => (
+                    <button
+                      key={lvl}
+                      type="button"
+                      title={PRIORITY_META[lvl].title}
+                      onClick={() => setQuickAddPriority(PRIORITY_META[lvl].value)}
+                      className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-1.5 py-1 rounded-lg text-sm ${
+                        priorityFromValue(quickAddPriority) === lvl ? PRIORITY_META[lvl].pill : 'text-gray-500 hover:text-gray-300'
+                      }`}
+                    >
+                      {PRIORITY_META[lvl].emoji}
+                    </button>
+                  ))}
+                </div>
                 {/* Duration presets are secondary -- hidden behind this icon
                     on mobile to cut vertical stacking, always shown on sm+. */}
                 <button
@@ -948,7 +1164,7 @@ function TasksBoardContent() {
           <button onClick={() => setView('KANBAN')} className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300">
             <Kanban className="w-3.5 h-3.5" /> Back to Kanban Board
           </button>
-          <RooseveltMatrix tasks={openTasks} onToggleAxis={toggleMatrixAxis} onMove={moveMatrixQuadrant} />
+          <RooseveltMatrix tasks={openTasks} onMove={moveMatrixQuadrant} />
         </div>
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
@@ -974,6 +1190,18 @@ function TasksBoardContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {COLUMNS.map((col) => {
               const colTasks = tasks.filter((t) => t.status === col.id && !t.isParked);
+              // Inbox groups by priority (High/Medium/Low sections); other
+              // columns stay a flat list. Draggable indices must be
+              // continuous across the whole droppable, so the grouped
+              // order becomes the new canonical index order.
+              const isInbox = col.id === 'INBOX';
+              const priorityBuckets = isInbox
+                ? {
+                    HIGH: colTasks.filter((t) => priorityFromValue(t.priority) === 'HIGH'),
+                    MEDIUM: colTasks.filter((t) => priorityFromValue(t.priority) === 'MEDIUM'),
+                    LOW: colTasks.filter((t) => priorityFromValue(t.priority) === 'LOW'),
+                  }
+                : null;
               return (
               <Droppable droppableId={col.id} key={col.id}>
                 {(provided) => (
@@ -993,188 +1221,22 @@ function TasksBoardContent() {
                         <span className="text-sm font-medium max-w-[220px]">{EMPTY_STATE[col.id].text}</span>
                       </div>
                     )}
-                    {colTasks
-                      .map((t, index) => {
-                        const matchesEnergy =
-                          (energyFilter === 'ALL' || t.energyLevel === energyFilter) &&
-                          (!scheduledFilterOn || !!t.scheduledAt);
-                        return (
-                        <Draggable draggableId={t.id} index={index} key={t.id}>
-                          {(dragProvided) => (
-                            <div
-                              ref={dragProvided.innerRef}
-                              {...dragProvided.draggableProps}
-                              {...dragProvided.dragHandleProps}
-                              data-testid={`task-card-${t.id}`}
-                              className={`bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white space-y-2 transition-all duration-300 ease-in-out overflow-hidden ${
-                                matchesEnergy
-                                  ? 'max-h-[1000px] opacity-100 p-3 mb-0'
-                                  : 'max-h-0 opacity-0 p-0 mb-0 border-0 pointer-events-none'
-                              } ${completingIds.has(t.id) ? 'scale-95 opacity-40' : 'scale-100'}`}
-                            >
-                              <div className="flex items-start gap-2">
-                                <button
-                                  onClick={() => toggleComplete(t)}
-                                  title={t.status === 'DONE' ? 'Mark as not done' : 'Mark as done'}
-                                  data-testid={`task-complete-${t.id}`}
-                                  className={`shrink-0 flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 sm:w-5 sm:h-5 rounded-full border transition-colors ${
-                                    t.status === 'DONE'
-                                      ? 'bg-emerald-500 border-emerald-500 text-black'
-                                      : 'border-white/20 text-transparent hover:border-emerald-400'
-                                  }`}
-                                >
-                                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                                </button>
-
-                                {editingId === t.id ? (
-                                  <input
-                                    autoFocus
-                                    value={editingValue}
-                                    onChange={(e) => setEditingValue(e.target.value)}
-                                    onBlur={() => {
-                                      if (cancelingEditRef.current) { cancelingEditRef.current = false; return; }
-                                      commitEdit(t.id);
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') { e.preventDefault(); commitEdit(t.id); }
-                                      if (e.key === 'Escape') { e.preventDefault(); cancelingEditRef.current = true; setEditingId(null); }
-                                    }}
-                                    className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-1.5 py-0.5 text-sm text-white"
-                                  />
-                                ) : (
-                                  <span
-                                    className={`flex-1 min-w-0 break-words ${t.status === 'DONE' ? 'text-gray-500 line-through' : ''}`}
-                                  >
-                                    {t.title}
-                                  </span>
-                                )}
-
-                                <div className="flex items-center gap-0.5 flex-wrap justify-end shrink-0">
-                                  <button
-                                    onClick={() => {
-                                      const idx = openTasks.findIndex((ot) => ot.id === t.id);
-                                      if (idx >= 0) setFocusOverlayIndex(idx);
-                                    }}
-                                    disabled={t.status === 'DONE'}
-                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-indigo-400 disabled:opacity-20 p-0.5"
-                                    title="Focus on this task"
-                                  >
-                                    <FocusIcon className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => toggleFocus(t)}
-                                    className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.isFocusToday ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
-                                  >
-                                    <Star className="w-3.5 h-3.5" fill={t.isFocusToday ? 'currentColor' : 'none'} />
-                                  </button>
-                                  <button
-                                    onClick={() => startEdit(t)}
-                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-sky-400 p-0.5"
-                                    title="Edit title"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => setParked(t.id, true)}
-                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-orange-400 p-0.5"
-                                    title="Park for later"
-                                  >
-                                    <Package className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => setScheduleModalTaskId(t.id)}
-                                    className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.scheduledAt ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}
-                                    title="Schedule"
-                                  >
-                                    <Calendar className="w-3.5 h-3.5" />
-                                  </button>
-                                  <button
-                                    onClick={() => deleteTask(t.id)}
-                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-red-400 p-0.5"
-                                    title="Delete task"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
-                                </div>
+                    {isInbox && priorityBuckets
+                      ? PRIORITY_LEVELS.slice().reverse().map((level) => {
+                          const items = priorityBuckets[level];
+                          if (items.length === 0) return null;
+                          const startIndex = colTasks.indexOf(items[0]);
+                          return (
+                            <div key={level} className="space-y-2">
+                              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase text-gray-500">
+                                {PRIORITY_META[level].emoji} {level} Priority
+                                <span className="text-gray-600">({items.length})</span>
                               </div>
-
-                              {t.scheduledAt && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                  📅 {formatScheduledBadge(t.scheduledAt)}
-                                </span>
-                              )}
-
-                              <div className="flex items-center gap-1.5">
-                                <button
-                                  onClick={() => cycleEnergyLevel(t)}
-                                  title="Click to change energy level"
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                                    t.energyLevel ? ENERGY_META[t.energyLevel].badge : 'border-white/10 text-gray-600 hover:text-gray-400'
-                                  }`}
-                                >
-                                  {t.energyLevel ? (
-                                    <>
-                                      {ENERGY_META[t.energyLevel].emoji} {ENERGY_META[t.energyLevel].short}
-                                    </>
-                                  ) : (
-                                    '+ Energy'
-                                  )}
-                                </button>
-                                <button
-                                  onClick={() => cycleDuration(t)}
-                                  title="Click to change time estimate"
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                                    t.estimatedMinutes
-                                      ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                                      : 'border-white/10 text-gray-600 hover:text-gray-400'
-                                  }`}
-                                >
-                                  {t.estimatedMinutes ? `⏱️ ${formatDuration(t.estimatedMinutes)}` : '+ Time'}
-                                </button>
-                              </div>
-
-                              {t.subtasks && t.subtasks.length > 0 && (
-                                <div className="space-y-1 pl-1">
-                                  {t.subtasks.map((st) => (
-                                    <label key={st.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={st.done}
-                                        onChange={() => toggleSubtask(t.id, st.id)}
-                                        className="w-3 h-3 accent-emerald-500"
-                                      />
-                                      <span className={st.done ? 'text-gray-600 line-through' : 'text-gray-300'}>{st.title}</span>
-                                    </label>
-                                  ))}
-                                </div>
-                              )}
-                              <div className="flex items-center gap-3">
-                                <button
-                                  onClick={() => unstickTask(t.id)}
-                                  disabled={unstickingId === t.id}
-                                  className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-indigo-400 disabled:opacity-50"
-                                >
-                                  {unstickingId === t.id ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <Lightbulb className="w-3 h-3" />
-                                  )}
-                                  {unstickingId === t.id ? 'Breaking down…' : 'Unstick Me'}
-                                </button>
-                                {((t.subtasks && t.subtasks.length > 0) || (t.isUrgent && t.isImportant)) && (
-                                  <button
-                                    onClick={() => setBossBattleTaskId(t.id)}
-                                    className="flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300"
-                                  >
-                                    <Swords className="w-3 h-3" /> Boss Battle
-                                  </button>
-                                )}
-                              </div>
+                              {items.map((t, i) => renderTaskCard(t, startIndex + i))}
                             </div>
-                          )}
-                        </Draggable>
-                        );
-                      })}
+                          );
+                        })
+                      : colTasks.map((t, index) => renderTaskCard(t, index))}
                     {provided.placeholder}
                   </div>
                 )}
