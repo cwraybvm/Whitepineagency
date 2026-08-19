@@ -1,5 +1,7 @@
 'use client';
 
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 import ClientSelector, { ClientProvider, useClientSelector } from '@/components/ClientSelector';
 import ContentStudio from '@/components/ContentStudio';
@@ -31,10 +33,19 @@ function StudioBody() {
   );
 }
 
-export default function StudioPage() {
+function StudioWithClientParam() {
+  const searchParams = useSearchParams();
   return (
-    <ClientProvider>
+    <ClientProvider initialClientId={searchParams.get('client') || undefined}>
       <StudioBody />
     </ClientProvider>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense fallback={null}>
+      <StudioWithClientParam />
+    </Suspense>
   );
 }

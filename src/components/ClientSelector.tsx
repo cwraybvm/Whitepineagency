@@ -22,7 +22,16 @@ const ClientSelectorContext = createContext<ClientSelectorContextValue | null>(n
 
 // Reactive client list + selection shared across a page (Studio, Vault, etc).
 // Loads once from /api/clients; every consumer re-renders on selection change.
-export function ClientProvider({ children }: { children: React.ReactNode }) {
+export function ClientProvider({
+  children,
+  initialClientId,
+}: {
+  children: React.ReactNode;
+  // Preselects a client once the list loads (e.g. handed off from another
+  // page via a ?client= query param) instead of always defaulting to the
+  // alphabetically-first one.
+  initialClientId?: string;
+}) {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClientId, setSelectedClientId] = useState('');
@@ -32,10 +41,12 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
       .then((res) => (res.ok ? res.json() : []))
       .then((list: ClientOption[]) => {
         setClients(list);
-        setSelectedClientId((prev) => prev || list[0]?.id || '');
+        const preferred = initialClientId && list.some((c) => c.id === initialClientId) ? initialClientId : '';
+        setSelectedClientId((prev) => prev || preferred || list[0]?.id || '');
       })
       .catch(() => setClients([]))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const selectedClient = clients.find((c) => c.id === selectedClientId) || null;
