@@ -10,7 +10,7 @@ export default function BvmLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="relative">
-      <div className="px-6 pt-3 md:px-8 md:pt-4 max-w-6xl mx-auto space-y-3">
+      <div className="px-6 pt-[calc(max(24px,env(safe-area-inset-top))+8px)] md:px-8 md:pt-4 max-w-6xl mx-auto space-y-3">
         <IssueTicker />
 
         {/* Subtab strip -- desktop already has the BVM Business drawer in
