@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock, Send, ListPlus, FileText } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock, Send, ListPlus, FileText, Navigation, MapPin, Car, DollarSign, Check } from 'lucide-react';
+import { haversineMiles } from '@/lib/routeOptimizer';
+import { buildGoogleMapsUrl, buildAppleMapsUrl } from '@/lib/mapLinks';
+import { BVM_OFFICE_ADDRESS, IRS_MILEAGE_RATE } from '@/lib/bvmTargets';
 
 interface Appointment {
   id: string;
@@ -14,6 +17,13 @@ interface Appointment {
   followUp: string;
   syncToCalendar: boolean;
   inviteSentAt: string | null;
+  appointmentTime: string | null;
+  address: string | null;
+  startAddress: string | null;
+}
+
+interface MileageExpenseLite {
+  appointmentId: string | null;
 }
 
 const EMPTY_FORM = {
@@ -24,7 +34,29 @@ const EMPTY_FORM = {
   notes: '',
   followUp: '',
   syncToCalendar: false,
+  appointmentTime: '',
+  address: '',
+  startAddress: BVM_OFFICE_ADDRESS,
 };
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateBadge(dateStr: string, appointmentTime: string | null): string {
+  const day = dateStr.slice(0, 10);
+  const today = todayStr();
+  const tomorrow = new Date(`${today}T00:00:00.000Z`);
+  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  let label: string;
+  if (day === today) label = 'Today';
+  else if (day === tomorrowStr) label = 'Tomorrow';
+  else label = new Date(`${day}T00:00:00.000Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+  return appointmentTime ? `${label} at ${appointmentTime}` : label;
+}
 
 // Standardized outcomes -- keeps the funnel chart on the Reports subtab
 // countable ("Closed" outcomes = closed deals) and drives the auto-action prompt.
@@ -51,6 +83,10 @@ export default function AppointmentsPage() {
   const [saving, setSaving] = useState(false);
   const [sendingInvite, setSendingInvite] = useState(false);
   const [outcomeActionBusy, setOutcomeActionBusy] = useState<'task' | 'proposal' | null>(null);
+  const [distances, setDistances] = useState<Record<string, { oneWay: number; roundTrip: number } | 'unavailable'>>({});
+  const [loggedAppointmentIds, setLoggedAppointmentIds] = useState<Set<string>>(new Set());
+  const [mileageModalAppt, setMileageModalAppt] = useState<Appointment | null>(null);
+  const [loggingMileage, setLoggingMileage] = useState(false);
 
   function loadMonth() {
     setLoading(true);
@@ -62,6 +98,77 @@ export default function AppointmentsPage() {
   }
 
   useEffect(loadMonth, [cursor]);
+
+  useEffect(() => {
+    fetch('/api/bvm/expenses')
+      .then((res) => res.json())
+      .then((rows: MileageExpenseLite[]) => setLoggedAppointmentIds(new Set(rows.map((r) => r.appointmentId).filter((id): id is string => Boolean(id)))))
+      .catch(() => {});
+  }, []);
+
+  // Geocode+distance is computed once per appointment (both addresses
+  // present) and cached in `distances` -- not re-fetched on every render.
+  useEffect(() => {
+    for (const a of appointments) {
+      if (!a.address || !a.startAddress || distances[a.id] !== undefined) continue;
+      (async () => {
+        try {
+          const [startRes, destRes] = await Promise.all([
+            fetch('/api/bvm/drop-off-route/geocode-start', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: a.startAddress }),
+            }),
+            fetch('/api/bvm/drop-off-route/geocode-start', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ address: a.address }),
+            }),
+          ]);
+          if (!startRes.ok || !destRes.ok) throw new Error();
+          const start = await startRes.json();
+          const dest = await destRes.json();
+          const oneWay = haversineMiles(start, dest);
+          setDistances((prev) => ({ ...prev, [a.id]: { oneWay, roundTrip: oneWay * 2 } }));
+        } catch {
+          setDistances((prev) => ({ ...prev, [a.id]: 'unavailable' }));
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointments]);
+
+  function openLogMileageModal(a: Appointment) {
+    setMileageModalAppt(a);
+  }
+
+  async function confirmLogMileage() {
+    if (!mileageModalAppt) return;
+    const dist = distances[mileageModalAppt.id];
+    if (dist === 'unavailable' || !dist) return;
+
+    setLoggingMileage(true);
+    try {
+      const res = await fetch('/api/bvm/appointments/log-mileage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appointmentId: mileageModalAppt.id,
+          clientName: mileageModalAppt.clientName,
+          miles: dist.roundTrip,
+          date: mileageModalAppt.date,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setLoggedAppointmentIds((prev) => new Set(prev).add(mileageModalAppt.id));
+      toast.success('Mileage expense logged');
+      setMileageModalAppt(null);
+    } catch {
+      toast.error('Failed to log mileage expense');
+    } finally {
+      setLoggingMileage(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -144,6 +251,9 @@ export default function AppointmentsPage() {
       notes: a.notes,
       followUp: a.followUp,
       syncToCalendar: a.syncToCalendar,
+      appointmentTime: a.appointmentTime || '',
+      address: a.address || '',
+      startAddress: a.startAddress || '',
     });
     setModalOpen(true);
   }
@@ -225,6 +335,105 @@ export default function AppointmentsPage() {
         </div>
       )}
 
+      {!loading && appointments.length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wider">Upcoming Appointments</h2>
+          <div className="space-y-2">
+            {appointments.map((a) => {
+              const dist = distances[a.id];
+              const alreadyLogged = loggedAppointmentIds.has(a.id);
+              return (
+                <div key={a.id} className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{a.clientName}</p>
+                      <span className="inline-block mt-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        📅 {formatDateBadge(a.date, a.appointmentTime)}
+                      </span>
+                    </div>
+                    {dist && dist !== 'unavailable' && (
+                      <span className="shrink-0 flex items-center gap-1 text-[10px] font-mono font-bold text-sky-300 bg-sky-500/10 px-2 py-0.5 rounded-full">
+                        <Car className="w-3 h-3" /> {dist.oneWay.toFixed(1)} mi ({dist.roundTrip.toFixed(1)} mi round trip)
+                      </span>
+                    )}
+                  </div>
+                  {a.address && <p className="text-[11px] text-slate-500 font-mono">{a.address}</p>}
+
+                  {a.address && a.startAddress && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <button
+                        onClick={() => window.open(buildGoogleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
+                        className="min-h-[44px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                      >
+                        <Navigation className="w-3.5 h-3.5" /> 🗺️ Google Maps
+                      </button>
+                      <button
+                        onClick={() => window.open(buildAppleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
+                        className="min-h-[44px] flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                      >
+                        <MapPin className="w-3.5 h-3.5" /> 🍏 Apple Maps
+                      </button>
+                      {alreadyLogged ? (
+                        <div className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600/10 text-emerald-400 font-bold text-xs px-3 rounded-lg flex-1">
+                          <Check className="w-3.5 h-3.5" /> Logged
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => openLogMileageModal(a)}
+                          disabled={!dist || dist === 'unavailable'}
+                          className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 rounded-lg flex-1 disabled:opacity-50"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" /> 💰 Log Mileage Expense
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {mileageModalAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setMileageModalAppt(null)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-sm space-y-3"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">💰 Log Mileage Expense</h2>
+              <button type="button" onClick={() => setMileageModalAppt(null)} className="text-gray-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {(() => {
+              const dist = distances[mileageModalAppt.id];
+              if (!dist || dist === 'unavailable') return null;
+              const amount = Math.round(dist.roundTrip * IRS_MILEAGE_RATE * 100) / 100;
+              return (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-1 text-center">
+                  <p className="text-xs text-slate-400">{mileageModalAppt.clientName}</p>
+                  <p className="text-sm text-white font-mono">
+                    {dist.roundTrip.toFixed(1)} miles × ${IRS_MILEAGE_RATE.toFixed(2)}/mi
+                  </p>
+                  <p className="text-2xl font-bold text-emerald-400">${amount.toFixed(2)}</p>
+                </div>
+              );
+            })()}
+            <button
+              onClick={confirmLogMileage}
+              disabled={loggingMileage}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+            >
+              {loggingMileage ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
+              {loggingMileage ? 'Logging…' : 'Confirm & Log Expense'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
@@ -242,6 +451,29 @@ export default function AppointmentsPage() {
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Date</label>
             <input required type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Appointment Time</label>
+            <input
+              placeholder="e.g. 10:30 AM"
+              value={form.appointmentTime}
+              onChange={(e) => setForm((f) => ({ ...f, appointmentTime: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            />
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Location / Address</label>
+            <input
+              placeholder="123 Main St, Alexandria, MN 56308"
+              value={form.address}
+              onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            />
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Starting Address</label>
+            <input
+              value={form.startAddress}
+              onChange={(e) => setForm((f) => ({ ...f, startAddress: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            />
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Client</label>
             <input required placeholder="Client name" value={form.clientName} onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
