@@ -810,6 +810,7 @@ model BvmAppointment {
   appointmentTime String?
   address         String?
   startAddress    String?
+  completed       Boolean  @default(false)
 
   expenses Expense[]
 

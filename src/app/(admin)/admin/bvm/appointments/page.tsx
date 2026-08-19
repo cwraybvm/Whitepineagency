@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock, Send, ListPlus, FileText, Navigation, MapPin, Car, DollarSign, Check } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock, Send, ListPlus, FileText, Navigation, MapPin, Car, DollarSign, Check, CalendarPlus, Download, CalendarCheck } from 'lucide-react';
 import { haversineMiles } from '@/lib/routeOptimizer';
 import { buildGoogleMapsUrl, buildAppleMapsUrl } from '@/lib/mapLinks';
 import { BVM_OFFICE_ADDRESS, IRS_MILEAGE_RATE } from '@/lib/bvmTargets';
+import { buildIcsFile, buildGoogleCalendarUrl } from '@/lib/calendarEvent';
+import { formatTimestamp } from '@/lib/timestamp';
 
 interface Appointment {
   id: string;
@@ -20,6 +22,7 @@ interface Appointment {
   appointmentTime: string | null;
   address: string | null;
   startAddress: string | null;
+  completed: boolean;
 }
 
 interface MileageExpenseLite {
@@ -87,6 +90,13 @@ export default function AppointmentsPage() {
   const [loggedAppointmentIds, setLoggedAppointmentIds] = useState<Set<string>>(new Set());
   const [mileageModalAppt, setMileageModalAppt] = useState<Appointment | null>(null);
   const [loggingMileage, setLoggingMileage] = useState(false);
+  const [calendarMenuOpenId, setCalendarMenuOpenId] = useState<string | null>(null);
+  const [completingAppt, setCompletingAppt] = useState<Appointment | null>(null);
+  const [completionNotes, setCompletionNotes] = useState('');
+  const [rebook, setRebook] = useState(false);
+  const [rebookDate, setRebookDate] = useState('');
+  const [rebookTime, setRebookTime] = useState('');
+  const [completingBusy, setCompletingBusy] = useState(false);
 
   function loadMonth() {
     setLoading(true);
@@ -167,6 +177,89 @@ export default function AppointmentsPage() {
       toast.error('Failed to log mileage expense');
     } finally {
       setLoggingMileage(false);
+    }
+  }
+
+  function downloadIcs(a: Appointment) {
+    const ics = buildIcsFile(a.id, {
+      title: `Appointment with ${a.clientName}`,
+      startDate: a.date.slice(0, 10),
+      startTime: a.appointmentTime,
+      location: a.address,
+      description: a.notes || null,
+    });
+    const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `appointment-${a.clientName.replace(/\s+/g, '-')}.ics`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setCalendarMenuOpenId(null);
+  }
+
+  function openGoogleCalendar(a: Appointment) {
+    const url = buildGoogleCalendarUrl({
+      title: `Appointment with ${a.clientName}`,
+      startDate: a.date.slice(0, 10),
+      startTime: a.appointmentTime,
+      location: a.address,
+      description: a.notes || null,
+    });
+    window.open(url, '_blank');
+    setCalendarMenuOpenId(null);
+  }
+
+  function openCompleteModal(a: Appointment) {
+    setCompletingAppt(a);
+    setCompletionNotes('');
+    setRebook(false);
+    setRebookDate('');
+    setRebookTime('');
+  }
+
+  async function confirmComplete() {
+    if (!completingAppt) return;
+    if (rebook && !rebookDate) {
+      toast.error('Pick a follow-up date first');
+      return;
+    }
+
+    setCompletingBusy(true);
+    try {
+      const note = `[Completed: ${formatTimestamp(new Date())}]${completionNotes.trim() ? ` ${completionNotes.trim()}` : ''}`;
+      const notes = completingAppt.notes ? `${completingAppt.notes}\n${note}` : note;
+
+      const res = await fetch('/api/bvm/appointments', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: completingAppt.id, completed: true, notes }),
+      });
+      if (!res.ok) throw new Error();
+
+      if (rebook && rebookDate) {
+        const res2 = await fetch('/api/bvm/appointments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: rebookDate,
+            appointmentTime: rebookTime || null,
+            clientName: completingAppt.clientName,
+            clientEmail: completingAppt.clientEmail,
+            address: completingAppt.address,
+            startAddress: completingAppt.startAddress,
+          }),
+        });
+        if (!res2.ok) throw new Error();
+      }
+
+      toast.success(rebook ? 'Appointment completed — follow-up scheduled' : 'Appointment completed');
+      setCompletingAppt(null);
+      loadMonth();
+    } catch {
+      toast.error('Failed to complete appointment');
+    } finally {
+      setCompletingBusy(false);
     }
   }
 
@@ -318,8 +411,13 @@ export default function AppointmentsPage() {
                     <span
                       key={a.id}
                       onClick={(e) => openModalForEdit(a, e)}
-                      className="text-[9px] bg-emerald-500/15 text-emerald-300 rounded px-1 py-0.5 truncate hover:bg-emerald-500/30"
+                      className={`text-[9px] rounded px-1 py-0.5 truncate ${
+                        a.completed
+                          ? 'bg-white/5 text-slate-500 line-through hover:bg-white/10'
+                          : 'bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/30'
+                      }`}
                     >
+                      {a.completed && '✓ '}
                       {a.clientName}
                     </span>
                   ))}
@@ -343,9 +441,12 @@ export default function AppointmentsPage() {
               const dist = distances[a.id];
               const alreadyLogged = loggedAppointmentIds.has(a.id);
               return (
-                <div key={a.id} className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                <div
+                  key={a.id}
+                  className={`bg-slate-950 border rounded-xl p-3 space-y-2 ${a.completed ? 'border-emerald-600/30 opacity-60' : 'border-slate-800'}`}
+                >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                    <div className={`min-w-0 ${a.completed ? 'line-through' : ''}`}>
                       <p className="text-sm font-bold text-white truncate">{a.clientName}</p>
                       <span className="inline-block mt-1 text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                         📅 {formatDateBadge(a.date, a.appointmentTime)}
@@ -359,38 +460,138 @@ export default function AppointmentsPage() {
                   </div>
                   {a.address && <p className="text-[11px] text-slate-500 font-mono">{a.address}</p>}
 
-                  {a.address && a.startAddress && (
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <button
-                        onClick={() => window.open(buildGoogleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
-                        className="min-h-[44px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 rounded-lg flex-1"
-                      >
-                        <Navigation className="w-3.5 h-3.5" /> 🗺️ Google Maps
-                      </button>
-                      <button
-                        onClick={() => window.open(buildAppleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
-                        className="min-h-[44px] flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 rounded-lg flex-1"
-                      >
-                        <MapPin className="w-3.5 h-3.5" /> 🍏 Apple Maps
-                      </button>
-                      {alreadyLogged ? (
-                        <div className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600/10 text-emerald-400 font-bold text-xs px-3 rounded-lg flex-1">
-                          <Check className="w-3.5 h-3.5" /> Logged
-                        </div>
-                      ) : (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {a.address && a.startAddress && (
+                      <>
                         <button
-                          onClick={() => openLogMileageModal(a)}
-                          disabled={!dist || dist === 'unavailable'}
-                          className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 rounded-lg flex-1 disabled:opacity-50"
+                          onClick={() => window.open(buildGoogleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
+                          className="min-h-[44px] flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs px-3 rounded-lg flex-1"
                         >
-                          <DollarSign className="w-3.5 h-3.5" /> 💰 Log Mileage Expense
+                          <Navigation className="w-3.5 h-3.5" /> 🗺️ Google Maps
                         </button>
+                        <button
+                          onClick={() => window.open(buildAppleMapsUrl(a.startAddress as string, [a.address as string]), '_blank')}
+                          className="min-h-[44px] flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-3 rounded-lg flex-1"
+                        >
+                          <MapPin className="w-3.5 h-3.5" /> 🍏 Apple Maps
+                        </button>
+                        {alreadyLogged ? (
+                          <div className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600/10 text-emerald-400 font-bold text-xs px-3 rounded-lg flex-1">
+                            <Check className="w-3.5 h-3.5" /> Logged
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => openLogMileageModal(a)}
+                            disabled={!dist || dist === 'unavailable'}
+                            className="min-h-[44px] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 rounded-lg flex-1 disabled:opacity-50"
+                          >
+                            <DollarSign className="w-3.5 h-3.5" /> 💰 Log Mileage Expense
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    <div className="relative flex-1">
+                      <button
+                        onClick={() => setCalendarMenuOpenId((v) => (v === a.id ? null : a.id))}
+                        className="w-full min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-xs px-3 rounded-lg"
+                      >
+                        <CalendarPlus className="w-3.5 h-3.5" /> 📅 Add to Calendar
+                      </button>
+                      {calendarMenuOpenId === a.id && (
+                        <div className="absolute z-10 bottom-full mb-1 left-0 right-0 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-xl">
+                          <button
+                            onClick={() => downloadIcs(a)}
+                            className="w-full min-h-[44px] flex items-center gap-2 px-3 text-xs text-white hover:bg-white/10"
+                          >
+                            <Download className="w-3.5 h-3.5" /> Download .ics File
+                          </button>
+                          <button
+                            onClick={() => openGoogleCalendar(a)}
+                            className="w-full min-h-[44px] flex items-center gap-2 px-3 text-xs text-white hover:bg-white/10 border-t border-slate-800"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5" /> Google Calendar
+                          </button>
+                        </div>
                       )}
                     </div>
-                  )}
+
+                    {!a.completed && (
+                      <button
+                        onClick={() => openCompleteModal(a)}
+                        className="flex-1 min-h-[44px] flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 rounded-lg"
+                      >
+                        <CalendarCheck className="w-3.5 h-3.5" /> ✅ Complete Appointment
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {completingAppt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setCompletingAppt(null)}>
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md space-y-3 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">✅ Complete Appointment</h2>
+              <button type="button" onClick={() => setCompletingAppt(null)} className="text-gray-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">{completingAppt.clientName}</p>
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Completion Notes / Outcome Summary</label>
+            <textarea
+              rows={3}
+              value={completionNotes}
+              onChange={(e) => setCompletionNotes(e.target.value)}
+              placeholder="What happened at this appointment?"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white resize-y"
+            />
+
+            <label className="flex items-center gap-2 text-xs text-slate-300 pt-1">
+              <input type="checkbox" checked={rebook} onChange={(e) => setRebook(e.target.checked)} className="accent-emerald-500" />
+              <CalendarClock className="w-3.5 h-3.5" /> Schedule Next Follow-Up / Drop-Off Visit?
+            </label>
+
+            {rebook && (
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
+                <label className="text-[11px] font-mono uppercase text-slate-500 block">Follow-up Date</label>
+                <input
+                  required={rebook}
+                  type="date"
+                  value={rebookDate}
+                  onChange={(e) => setRebookDate(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                />
+                <label className="text-[11px] font-mono uppercase text-slate-500 block">Follow-up Time</label>
+                <input
+                  placeholder="e.g. 10:30 AM"
+                  value={rebookTime}
+                  onChange={(e) => setRebookTime(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                />
+                <p className="text-[10px] text-slate-500">
+                  Same client & address as this appointment ({completingAppt.address || 'no address on file'}).
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={confirmComplete}
+              disabled={completingBusy}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+            >
+              {completingBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {completingBusy ? 'Saving…' : rebook ? 'Complete & Schedule Follow-Up' : 'Complete Appointment'}
+            </button>
           </div>
         </div>
       )}

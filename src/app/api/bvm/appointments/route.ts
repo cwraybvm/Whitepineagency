@@ -73,7 +73,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { id, date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar, appointmentTime, address, startAddress } =
+    const { id, date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar, appointmentTime, address, startAddress, completed } =
       await request.json();
 
     if (!id) {
@@ -91,6 +91,7 @@ export async function PATCH(request: Request) {
     if (appointmentTime !== undefined) data.appointmentTime = appointmentTime || null;
     if (address !== undefined) data.address = address || null;
     if (startAddress !== undefined) data.startAddress = startAddress || null;
+    if (completed !== undefined) data.completed = Boolean(completed);
 
     const appointment = await prisma.bvmAppointment.update({ where: { id }, data });
     return NextResponse.json({ success: true, appointment });
