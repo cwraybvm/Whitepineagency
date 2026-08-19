@@ -2,7 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { KanbanSquare, Plus, Loader2, AlertTriangle } from 'lucide-react';
+import { KanbanSquare, Plus, Loader2, AlertTriangle, Camera } from 'lucide-react';
+import VoiceCaptureButton from '@/components/admin/VoiceCaptureButton';
+import { readFileAsDataUrl, MAX_PHOTO_BYTES } from '@/lib/photoAttachment';
+import { formatTimestamp } from '@/lib/timestamp';
+import { isColdAccount } from '@/lib/clientActivity';
 
 interface KanbanClient {
   id: string;
@@ -13,6 +17,7 @@ interface KanbanClient {
   contactNotes: string;
   contactName: string | null;
   addressId: string | null;
+  photoUrl: string | null;
 }
 
 interface AddressOption {
@@ -148,6 +153,33 @@ export default function ClientKanbanPage() {
     }
   }
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!activeCard) return;
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error('Photo too large — keep it under 2MB');
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      updateClient(activeCard.id, { photoUrl: dataUrl });
+      setActiveCard((c) => (c ? { ...c, photoUrl: dataUrl } : c));
+      toast.success('Photo attached');
+    } catch {
+      toast.error('Failed to read photo');
+    }
+  }
+
+  function appendVoiceMemo(text: string) {
+    if (!activeCard) return;
+    const note = `[Voice Memo: ${formatTimestamp(new Date())}]: ${text}`;
+    const contactNotes = activeCard.contactNotes ? `${activeCard.contactNotes}\n${note}` : note;
+    updateClient(activeCard.id, { contactNotes });
+    setActiveCard((c) => (c ? { ...c, contactNotes } : c));
+  }
+
   return (
     <div className="px-6 pb-6 pt-[calc(4rem+env(safe-area-inset-top))] md:px-8 md:pb-8 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
@@ -201,10 +233,16 @@ export default function ClientKanbanPage() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-bold text-white truncate">{c.clientName}</p>
-                      {isStale(c.lastContacted) && (
-                        <span className="shrink-0 flex items-center gap-1 bg-red-500/20 text-red-300 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full">
-                          <AlertTriangle className="w-2.5 h-2.5" /> Stale
+                      {isColdAccount(c.lastContacted) ? (
+                        <span className="shrink-0 flex items-center gap-1 bg-red-500/30 text-red-200 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full animate-pulse">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Cold (30+ Days)
                         </span>
+                      ) : (
+                        isStale(c.lastContacted) && (
+                          <span className="shrink-0 flex items-center gap-1 bg-red-500/20 text-red-300 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Stale
+                          </span>
+                        )
                       )}
                     </div>
                     <p className="text-[10px] text-slate-500 font-mono mt-1">
@@ -272,6 +310,24 @@ export default function ClientKanbanPage() {
               }}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white resize-y"
             />
+
+            <div className="flex items-center gap-2">
+              <label className="flex-1 flex items-center justify-center gap-2 min-h-[44px] bg-white/5 hover:bg-white/10 text-white font-bold text-xs px-3 rounded-lg cursor-pointer">
+                <Camera className="w-3.5 h-3.5" /> 📸 Attach Photo
+                <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoChange} />
+              </label>
+              <div className="flex-1">
+                <VoiceCaptureButton
+                  onTranscript={appendVoiceMemo}
+                  idleLabel="🎙️ Record Voice Memo"
+                  listeningLabel="🔴 Recording…"
+                  className="w-full flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-lg text-xs font-bold bg-white/5 hover:bg-white/10 text-white"
+                />
+              </div>
+            </div>
+            {activeCard.photoUrl && (
+              <img src={activeCard.photoUrl} alt="Drop-off photo" className="w-full max-h-40 object-cover rounded-lg border border-slate-800" />
+            )}
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Contact Name</label>
             <input

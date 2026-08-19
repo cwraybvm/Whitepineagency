@@ -18,9 +18,14 @@ import {
   Radar,
   Plus,
   RefreshCw,
+  Camera,
 } from 'lucide-react';
 import { nearestNeighborOrder, haversineMiles } from '@/lib/routeOptimizer';
 import { buildGoogleMapsUrl, buildAppleMapsUrl, buildRouteSummary, buildSingleGoogleMapsUrl, buildSingleAppleMapsUrl } from '@/lib/mapLinks';
+import VoiceCaptureButton from '@/components/admin/VoiceCaptureButton';
+import { readFileAsDataUrl, MAX_PHOTO_BYTES } from '@/lib/photoAttachment';
+import { formatTimestamp } from '@/lib/timestamp';
+import { isColdAccount } from '@/lib/clientActivity';
 
 interface Stop {
   id: string;
@@ -30,6 +35,9 @@ interface Stop {
   address: string;
   lat: number | null;
   lng: number | null;
+  contactNotes: string;
+  photoUrl: string | null;
+  lastContacted: string | null;
 }
 
 const RADIUS_OPTIONS = [1, 3, 5, 10];
@@ -51,6 +59,7 @@ export default function DropOffRoutePage() {
   const [radarError, setRadarError] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [reGeocoding, setReGeocoding] = useState(false);
+  const [coldOnly, setColdOnly] = useState(false);
 
   function loadStops() {
     setLoading(true);
@@ -80,14 +89,16 @@ export default function DropOffRoutePage() {
 
   const filteredStops = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return stops;
-    return stops.filter(
-      (s) =>
-        s.businessName.toLowerCase().includes(q) ||
-        (s.contactName || '').toLowerCase().includes(q) ||
-        s.address.toLowerCase().includes(q)
-    );
-  }, [stops, search]);
+    return stops
+      .filter(
+        (s) =>
+          !q ||
+          s.businessName.toLowerCase().includes(q) ||
+          (s.contactName || '').toLowerCase().includes(q) ||
+          s.address.toLowerCase().includes(q)
+      )
+      .filter((s) => !coldOnly || isColdAccount(s.lastContacted));
+  }, [stops, search, coldOnly]);
 
   const stopsById = useMemo(() => new Map(stops.map((s) => [s.id, s])), [stops]);
   const radarResults = useMemo(() => {
@@ -239,6 +250,47 @@ export default function DropOffRoutePage() {
     );
   }
 
+  function updateStopLocal(id: string, patch: Partial<Stop>) {
+    setStops((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  }
+
+  async function attachPhotoToStop(stop: Stop, file: File) {
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error('Photo too large — keep it under 2MB');
+      return;
+    }
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const res = await fetch('/api/bvm/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: stop.id, photoUrl: dataUrl }),
+      });
+      if (!res.ok) throw new Error();
+      updateStopLocal(stop.id, { photoUrl: dataUrl });
+      toast.success('Photo attached');
+    } catch {
+      toast.error('Failed to attach photo');
+    }
+  }
+
+  async function appendVoiceMemoToStop(stop: Stop, text: string) {
+    const note = `[Voice Memo: ${formatTimestamp(new Date())}]: ${text}`;
+    const contactNotes = stop.contactNotes ? `${stop.contactNotes}\n${note}` : note;
+    try {
+      const res = await fetch('/api/bvm/clients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: stop.id, contactNotes }),
+      });
+      if (!res.ok) throw new Error();
+      updateStopLocal(stop.id, { contactNotes });
+      toast.success('Voice memo added to notes');
+    } catch {
+      toast.error('Failed to save voice memo');
+    }
+  }
+
   function addNearbyToRoute() {
     setSelectedIds((prev) => {
       const toAdd = radarResults.map((r) => r.stop.id).filter((id) => !prev.includes(id));
@@ -365,6 +417,14 @@ export default function DropOffRoutePage() {
           <button onClick={clearAll} className="min-h-[44px] px-3 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-bold text-slate-300">
             Clear All
           </button>
+          <button
+            onClick={() => setColdOnly((v) => !v)}
+            className={`min-h-[44px] px-3 rounded-lg text-xs font-bold ${
+              coldOnly ? 'bg-red-500/30 text-red-200' : 'bg-white/5 hover:bg-white/10 text-slate-300'
+            }`}
+          >
+            Show Cold Accounts Only
+          </button>
         </div>
 
         {loading ? (
@@ -389,7 +449,14 @@ export default function DropOffRoutePage() {
                   className="mt-0.5 w-5 h-5 shrink-0 accent-emerald-500"
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-white">{s.businessName}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-bold text-white">{s.businessName}</p>
+                    {isColdAccount(s.lastContacted) && (
+                      <span className="shrink-0 flex items-center gap-1 bg-red-500/30 text-red-200 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full animate-pulse">
+                        <AlertTriangle className="w-2.5 h-2.5" /> Cold Account (30+ Days)
+                      </span>
+                    )}
+                  </div>
                   {s.contactName && <p className="text-xs text-slate-400">{s.contactName}</p>}
                   <p className="text-[11px] text-slate-500 font-mono mt-0.5">{s.address}</p>
                   {(s.lat == null || s.lng == null) && (
@@ -521,6 +588,9 @@ export default function DropOffRoutePage() {
                       {s.contactName && <p className="text-xs text-slate-400">{s.contactName}</p>}
                       <p className="text-[11px] text-slate-500 font-mono mt-0.5">{s.address}</p>
                     </div>
+                    {s.photoUrl && (
+                      <img src={s.photoUrl} alt="Attached" className="w-10 h-10 rounded-lg object-cover border border-slate-800 shrink-0" />
+                    )}
                   </div>
 
                   {done ? (
@@ -549,6 +619,28 @@ export default function DropOffRoutePage() {
                       >
                         <MapPin className="w-3.5 h-3.5" /> Apple Maps
                       </button>
+                      <label className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white font-bold text-xs px-3 rounded-lg flex-1 cursor-pointer">
+                        <Camera className="w-3.5 h-3.5" /> 📸 Attach Photo
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (file) attachPhotoToStop(s, file);
+                          }}
+                        />
+                      </label>
+                      <div className="flex-1">
+                        <VoiceCaptureButton
+                          onTranscript={(text) => appendVoiceMemoToStop(s, text)}
+                          idleLabel="🎙️ Record Voice Memo"
+                          listeningLabel="🔴 Recording…"
+                          className="w-full flex items-center justify-center gap-2 min-h-[44px] bg-white/5 hover:bg-white/10 text-white font-bold text-xs px-3 rounded-lg"
+                        />
+                      </div>
                       <button
                         onClick={() => markDroppedOff(s)}
                         disabled={markingId === s.id}

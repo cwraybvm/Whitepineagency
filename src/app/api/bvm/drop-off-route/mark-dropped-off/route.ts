@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { formatTimestamp } from '@/lib/timestamp';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,13 +10,9 @@ async function requireAuth() {
   return Boolean(store.get('auth_token')?.value?.trim() || store.get('user_session')?.value?.trim());
 }
 
-function formatDropOffTimestamp(date: Date): string {
-  const datePart = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const timePart = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return `${datePart} at ${timePart}`;
-}
-
-// ✅ POST: mark a client dropped off -- sets stage to "Magazine Dropped" and
+// ✅ POST: mark a client dropped off -- sets stage to "Magazine Dropped",
+// bumps lastContacted (a drop-off is a contact event -- this is what makes
+// the 30-day cold-account calc actually reflect completed drop-offs), and
 // appends (not overwrites) a timestamped note to contactNotes.
 export async function POST(request: Request) {
   if (!(await requireAuth())) {
@@ -33,12 +30,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
-    const note = `[Drop-Off Completed: ${formatDropOffTimestamp(new Date())}]`;
+    const now = new Date();
+    const note = `[Drop-Off Completed: ${formatTimestamp(now)}]`;
     const contactNotes = existing.contactNotes ? `${existing.contactNotes}\n${note}` : note;
 
     const client = await prisma.bvmClientKanban.update({
       where: { id: clientId },
-      data: { stage: 'Magazine Dropped', contactNotes },
+      data: { stage: 'Magazine Dropped', contactNotes, lastContacted: now },
     });
 
     return NextResponse.json({ success: true, client });
