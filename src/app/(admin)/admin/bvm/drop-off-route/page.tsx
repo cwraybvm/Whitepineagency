@@ -17,6 +17,7 @@ import {
   X,
   Radar,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 import { nearestNeighborOrder, haversineMiles } from '@/lib/routeOptimizer';
 import { buildGoogleMapsUrl, buildAppleMapsUrl, buildRouteSummary, buildSingleGoogleMapsUrl, buildSingleAppleMapsUrl } from '@/lib/mapLinks';
@@ -49,14 +50,33 @@ export default function DropOffRoutePage() {
   const [radarLoading, setRadarLoading] = useState(false);
   const [radarError, setRadarError] = useState<string | null>(null);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [reGeocoding, setReGeocoding] = useState(false);
 
-  useEffect(() => {
+  function loadStops() {
+    setLoading(true);
     fetch('/api/bvm/drop-off-route')
       .then((res) => res.json())
       .then(setStops)
       .catch(() => toast.error('Failed to load drop-off stops'))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(loadStops, []);
+
+  async function reGeocodeAll() {
+    setReGeocoding(true);
+    try {
+      const res = await fetch('/api/bvm/drop-off-route/re-geocode', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { total, succeeded } = await res.json();
+      toast.success(`Re-geocoded ${succeeded} / ${total} addresses`);
+      loadStops();
+    } catch {
+      toast.error('Failed to re-geocode addresses');
+    } finally {
+      setReGeocoding(false);
+    }
+  }
 
   const filteredStops = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -133,7 +153,7 @@ export default function DropOffRoutePage() {
       setSelectedIds(ordered.map((s) => s.id));
       toast.success('Route optimized');
     } catch {
-      toast.error('Could not geocode starting location');
+      toast.error("Could not geocode starting location — stops kept in current order. You can still launch Google/Apple Maps.");
     } finally {
       setOptimizing(false);
     }
@@ -237,12 +257,22 @@ export default function DropOffRoutePage() {
           </div>
           <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Plan and optimize a multi-stop drop-off run</p>
         </div>
-        <button
-          onClick={findClientsNearMe}
-          className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-4 rounded-xl"
-        >
-          <Radar className="w-4 h-4" /> Find Clients Near Me
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={reGeocodeAll}
+            disabled={reGeocoding}
+            className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-4 rounded-xl disabled:opacity-50"
+          >
+            {reGeocoding ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            Re-Geocode All Addresses
+          </button>
+          <button
+            onClick={findClientsNearMe}
+            className="min-h-[44px] flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-4 rounded-xl"
+          >
+            <Radar className="w-4 h-4" /> Find Clients Near Me
+          </button>
+        </div>
       </div>
 
       {radarOpen && (
@@ -364,7 +394,7 @@ export default function DropOffRoutePage() {
                   <p className="text-[11px] text-slate-500 font-mono mt-0.5">{s.address}</p>
                   {(s.lat == null || s.lng == null) && (
                     <p className="text-[10px] text-amber-400 flex items-center gap-1 mt-1">
-                      <AlertTriangle className="w-3 h-3" /> Couldn&apos;t geocode — excluded from optimization
+                      <AlertTriangle className="w-3 h-3" /> Couldn&apos;t geocode — kept in manual order, Maps will still navigate to it directly
                     </p>
                   )}
                 </div>
