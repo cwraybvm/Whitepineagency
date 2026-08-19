@@ -18,6 +18,7 @@ export const BVM_LINKS: { href: string; label: string; icon: string }[] = [
   { href: "/admin/bvm/email-templates", label: "Email Templates", icon: "✉️" },
   { href: "/admin/bvm/issues", label: "Issue Deadlines & Quotas", icon: "🗞️" },
   { href: "/admin/bvm/reports", label: "BVM Reports", icon: "📈" },
+  { href: "/admin/bvm/expenses", label: "Mileage Expenses", icon: "💰" },
 ];
 
 export default function AdminNav() {
