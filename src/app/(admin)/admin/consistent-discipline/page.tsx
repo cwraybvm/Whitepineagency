@@ -6,6 +6,7 @@ import { Target, Phone, BookOpen, Dumbbell, Droplets, Minus, Plus, Loader2, Chec
 import { weekRange } from '@/lib/weekRange';
 import { computeDailyStreak, computeWeeklyStreak, type DisciplineLogLite } from '@/lib/disciplineStreaks';
 import { CALL_DAILY_TARGET } from '@/lib/bvmTargets';
+import CopyWeeklyDigestButton from '@/components/admin/CopyWeeklyDigestButton';
 
 interface DisciplineLog {
   id: string | null;
@@ -190,12 +191,15 @@ export default function ConsistentDisciplinePage() {
             Daily habit tracker {saving && <span className="text-emerald-400">(saving…)</span>}
           </p>
         </div>
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
+          />
+          <CopyWeeklyDigestButton />
+        </div>
       </div>
 
       {heroLoading ? (

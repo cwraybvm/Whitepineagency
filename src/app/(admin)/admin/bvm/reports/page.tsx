@@ -6,6 +6,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { FileBarChart2, Loader2, Filter, Target } from 'lucide-react';
 import { BVM_STATUS_OPTIONS } from '@/lib/bvmStatus';
 import { weekRange } from '@/lib/weekRange';
+import CopyWeeklyDigestButton from '@/components/admin/CopyWeeklyDigestButton';
 
 interface DisciplineLog {
   date: string;
@@ -127,7 +128,7 @@ export default function BvmReportsPage() {
           </div>
           <p className="text-gray-400 text-[10px] mt-0.5 font-sans">{data ? `${data.startDate} → ${data.endDate}` : ' '}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono" />
           <div className="flex bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
             {RANGES.map((r) => (
@@ -140,6 +141,7 @@ export default function BvmReportsPage() {
               </button>
             ))}
           </div>
+          <CopyWeeklyDigestButton date={date} />
         </div>
       </div>
 
