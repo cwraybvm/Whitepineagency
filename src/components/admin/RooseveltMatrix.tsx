@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 
 export interface MatrixTask {
@@ -64,11 +66,16 @@ function quadrantFor(task: MatrixTask): Quadrant {
 
 interface RooseveltMatrixProps {
   tasks: MatrixTask[];
-  onToggleAxis: (taskId: string, axis: 'isUrgent' | 'isImportant') => void;
   onMove: (taskId: string, isUrgent: boolean, isImportant: boolean) => void;
 }
 
-export default function RooseveltMatrix({ tasks, onToggleAxis, onMove }: RooseveltMatrixProps) {
+export default function RooseveltMatrix({ tasks, onMove }: RooseveltMatrixProps) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  function toggleCollapsed(id: string) {
+    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
     const dest = QUADRANTS.find((q) => q.id === result.destination!.droppableId);
@@ -79,60 +86,75 @@ export default function RooseveltMatrix({ tasks, onToggleAxis, onMove }: Rooseve
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {QUADRANTS.map((q) => (
-          <Droppable droppableId={q.id} key={q.id}>
-            {(provided) => (
-              <div
-                ref={provided.innerRef}
-                {...provided.droppableProps}
-                className={`rounded-2xl p-3 space-y-2 min-h-[180px] border ${q.classes}`}
+        {QUADRANTS.map((q) => {
+          const quadrantTasks = tasks.filter((t) => quadrantFor(t).id === q.id);
+          const isCollapsed = !!collapsed[q.id];
+          return (
+            <div key={q.id} className={`rounded-2xl border overflow-hidden ${q.classes}`}>
+              <button
+                type="button"
+                onClick={() => toggleCollapsed(q.id)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left"
               >
-                <div className="text-xs font-mono uppercase text-gray-400">
+                <span className="text-xs font-mono uppercase text-gray-400">
                   {q.emoji} {q.title} <span className="text-gray-600 normal-case">— {q.subtitle}</span>
-                </div>
-                {tasks
-                  .filter((t) => quadrantFor(t).id === q.id)
-                  .map((t, index) => (
-                    <Draggable draggableId={t.id} index={index} key={t.id}>
-                      {(dragProvided) => (
-                        <div
-                          ref={dragProvided.innerRef}
-                          {...dragProvided.draggableProps}
-                          {...dragProvided.dragHandleProps}
-                          className="bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white p-3 space-y-2"
-                        >
-                          <div>{t.title}</div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => onToggleAxis(t.id, 'isUrgent')}
-                              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                                t.isUrgent
-                                  ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                                  : 'border-white/10 text-gray-600 hover:text-gray-400'
-                              }`}
-                            >
-                              🔴 Urgent
-                            </button>
-                            <button
-                              onClick={() => onToggleAxis(t.id, 'isImportant')}
-                              className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium border ${
-                                t.isImportant
-                                  ? 'bg-sky-500/20 text-sky-300 border-sky-500/30'
-                                  : 'border-white/10 text-gray-600 hover:text-gray-400'
-                              }`}
-                            >
-                              🔵 Important
-                            </button>
+                </span>
+                <span className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[10px] font-mono text-gray-600">{quadrantTasks.length}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-180'}`} />
+                </span>
+              </button>
+
+              <Droppable droppableId={q.id}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`px-3 space-y-2 transition-all duration-300 ease-in-out ${
+                      isCollapsed ? 'max-h-0 opacity-0 pb-0 pointer-events-none' : 'max-h-[2000px] opacity-100 pb-3'
+                    }`}
+                  >
+                    {quadrantTasks.length === 0 && !isCollapsed && (
+                      <div className="text-xs text-gray-600 py-2">No tasks here.</div>
+                    )}
+                    {quadrantTasks.map((t, index) => (
+                      <Draggable draggableId={t.id} index={index} key={t.id}>
+                        {(dragProvided) => (
+                          <div
+                            ref={dragProvided.innerRef}
+                            {...dragProvided.draggableProps}
+                            {...dragProvided.dragHandleProps}
+                            className="bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white p-3 space-y-2"
+                          >
+                            <div className="break-words">{t.title}</div>
+                            <div className="flex items-center gap-1">
+                              {QUADRANTS.map((qq) => (
+                                <button
+                                  key={qq.id}
+                                  type="button"
+                                  onClick={() => onMove(t.id, qq.isUrgent, qq.isImportant)}
+                                  title={`Move to ${qq.title} — ${qq.subtitle}`}
+                                  className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 sm:w-6 sm:h-6 rounded-full border text-xs ${
+                                    qq.id === q.id
+                                      ? `ring-2 ring-white/40 ${qq.classes}`
+                                      : `opacity-50 hover:opacity-100 ${qq.classes}`
+                                  }`}
+                                >
+                                  {qq.emoji}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </Draggable>
-                  ))}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        ))}
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </div>
+          );
+        })}
       </div>
     </DragDropContext>
   );

@@ -42,6 +42,10 @@ export async function POST(req: Request) {
   const task = await prisma.task.create({
     data: {
       title,
+      // Explicit rather than relying on the Prisma schema default -- a newly
+      // created task must never land pre-completed or hidden from the Inbox.
+      status: 'INBOX',
+      completedAt: null,
       organizationId: organizationId || null,
       dueDate: dueDate ? new Date(dueDate) : null,
       priority: priority ?? 0,

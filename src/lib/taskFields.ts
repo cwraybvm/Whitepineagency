@@ -46,6 +46,54 @@ export function nextDuration(current: number | null): number | null {
   return DURATION_OPTIONS[idx + 1];
 }
 
+// Priority reuses the existing Task.priority Int column (@default(0)) --
+// no schema change needed. Ordinal mapping: 0=LOW, 1=MEDIUM, 2=HIGH, so
+// existing rows (priority 0) read as LOW and `orderBy priority desc` still
+// puts HIGH first.
+export type PriorityLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export const PRIORITY_LEVELS: PriorityLevel[] = ['LOW', 'MEDIUM', 'HIGH'];
+
+export const PRIORITY_META: Record<PriorityLevel, { emoji: string; short: string; title: string; badge: string; pill: string; value: number }> = {
+  LOW: {
+    emoji: '🟢',
+    short: 'Low',
+    title: 'Low Priority',
+    badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    pill: 'bg-emerald-500 text-black',
+    value: 0,
+  },
+  MEDIUM: {
+    emoji: '🟡',
+    short: 'Med',
+    title: 'Medium Priority',
+    badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    pill: 'bg-amber-500 text-black',
+    value: 1,
+  },
+  HIGH: {
+    emoji: '🔴',
+    short: 'High',
+    title: 'High Priority',
+    badge: 'bg-red-500/20 text-red-300 border-red-500/30',
+    pill: 'bg-red-500 text-white',
+    value: 2,
+  },
+};
+
+export function priorityFromValue(value: number): PriorityLevel {
+  if (value >= 2) return 'HIGH';
+  if (value === 1) return 'MEDIUM';
+  return 'LOW';
+}
+
+export function nextPriorityValue(current: number): number {
+  const level = priorityFromValue(current);
+  if (level === 'LOW') return PRIORITY_META.MEDIUM.value;
+  if (level === 'MEDIUM') return PRIORITY_META.HIGH.value;
+  return PRIORITY_META.LOW.value;
+}
+
 export function formatScheduledBadge(iso: string): string {
   const date = new Date(iso);
   const datePart = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
