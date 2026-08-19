@@ -2,19 +2,40 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, X, Loader2, CalendarClock, Send, ListPlus, FileText } from 'lucide-react';
 
 interface Appointment {
   id: string;
   date: string;
   clientName: string;
+  clientEmail: string | null;
   outcome: string;
   notes: string;
   followUp: string;
   syncToCalendar: boolean;
+  inviteSentAt: string | null;
 }
 
-const EMPTY_FORM = { date: '', clientName: '', outcome: '', notes: '', followUp: '', syncToCalendar: false };
+const EMPTY_FORM = {
+  date: '',
+  clientName: '',
+  clientEmail: '',
+  outcome: '',
+  notes: '',
+  followUp: '',
+  syncToCalendar: false,
+};
+
+// Standardized outcomes -- keeps the funnel chart on the Reports subtab
+// countable ("Closed" outcomes = closed deals) and drives the auto-action prompt.
+const OUTCOME_SUGGESTIONS = [
+  'Interested — Follow-up Needed',
+  'Not Interested',
+  'No Show',
+  'Rescheduled',
+  'Closed - Won',
+];
+const FOLLOW_UP_OUTCOME = 'Interested — Follow-up Needed';
 
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -25,8 +46,11 @@ export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState(false);
+  const [outcomeActionBusy, setOutcomeActionBusy] = useState<'task' | 'proposal' | null>(null);
 
   function loadMonth() {
     setLoading(true);
@@ -39,19 +63,19 @@ export default function AppointmentsPage() {
 
   useEffect(loadMonth, [cursor]);
 
-  async function handleCreate(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     try {
       const res = await fetch('/api/bvm/appointments', {
-        method: 'POST',
+        method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(editingId ? { ...form, id: editingId } : form),
       });
       if (!res.ok) throw new Error();
+      const { appointment } = await res.json();
       toast.success('Appointment saved');
-      setForm(EMPTY_FORM);
-      setModalOpen(false);
+      setEditingId(appointment.id);
       loadMonth();
     } catch {
       toast.error('Failed to save appointment');
@@ -60,8 +84,67 @@ export default function AppointmentsPage() {
     }
   }
 
+  async function sendInvite() {
+    if (!editingId) return;
+    setSendingInvite(true);
+    try {
+      const res = await fetch('/api/bvm/appointments/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: editingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      toast.success(`Calendar invite sent to ${form.clientEmail}`);
+      loadMonth();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send invite');
+    } finally {
+      setSendingInvite(false);
+    }
+  }
+
+  async function handleOutcomeAction(kind: 'task' | 'proposal') {
+    setOutcomeActionBusy(kind);
+    try {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 2);
+      const title =
+        kind === 'task'
+          ? `Follow up with ${form.clientName || 'client'} (BVM appointment)`
+          : `Draft proposal for ${form.clientName || 'client'} (BVM appointment)`;
+      const res = await fetch('/api/focus-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, dueDate: dueDate.toISOString(), isImportant: kind === 'proposal' }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(kind === 'task' ? 'Follow-up task created' : 'Proposal task created');
+    } catch {
+      toast.error('Failed to create task');
+    } finally {
+      setOutcomeActionBusy(null);
+    }
+  }
+
   function openModalForDay(dayStr: string) {
+    setEditingId(null);
     setForm({ ...EMPTY_FORM, date: dayStr });
+    setModalOpen(true);
+  }
+
+  function openModalForEdit(a: Appointment, e: React.MouseEvent) {
+    e.stopPropagation();
+    setEditingId(a.id);
+    setForm({
+      date: a.date.slice(0, 10),
+      clientName: a.clientName,
+      clientEmail: a.clientEmail || '',
+      outcome: a.outcome,
+      notes: a.notes,
+      followUp: a.followUp,
+      syncToCalendar: a.syncToCalendar,
+    });
     setModalOpen(true);
   }
 
@@ -86,7 +169,7 @@ export default function AppointmentsPage() {
             <CalendarDays className="w-4 h-4 text-emerald-400" />
             <h1 className="text-sm font-bold text-white uppercase tracking-wider">Appointments</h1>
           </div>
-          <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Month view — click a day to add an appointment</p>
+          <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Month view — click a day to add, click a card to edit</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setCursor(new Date(year, month - 1, 1))} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-white">
@@ -122,7 +205,13 @@ export default function AppointmentsPage() {
                 >
                   <span className="text-[10px] font-mono text-slate-500">{Number(dayStr.slice(-2))}</span>
                   {(byDay[dayStr] || []).slice(0, 2).map((a) => (
-                    <span key={a.id} className="text-[9px] bg-emerald-500/15 text-emerald-300 rounded px-1 py-0.5 truncate">{a.clientName}</span>
+                    <span
+                      key={a.id}
+                      onClick={(e) => openModalForEdit(a, e)}
+                      className="text-[9px] bg-emerald-500/15 text-emerald-300 rounded px-1 py-0.5 truncate hover:bg-emerald-500/30"
+                    >
+                      {a.clientName}
+                    </span>
                   ))}
                   {(byDay[dayStr]?.length || 0) > 2 && (
                     <span className="text-[9px] text-slate-500">+{(byDay[dayStr]?.length || 0) - 2} more</span>
@@ -140,12 +229,12 @@ export default function AppointmentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setModalOpen(false)}>
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
           <form
-            onSubmit={handleCreate}
+            onSubmit={handleSave}
             onClick={(e) => e.stopPropagation()}
             className="relative bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-lg space-y-3 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider">New Appointment</h2>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">{editingId ? 'Edit Appointment' : 'New Appointment'}</h2>
               <button type="button" onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-white">
                 <X className="w-4 h-4" />
               </button>
@@ -157,8 +246,48 @@ export default function AppointmentsPage() {
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Client</label>
             <input required placeholder="Client name" value={form.clientName} onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
 
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Client Email</label>
+            <input type="email" placeholder="client@example.com" value={form.clientEmail} onChange={(e) => setForm((f) => ({ ...f, clientEmail: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Outcome</label>
-            <input placeholder="e.g. Signed, Follow-up needed" value={form.outcome} onChange={(e) => setForm((f) => ({ ...f, outcome: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+            <input
+              list="bvm-outcome-suggestions"
+              placeholder="e.g. Interested — Follow-up Needed"
+              value={form.outcome}
+              onChange={(e) => setForm((f) => ({ ...f, outcome: e.target.value }))}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            />
+            <datalist id="bvm-outcome-suggestions">
+              {OUTCOME_SUGGESTIONS.map((o) => (
+                <option key={o} value={o} />
+              ))}
+            </datalist>
+
+            {form.outcome === FOLLOW_UP_OUTCOME && (
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 space-y-2">
+                <p className="text-xs text-amber-300 font-bold">Interested — take an action?</p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOutcomeAction('task')}
+                    disabled={outcomeActionBusy !== null}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs px-3 py-2 rounded-lg disabled:opacity-50"
+                  >
+                    {outcomeActionBusy === 'task' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ListPlus className="w-3.5 h-3.5" />}
+                    Create Follow-up Task
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOutcomeAction('proposal')}
+                    disabled={outcomeActionBusy !== null}
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-bold text-xs px-3 py-2 rounded-lg disabled:opacity-50"
+                  >
+                    {outcomeActionBusy === 'proposal' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                    Draft Proposal
+                  </button>
+                </div>
+              </div>
+            )}
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Notes</label>
             <textarea rows={3} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white resize-y" />
@@ -171,14 +300,26 @@ export default function AppointmentsPage() {
               <CalendarClock className="w-3.5 h-3.5" /> Sync to Google Calendar
             </label>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50 mt-2"
-            >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              {saving ? 'Saving…' : 'Save Appointment'}
-            </button>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {saving ? 'Saving…' : editingId ? 'Save Changes' : 'Create Appointment'}
+              </button>
+              <button
+                type="button"
+                onClick={sendInvite}
+                disabled={!editingId || !form.clientEmail || sendingInvite}
+                title={!editingId ? 'Save the appointment first' : !form.clientEmail ? 'Add a client email first' : 'Send calendar invite'}
+                className="flex-1 flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-40"
+              >
+                {sendingInvite ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                ✉️ Send Calendar Invite Email
+              </button>
+            </div>
           </form>
         </div>
       )}
