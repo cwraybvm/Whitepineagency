@@ -11,6 +11,15 @@ interface KanbanClient {
   lastContacted: string | null;
   nextContacted: string | null;
   contactNotes: string;
+  contactName: string | null;
+  addressId: string | null;
+}
+
+interface AddressOption {
+  id: string;
+  customerName: string;
+  street: string;
+  city: string;
 }
 
 const STAGES = ['Lead', 'First Contact', 'Appointment Set', 'Closed/Won', 'Follow-up Needed'];
@@ -24,6 +33,7 @@ function isStale(lastContacted: string | null): boolean {
 
 export default function ClientKanbanPage() {
   const [clients, setClients] = useState<KanbanClient[]>([]);
+  const [addresses, setAddresses] = useState<AddressOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
@@ -39,6 +49,13 @@ export default function ClientKanbanPage() {
   }
 
   useEffect(load, []);
+
+  useEffect(() => {
+    fetch('/api/bvm/addresses')
+      .then((res) => res.json())
+      .then((data: AddressOption[]) => setAddresses(data.map((a) => ({ id: a.id, customerName: a.customerName, street: a.street, city: a.city }))))
+      .catch(() => {});
+  }, []);
 
   async function addClient(e: React.FormEvent) {
     e.preventDefault();
@@ -201,6 +218,36 @@ export default function ClientKanbanPage() {
               }}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white resize-y"
             />
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Contact Name</label>
+            <input
+              value={activeCard.contactName || ''}
+              onChange={(e) => {
+                updateClient(activeCard.id, { contactName: e.target.value });
+                setActiveCard((c) => (c ? { ...c, contactName: e.target.value } : c));
+              }}
+              placeholder="Primary contact"
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            />
+
+            <label className="text-[11px] font-mono uppercase text-slate-500 block">Linked Address</label>
+            <select
+              value={activeCard.addressId || ''}
+              onChange={(e) => {
+                const addressId = e.target.value || null;
+                updateClient(activeCard.id, { addressId });
+                setActiveCard((c) => (c ? { ...c, addressId } : c));
+              }}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            >
+              <option value="">— No address linked —</option>
+              {addresses.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.customerName} — {a.street}, {a.city}
+                </option>
+              ))}
+            </select>
+            <p className="text-[10px] text-slate-500">Linking an address makes this client available in Drop-Off Route.</p>
 
             <button onClick={() => setActiveCard(null)} className="w-full bg-white/5 hover:bg-white/10 text-white font-bold text-sm px-4 py-2.5 rounded-xl mt-1">
               Close
