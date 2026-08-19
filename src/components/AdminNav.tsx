@@ -8,7 +8,7 @@ import { Focus as FocusIcon, ListTodo, MoreHorizontal, X, ChevronDown, Building2
 
 // BVM Business subtabs -- rendered as a collapsible group in the desktop
 // sidebar / mobile "More" drawer rather than 6 flat top-level entries.
-const BVM_LINKS: { href: string; label: string; icon: string }[] = [
+export const BVM_LINKS: { href: string; label: string; icon: string }[] = [
   { href: "/admin/bvm/call-consistency", label: "Call Consistency", icon: "📞" },
   { href: "/admin/bvm/conference", label: "Conference Calls", icon: "👥" },
   { href: "/admin/bvm/addresses", label: "New Addresses", icon: "📍" },

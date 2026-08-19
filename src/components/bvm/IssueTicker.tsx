@@ -48,12 +48,17 @@ export default function IssueTicker() {
 
   return (
     <div
-      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-bold border ${
+      className={`flex items-center gap-2 pl-4 pr-16 sm:pr-4 py-2 rounded-xl text-xs font-mono font-bold border overflow-hidden ${
         urgent ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
       }`}
     >
       <Clock className="w-3.5 h-3.5 shrink-0" />
-      <span>
+      {/* Compact badge on mobile so the floating ThemeToggle button (fixed
+          top-right on small screens) never overlaps the ticker text. */}
+      <span className="sm:hidden truncate">
+        ⏳ {days}d — {pct}% sold
+      </span>
+      <span className="hidden sm:inline truncate">
         ⏳ {days} day{days === 1 ? '' : 's'} left until {issue.issueName} Deadline — {pct}% Ad Space Sold (
         ${issue.adSpaceSold.toLocaleString()} / ${issue.adSpaceGoal.toLocaleString()})
       </span>

@@ -152,10 +152,10 @@ export default function AddressesPage() {
           </div>
           <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Business addresses queued for BVM</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <button
             onClick={() => setViewMode((v) => (v === 'list' ? 'map' : 'list'))}
-            className={`flex items-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl ${
+            className={`flex items-center justify-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl ${
               viewMode === 'map' ? 'bg-purple-600 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'
             }`}
           >
@@ -165,14 +165,14 @@ export default function AddressesPage() {
           <button
             onClick={handleExportCsv}
             disabled={exporting}
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+            className="flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
           >
             {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📥</span>}
             Export BVM Upload CSV
           </button>
           <button
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl"
+            className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl"
           >
             <Plus className="w-4 h-4" /> New Address
           </button>
@@ -180,15 +180,15 @@ export default function AddressesPage() {
       </div>
 
       {viewMode === 'map' && (
-        <div className="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5">
           <span className="text-[11px] font-mono uppercase text-slate-500">Filters:</span>
-          <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+          <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)} className="w-full sm:w-auto bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 sm:py-1.5 text-xs text-white">
             <option value="all">All Zones</option>
             {zones.map((z) => (
               <option key={z} value={z}>{z}</option>
             ))}
           </select>
-          <select value={publicationFilter} onChange={(e) => setPublicationFilter(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+          <select value={publicationFilter} onChange={(e) => setPublicationFilter(e.target.value)} className="w-full sm:w-auto bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 sm:py-1.5 text-xs text-white">
             <option value="all">All Publications</option>
             {publications.map((p) => (
               <option key={p} value={p}>{p}</option>

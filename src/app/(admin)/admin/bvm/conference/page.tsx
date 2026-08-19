@@ -132,7 +132,7 @@ export default function ConferenceCallsPage() {
             Daily attendance + notes {saving && <span className="text-emerald-400">(saving…)</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={date}
@@ -205,7 +205,7 @@ export default function ConferenceCallsPage() {
                 onChange={(e) => patch({ notes: e.target.value })}
                 rows={8}
                 placeholder="Freeform notes…"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white font-sans resize-y focus:outline-none focus:border-emerald-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm leading-relaxed text-white font-sans resize-y focus:outline-none focus:border-emerald-500/50"
               />
             </div>
           </div>
@@ -221,7 +221,7 @@ export default function ConferenceCallsPage() {
                 onChange={(e) => patch({ keyTakeaways: e.target.value })}
                 rows={4}
                 placeholder="What stood out?"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white resize-y focus:outline-none focus:border-amber-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm leading-relaxed text-white resize-y focus:outline-none focus:border-amber-500/50"
               />
             </div>
 
@@ -234,7 +234,7 @@ export default function ConferenceCallsPage() {
                 onChange={(e) => patch({ objectionScripts: e.target.value })}
                 rows={4}
                 placeholder="New rebuttals / scripts…"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white resize-y focus:outline-none focus:border-purple-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm leading-relaxed text-white resize-y focus:outline-none focus:border-purple-500/50"
               />
             </div>
 
@@ -247,7 +247,7 @@ export default function ConferenceCallsPage() {
                 onChange={(e) => patch({ actionItems: e.target.value })}
                 rows={4}
                 placeholder="One per line…"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white resize-y focus:outline-none focus:border-sky-500/50"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm leading-relaxed text-white resize-y focus:outline-none focus:border-sky-500/50"
               />
               <button
                 onClick={createTaskFromActionItems}
@@ -291,7 +291,7 @@ export default function ConferenceCallsPage() {
               onChange={(e) => patch({ notes: e.target.value })}
               rows={10}
               placeholder="Daily call notes…"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white font-sans resize-y focus:outline-none focus:border-emerald-500/50"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-3 text-sm leading-relaxed text-white font-sans resize-y focus:outline-none focus:border-emerald-500/50"
             />
           </div>
         </div>
