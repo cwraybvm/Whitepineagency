@@ -759,3 +759,73 @@ model CampaignVariant {
 
   @@index([campaignId])
 }
+
+// 📇 BVM Business: daily call-consistency grid — one row per calendar day,
+// cellData holds the full { cellNumber, status } array for that day's grid.
+model BvmCallLog {
+  id        String   @id @default(uuid())
+  date      String   @unique // YYYY-MM-DD
+  cellCount Int      @default(45)
+  cellData  Json // [{ cellNumber: number, status: string | null }]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([date])
+}
+
+model BvmConferenceCall {
+  id       String  @id @default(uuid())
+  date     String  @unique // YYYY-MM-DD
+  attended Boolean @default(false)
+  notes    String  @default("") @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([date])
+}
+
+model BvmAppointment {
+  id             String   @id @default(uuid())
+  date           DateTime
+  clientName     String
+  outcome        String   @default("")
+  notes          String   @default("") @db.Text
+  followUp       String   @default("")
+  syncToCalendar Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+model BvmClientKanban {
+  id             String    @id @default(uuid())
+  clientName     String
+  stage          String    @default("Lead") // Lead, First Contact, Appointment Set, Closed/Won, Follow-up Needed
+  lastContacted  DateTime?
+  nextContacted  DateTime?
+  contactNotes   String    @default("") @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([stage])
+}
+
+model BvmAddress {
+  id              String   @id @default(uuid())
+  customerName    String
+  street          String
+  city            String
+  state           String
+  zip             String
+  phone           String?
+  publicationName String?
+  magazineZone    String?
+  sentToBvm       Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([sentToBvm])
+}

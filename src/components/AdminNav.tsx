@@ -4,11 +4,23 @@ import { useState } from 'react';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ThemeToggle from "@/components/sandbox/ThemeToggle";
-import { Focus as FocusIcon, ListTodo, MoreHorizontal, X } from "lucide-react";
+import { Focus as FocusIcon, ListTodo, MoreHorizontal, X, ChevronDown, Building2 } from "lucide-react";
+
+// BVM Business subtabs -- rendered as a collapsible group in the desktop
+// sidebar / mobile "More" drawer rather than 6 flat top-level entries.
+const BVM_LINKS: { href: string; label: string; icon: string }[] = [
+  { href: "/admin/bvm/call-consistency", label: "Call Consistency", icon: "📞" },
+  { href: "/admin/bvm/conference", label: "Conference Calls", icon: "👥" },
+  { href: "/admin/bvm/addresses", label: "New Addresses", icon: "📍" },
+  { href: "/admin/bvm/appointments", label: "Appointments", icon: "🗓️" },
+  { href: "/admin/bvm/clients", label: "Client Kanban", icon: "🗂️" },
+  { href: "/admin/bvm/reports", label: "BVM Reports", icon: "📈" },
+];
 
 export default function AdminNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [bvmOpen, setBvmOpen] = useState(pathname.startsWith("/admin/bvm"));
 
   // "/admin" and "/fulfillment" are each a prefix of another NAV_LINKS entry
   // (/fulfillment/competitor-audit), so both need an exact match -- every
@@ -16,6 +28,7 @@ export default function AdminNav() {
   const EXACT_MATCH_ONLY = new Set(["/admin", "/fulfillment"]);
   const isPathActive = (path: string) =>
     EXACT_MATCH_ONLY.has(path) ? pathname === path : pathname === path || pathname.startsWith(`${path}/`);
+  const isBvmActive = pathname.startsWith("/admin/bvm");
 
   const getLinkStyles = (path: string) => {
     const isActive = isPathActive(path);
@@ -40,11 +53,15 @@ export default function AdminNav() {
     { href: "/admin/clients", label: "Clients", mobileLabel: "Clients", icon: "🏢" },
     { href: "/fulfillment", label: "Fulfillment / SLA", mobileLabel: "Fulfillment", icon: "📦" },
     { href: "/fulfillment/competitor-audit", label: "Competitor Audit", mobileLabel: "Audit", icon: "🔍" },
+    { href: "/fulfillment/reports", label: "Fulfillment Reports", mobileLabel: "Fulfill Rpts", icon: "📑" },
+    { href: "/fulfillment/sandbox", label: "Fulfillment Sandbox", mobileLabel: "Fulfill Sand", icon: "🧪" },
+    { href: "/fulfillment/studio", label: "Fulfillment Studio", mobileLabel: "Studio", icon: "🎬" },
     { href: "/sandbox", label: "Creative Sandbox", mobileLabel: "Sandbox", icon: "🎨" },
     { href: "/admin/simulator", label: "Voice Simulator", mobileLabel: "Simulator", icon: "🎙️" },
     { href: "/admin/reports", label: "Reports", mobileLabel: "Reports", icon: "📄" },
     { href: "/admin/analytics", label: "Telemetry Analytics", mobileLabel: "Analytics", icon: "📊" },
     { href: "/admin/cmo", label: "CMO Dashboard", mobileLabel: "CMO", icon: "🧭" },
+    { href: "/admin/vault", label: "Integration Vault", mobileLabel: "Vault", icon: "🔐" },
   ];
 
   // Mobile bottom bar only has room for 4 anchors -- the 3 highest-traffic
@@ -52,7 +69,7 @@ export default function AdminNav() {
   const MOBILE_PRIMARY_HREFS = ["/admin", "/admin/tasks", "/admin/clients"];
   const primaryLinks = NAV_LINKS.filter((l) => MOBILE_PRIMARY_HREFS.includes(l.href));
   const moreLinks = NAV_LINKS.filter((l) => !MOBILE_PRIMARY_HREFS.includes(l.href));
-  const isInMoreSection = moreLinks.some((l) => isPathActive(l.href));
+  const isInMoreSection = moreLinks.some((l) => isPathActive(l.href)) || isBvmActive;
 
   return (
     <>
@@ -73,6 +90,32 @@ export default function AdminNav() {
                 {typeof link.icon === "string" ? <span>{link.icon}</span> : <link.icon className="w-4 h-4 shrink-0" />} {link.label}
               </Link>
             ))}
+
+            {/* 🏢 BVM Business — collapsible group of 6 subtabs */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setBvmOpen((v) => !v)}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all font-bold ${
+                  isBvmActive
+                    ? "bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.3)] border border-emerald-500/30"
+                    : "text-gray-400 dark:text-gray-400 light:text-slate-600 hover:text-white dark:hover:text-white light:hover:text-slate-900 hover:bg-white/5 dark:hover:bg-white/5 light:hover:bg-slate-900/5 border border-transparent"
+                }`}
+              >
+                <Building2 className="w-4 h-4 shrink-0" />
+                <span className="flex-1 text-left">BVM Business</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${bvmOpen ? "rotate-180" : ""}`} />
+              </button>
+              {bvmOpen && (
+                <div className="ml-3 mt-1 space-y-1 border-l border-slate-200/80 dark:border-slate-800/80 pl-3">
+                  {BVM_LINKS.map((link) => (
+                    <Link key={link.href} href={link.href} className={getLinkStyles(link.href)}>
+                      <span>{link.icon}</span> {link.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -132,6 +175,19 @@ export default function AdminNav() {
                 {typeof link.icon === "string" ? <span>{link.icon}</span> : <link.icon className="w-4 h-4 shrink-0" />} {link.label}
               </Link>
             ))}
+            <div className="pt-1 mt-1 border-t border-slate-200/80 dark:border-slate-800/80">
+              <span className="text-[10px] font-mono uppercase text-gray-500 px-3 block pb-1">BVM Business</span>
+              {BVM_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMoreOpen(false)}
+                  className={getLinkStyles(link.href)}
+                >
+                  <span>{link.icon}</span> {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
