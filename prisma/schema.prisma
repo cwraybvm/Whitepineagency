@@ -582,16 +582,19 @@ model ClientMeeting {
 }
 
 model Expense {
-  id             String   @id @default(uuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String        @id @default(uuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  type       String   @default("EXPENSE") // EXPENSE, MILEAGE
-  amount     Float    @default(0)
-  miles      Float?
-  category   String   @default("General")
-  receiptUrl String?
-  date       DateTime @default(now())
+  type          String          @default("EXPENSE") // EXPENSE, MILEAGE
+  amount        Float           @default(0)
+  miles         Float?
+  category      String          @default("General")
+  receiptUrl    String?
+  date          DateTime        @default(now())
+  description   String?
+  appointmentId String?
+  appointment   BvmAppointment? @relation(fields: [appointmentId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -599,6 +602,7 @@ model Expense {
   @@index([organizationId])
   @@index([date])
   @@index([type])
+  @@index([appointmentId])
 }
 
 model TimeEntry {
@@ -803,6 +807,11 @@ model BvmAppointment {
   followUp       String   @default("")
   syncToCalendar Boolean  @default(false)
   inviteSentAt   DateTime?
+  appointmentTime String?
+  address         String?
+  startAddress    String?
+
+  expenses Expense[]
 
   createdAt DateTime @default(now())
 
