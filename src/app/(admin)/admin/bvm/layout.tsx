@@ -14,8 +14,10 @@ export default function BvmLayout({ children }: { children: React.ReactNode }) {
         <IssueTicker />
 
         {/* Subtab strip -- desktop already has the BVM Business drawer in
-            AdminNav, so this swipeable row only needs to render on mobile. */}
-        <nav className="md:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar -mx-6 px-6">
+            AdminNav, so this swipeable row only needs to render on mobile.
+            pr-12 keeps the last pill clear of the fixed top-right mobile
+            ThemeToggle (AdminNav.tsx, z-40) it would otherwise scroll under. */}
+        <nav className="md:hidden flex items-center flex-nowrap gap-1.5 overflow-x-auto touch-pan-x no-scrollbar -mx-6 pl-6 pr-12">
           {BVM_LINKS.map((link) => {
             const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
