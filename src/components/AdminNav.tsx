@@ -14,6 +14,7 @@ const BVM_LINKS: { href: string; label: string; icon: string }[] = [
   { href: "/admin/bvm/addresses", label: "New Addresses", icon: "📍" },
   { href: "/admin/bvm/appointments", label: "Appointments", icon: "🗓️" },
   { href: "/admin/bvm/clients", label: "Client Kanban", icon: "🗂️" },
+  { href: "/admin/bvm/email-templates", label: "Email Templates", icon: "✉️" },
   { href: "/admin/bvm/reports", label: "BVM Reports", icon: "📈" },
 ];
 

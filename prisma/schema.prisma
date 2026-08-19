@@ -780,6 +780,12 @@ model BvmConferenceCall {
   attended Boolean @default(false)
   notes    String  @default("") @db.Text
 
+  // Live Call Companion -- structured note-taking for BVM's recurring calls
+  callType         String  @default("Custom") // Wednesday Conference Call, Tuesday Live Phone Training, Thursday Tech Talk, Custom
+  keyTakeaways     String? @db.Text
+  objectionScripts String? @db.Text
+  actionItems      String? @db.Text
+
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
@@ -830,4 +836,18 @@ model BvmAddress {
   createdAt DateTime @default(now())
 
   @@index([sentToBvm])
+}
+
+// ✉️ Email Template Vault -- reusable BVM sales copy with {{variable}} placeholders
+model BvmEmailTemplate {
+  id      String @id @default(uuid())
+  name    String
+  subject String
+  body    String @db.Text
+  category String // e.g. "LMGK Follow-up", "Post-Call Thank You", "Magazine Sample"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([category])
 }
