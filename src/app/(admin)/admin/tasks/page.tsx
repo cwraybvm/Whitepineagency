@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import confetti from 'canvas-confetti';
-import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter, Calendar, Rss } from 'lucide-react';
+import { Plus, Star, ListTodo, Lightbulb, Loader2, Focus as FocusIcon, Sparkles, Shuffle, Wind, Package, Clock, PieChart, LayoutGrid, Kanban, Target, Zap, X, Swords, ChevronDown, Filter, Calendar, Rss, Check, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import FocusModeOverlay, { type FocusSubtask } from '@/components/admin/FocusModeOverlay';
 import TaskScheduleModal from '@/components/admin/TaskScheduleModal';
@@ -123,8 +123,13 @@ function TasksBoardContent() {
   const [filterBarOpen, setFilterBarOpen] = useState(true);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [billingWidgetOpen, setBillingWidgetOpen] = useState(false);
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+  const [scheduledFilterOn, setScheduledFilterOn] = useState(false);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
+  const cancelingEditRef = useRef(false);
 
   function load() {
     fetch('/api/focus-tasks')
@@ -258,54 +263,92 @@ function TasksBoardContent() {
     }
   }
 
+  // Shared optimistic PATCH: applies the change immediately, rolls back and
+  // toasts on failure so no task-field edit can fail silently.
+  async function patchTask(taskId: string, patch: Partial<FocusTask>) {
+    const previous = tasks.find((t) => t.id === taskId);
+    if (!previous) return;
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
+    try {
+      const res = await fetch(`/api/focus-tasks/${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) throw new Error(`PATCH /api/focus-tasks/${taskId} failed with ${res.status}`);
+    } catch {
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? previous : t)));
+      toast.error('Could not save changes. Please try again.');
+    }
+  }
+
   function cycleEnergyLevel(task: FocusTask) {
-    const next = nextEnergyLevel(task.energyLevel);
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, energyLevel: next } : t)));
-    fetch(`/api/focus-tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ energyLevel: next }),
-    });
+    patchTask(task.id, { energyLevel: nextEnergyLevel(task.energyLevel) });
   }
 
   function cycleDuration(task: FocusTask) {
-    const next = nextDuration(task.estimatedMinutes);
-    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, estimatedMinutes: next } : t)));
-    fetch(`/api/focus-tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estimatedMinutes: next }),
-    });
+    patchTask(task.id, { estimatedMinutes: nextDuration(task.estimatedMinutes) });
   }
 
   function toggleMatrixAxis(taskId: string, axis: 'isUrgent' | 'isImportant') {
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
-    const value = !task[axis];
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, [axis]: value } : t)));
-    fetch(`/api/focus-tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [axis]: value }),
-    });
+    patchTask(taskId, { [axis]: !task[axis] });
   }
 
   function moveMatrixQuadrant(taskId: string, isUrgent: boolean, isImportant: boolean) {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, isUrgent, isImportant } : t)));
-    fetch(`/api/focus-tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isUrgent, isImportant }),
-    });
+    patchTask(taskId, { isUrgent, isImportant });
   }
 
   function setParked(taskId: string, isParked: boolean) {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, isParked } : t)));
-    fetch(`/api/focus-tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isParked }),
-    });
+    patchTask(taskId, { isParked });
+  }
+
+  function startEdit(task: FocusTask) {
+    setEditingId(task.id);
+    setEditingValue(task.title);
+  }
+
+  function commitEdit(taskId: string) {
+    const value = editingValue.trim();
+    setEditingId(null);
+    const original = tasks.find((t) => t.id === taskId)?.title;
+    if (!value || value === original) return;
+    patchTask(taskId, { title: value });
+  }
+
+  async function deleteTask(taskId: string) {
+    const previous = tasks;
+    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    try {
+      const res = await fetch(`/api/focus-tasks/${taskId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`DELETE /api/focus-tasks/${taskId} failed with ${res.status}`);
+    } catch {
+      setTasks(previous);
+      toast.error('Could not delete task. Please try again.');
+    }
+  }
+
+  // Checkmark toggle on the task card itself -- runs a short fade before the
+  // optimistic status flip so completing a task reads as a deliberate action
+  // instead of an instant teleport out of the column.
+  function toggleComplete(task: FocusTask) {
+    const goingDone = task.status !== 'DONE';
+    if (!goingDone) {
+      patchTask(task.id, { status: 'ACTIVE' });
+      return;
+    }
+    setCompletingIds((prev) => new Set(prev).add(task.id));
+    setTimeout(() => {
+      confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+      setStreak(recordTaskCompletion());
+      patchTask(task.id, { status: 'DONE' });
+      setCompletingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(task.id);
+        return next;
+      });
+    }, 220);
   }
 
   async function handleDragEnd(result: DropResult) {
@@ -325,17 +368,11 @@ function TasksBoardContent() {
     if (!res.ok) load();
   }
 
-  async function toggleFocus(task: FocusTask) {
+  function toggleFocus(task: FocusTask) {
     const focusCount = tasks.filter((t) => t.isFocusToday).length;
     if (!task.isFocusToday && focusCount >= 3) return;
     const isFocusToday = !task.isFocusToday;
-    const res = await fetch(`/api/focus-tasks/${task.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isFocusToday, focusOrder: isFocusToday ? focusCount + 1 : null }),
-    });
-    if (!res.ok) return;
-    load();
+    patchTask(task.id, { isFocusToday, focusOrder: isFocusToday ? focusCount + 1 : null });
   }
 
   async function patchSubtasks(taskId: string, subtasks: FocusSubtask[]) {
@@ -385,13 +422,8 @@ function TasksBoardContent() {
   }
 
   async function completeTask(taskId: string) {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: 'DONE' } : t)));
     setStreak(recordTaskCompletion());
-    await fetch(`/api/focus-tasks/${taskId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'DONE' }),
-    });
+    await patchTask(taskId, { status: 'DONE' });
   }
 
   async function handleStaleUnstick(taskId: string) {
@@ -533,7 +565,7 @@ function TasksBoardContent() {
             <button
               type="button"
               onClick={() => setBillingWidgetOpen((v) => !v)}
-              className={`flex items-center justify-center w-8 h-8 rounded-full border ${
+              className={`flex items-center justify-center min-w-11 min-h-11 sm:w-8 sm:h-8 sm:min-w-0 sm:min-h-0 rounded-full border ${
                 billingWidgetOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
               }`}
               title="Billing timer"
@@ -553,7 +585,7 @@ function TasksBoardContent() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={focusQuickAdd}
-            className="flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
+            className="flex items-center gap-1.5 min-h-11 sm:min-h-0 px-3 sm:px-3.5 py-2 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shrink-0"
           >
             <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Task</span>
           </button>
@@ -566,7 +598,7 @@ function TasksBoardContent() {
           <div className="relative shrink-0">
             <button
               onClick={() => setToolkitOpen((v) => !v)}
-              className={`relative flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap ${
+              className={`relative flex items-center gap-1.5 min-h-11 sm:min-h-0 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap ${
                 toolkitOpen ? 'bg-white/10 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}
             >
@@ -727,8 +759,10 @@ function TasksBoardContent() {
       )}
 
       {/* Energy filters + quick-add combined into one collapsible bar so
-          the board doesn't open under 2-3 stacked rows of small buttons. */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+          the board doesn't open under 2-3 stacked rows of small buttons.
+          Sticky on desktop so quick-add stays reachable while scrolling a
+          long board; mobile keeps normal flow to avoid eating viewport. */}
+      <div className="md:sticky md:top-2 md:z-20 bg-[#0F172A]/95 backdrop-blur-md border border-white/10 rounded-2xl overflow-hidden">
         <button
           onClick={() => setFilterBarOpen((v) => !v)}
           className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5"
@@ -762,6 +796,14 @@ function TasksBoardContent() {
                   {ENERGY_META[lvl].emoji} {ENERGY_META[lvl].short}
                 </button>
               ))}
+              <button
+                onClick={() => setScheduledFilterOn((v) => !v)}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                  scheduledFilterOn ? 'bg-emerald-500 text-black' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5" /> Scheduled
+              </button>
               <span className="w-px h-4 bg-white/10 mx-1" />
               <button
                 onClick={() => setParkedDrawerOpen(true)}
@@ -778,7 +820,7 @@ function TasksBoardContent() {
                   value={quickAddValue}
                   onChange={(e) => setQuickAddValue(e.target.value)}
                   placeholder="Quick add a task, press N to focus this box"
-                  className="flex-1 min-w-[140px] bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
+                  className="flex-1 min-w-[140px] min-h-11 sm:min-h-0 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm text-white"
                 />
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-xl px-1.5">
                   {ENERGY_LEVELS.map((lvl) => (
@@ -787,7 +829,7 @@ function TasksBoardContent() {
                       type="button"
                       title={ENERGY_META[lvl].title}
                       onClick={() => setQuickAddEnergy((prev) => (prev === lvl ? null : lvl))}
-                      className={`px-1.5 py-1 rounded-lg text-sm ${
+                      className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-1.5 py-1 rounded-lg text-sm ${
                         quickAddEnergy === lvl ? ENERGY_META[lvl].pill : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
@@ -800,7 +842,7 @@ function TasksBoardContent() {
                 <button
                   type="button"
                   onClick={() => setMobileFiltersOpen((v) => !v)}
-                  className={`sm:hidden flex items-center justify-center px-2 rounded-xl border ${
+                  className={`sm:hidden flex items-center justify-center min-w-11 min-h-11 px-2 rounded-xl border ${
                     mobileFiltersOpen ? 'bg-white/10 border-white/20 text-white' : 'bg-white/5 border-white/10 text-gray-400'
                   }`}
                   title="More options"
@@ -814,7 +856,7 @@ function TasksBoardContent() {
                       type="button"
                       title={`${formatDuration(mins)} estimate`}
                       onClick={() => setQuickAddMinutes((prev) => (prev === mins ? null : mins))}
-                      className={`px-1.5 py-1 rounded-lg text-[11px] font-medium ${
+                      className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-1.5 py-1 rounded-lg text-[11px] font-medium ${
                         quickAddMinutes === mins ? 'bg-sky-500 text-white' : 'text-gray-500 hover:text-gray-300'
                       }`}
                     >
@@ -827,7 +869,7 @@ function TasksBoardContent() {
                     type="button"
                     title="Schedule date/time"
                     onClick={() => setShowQuickAddSchedule((v) => !v)}
-                    className={`flex items-center gap-1 justify-center px-2 h-full rounded-xl border text-xs font-medium ${
+                    className={`flex items-center gap-1 justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 px-2 h-full rounded-xl border text-xs font-medium ${
                       quickAddScheduledAt || showQuickAddSchedule
                         ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
                         : 'bg-white/5 border-white/10 text-gray-400 hover:text-gray-200'
@@ -872,13 +914,13 @@ function TasksBoardContent() {
                     </>
                   )}
                 </div>
-                <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
+                <button type="submit" className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 bg-emerald-600 hover:bg-emerald-500 text-white px-3 rounded-xl">
                   <Plus className="w-4 h-4" />
                 </button>
               </form>
               <button
                 onClick={() => setBrainDumpOpen(true)}
-                className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 sm:shrink-0"
+                className="flex items-center justify-center gap-1.5 min-h-11 sm:min-h-0 px-3 py-2 rounded-xl text-sm font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 sm:shrink-0"
               >
                 <Sparkles className="w-4 h-4" /> Brain Dump
               </button>
@@ -953,7 +995,9 @@ function TasksBoardContent() {
                     )}
                     {colTasks
                       .map((t, index) => {
-                        const matchesEnergy = energyFilter === 'ALL' || t.energyLevel === energyFilter;
+                        const matchesEnergy =
+                          (energyFilter === 'ALL' || t.energyLevel === energyFilter) &&
+                          (!scheduledFilterOn || !!t.scheduledAt);
                         return (
                         <Draggable draggableId={t.id} index={index} key={t.id}>
                           {(dragProvided) => (
@@ -964,40 +1008,92 @@ function TasksBoardContent() {
                               data-testid={`task-card-${t.id}`}
                               className={`bg-[#0F172A] border border-white/10 rounded-xl text-sm text-white space-y-2 transition-all duration-300 ease-in-out overflow-hidden ${
                                 matchesEnergy
-                                  ? 'max-h-[500px] opacity-100 p-3 mb-0'
+                                  ? 'max-h-[1000px] opacity-100 p-3 mb-0'
                                   : 'max-h-0 opacity-0 p-0 mb-0 border-0 pointer-events-none'
-                              }`}
+                              } ${completingIds.has(t.id) ? 'scale-95 opacity-40' : 'scale-100'}`}
                             >
-                              <div className="flex items-center justify-between gap-2">
-                                <span>{t.title}</span>
-                                <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-start gap-2">
+                                <button
+                                  onClick={() => toggleComplete(t)}
+                                  title={t.status === 'DONE' ? 'Mark as not done' : 'Mark as done'}
+                                  data-testid={`task-complete-${t.id}`}
+                                  className={`shrink-0 flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 sm:w-5 sm:h-5 rounded-full border transition-colors ${
+                                    t.status === 'DONE'
+                                      ? 'bg-emerald-500 border-emerald-500 text-black'
+                                      : 'border-white/20 text-transparent hover:border-emerald-400'
+                                  }`}
+                                >
+                                  <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                                </button>
+
+                                {editingId === t.id ? (
+                                  <input
+                                    autoFocus
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    onBlur={() => {
+                                      if (cancelingEditRef.current) { cancelingEditRef.current = false; return; }
+                                      commitEdit(t.id);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') { e.preventDefault(); commitEdit(t.id); }
+                                      if (e.key === 'Escape') { e.preventDefault(); cancelingEditRef.current = true; setEditingId(null); }
+                                    }}
+                                    className="flex-1 min-w-0 bg-white/10 border border-white/20 rounded-lg px-1.5 py-0.5 text-sm text-white"
+                                  />
+                                ) : (
+                                  <span
+                                    className={`flex-1 min-w-0 break-words ${t.status === 'DONE' ? 'text-gray-500 line-through' : ''}`}
+                                  >
+                                    {t.title}
+                                  </span>
+                                )}
+
+                                <div className="flex items-center gap-0.5 flex-wrap justify-end shrink-0">
                                   <button
                                     onClick={() => {
                                       const idx = openTasks.findIndex((ot) => ot.id === t.id);
                                       if (idx >= 0) setFocusOverlayIndex(idx);
                                     }}
                                     disabled={t.status === 'DONE'}
-                                    className="text-gray-600 hover:text-indigo-400 disabled:opacity-20 p-0.5"
+                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-indigo-400 disabled:opacity-20 p-0.5"
                                     title="Focus on this task"
                                   >
                                     <FocusIcon className="w-3.5 h-3.5" />
                                   </button>
-                                  <button onClick={() => toggleFocus(t)} className={t.isFocusToday ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}>
+                                  <button
+                                    onClick={() => toggleFocus(t)}
+                                    className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.isFocusToday ? 'text-amber-400' : 'text-gray-600 hover:text-amber-400'}`}
+                                  >
                                     <Star className="w-3.5 h-3.5" fill={t.isFocusToday ? 'currentColor' : 'none'} />
                                   </button>
                                   <button
+                                    onClick={() => startEdit(t)}
+                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-sky-400 p-0.5"
+                                    title="Edit title"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
                                     onClick={() => setParked(t.id, true)}
-                                    className="text-gray-600 hover:text-orange-400 p-0.5"
+                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-orange-400 p-0.5"
                                     title="Park for later"
                                   >
                                     <Package className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     onClick={() => setScheduleModalTaskId(t.id)}
-                                    className={t.scheduledAt ? 'text-emerald-400 p-0.5' : 'text-gray-600 hover:text-emerald-400 p-0.5'}
+                                    className={`flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 p-0.5 ${t.scheduledAt ? 'text-emerald-400' : 'text-gray-600 hover:text-emerald-400'}`}
                                     title="Schedule"
                                   >
                                     <Calendar className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => deleteTask(t.id)}
+                                    className="flex items-center justify-center min-w-11 min-h-11 sm:min-w-0 sm:min-h-0 text-gray-600 hover:text-red-400 p-0.5"
+                                    title="Delete task"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
                               </div>
