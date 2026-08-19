@@ -27,6 +27,7 @@ export async function GET(request: Request) {
       date,
       cellCount: 45,
       cellData: Array.from({ length: 45 }, (_, i) => ({ cellNumber: i + 1, status: null })),
+      leadsAdded: 0,
     });
   } catch (error) {
     // PUT already logs+wraps its own failures; GET didn't, so a transient DB
@@ -44,7 +45,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { date, cellCount, cellData } = await request.json();
+    const { date, cellCount, cellData, leadsAdded } = await request.json();
 
     if (!date || !Array.isArray(cellData)) {
       return NextResponse.json({ error: 'Missing date or cellData' }, { status: 400 });
@@ -52,8 +53,8 @@ export async function PUT(request: Request) {
 
     const log = await prisma.bvmCallLog.upsert({
       where: { date },
-      create: { date, cellCount: cellCount || cellData.length, cellData },
-      update: { cellCount: cellCount || cellData.length, cellData },
+      create: { date, cellCount: cellCount || cellData.length, cellData, leadsAdded: leadsAdded ?? 0 },
+      update: { cellCount: cellCount || cellData.length, cellData, ...(leadsAdded !== undefined ? { leadsAdded } : {}) },
     });
 
     return NextResponse.json({ success: true, log });
