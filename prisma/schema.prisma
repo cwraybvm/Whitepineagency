@@ -832,6 +832,7 @@ model BvmClientKanban {
   nextContacted  DateTime?
   contactNotes   String    @default("") @db.Text
   contactName    String?
+  photoUrl       String?     @db.Text
   addressId      String?     @unique
   address        BvmAddress? @relation(fields: [addressId], references: [id])
 

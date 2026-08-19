@@ -7,9 +7,17 @@ import { useSpeechToText } from '@/hooks/useSpeechToText';
 
 interface VoiceCaptureButtonProps {
   onTranscript: (text: string) => void;
+  idleLabel?: string;
+  listeningLabel?: string;
+  className?: string;
 }
 
-export default function VoiceCaptureButton({ onTranscript }: VoiceCaptureButtonProps) {
+export default function VoiceCaptureButton({
+  onTranscript,
+  idleLabel = '🎙️ Dictate',
+  listeningLabel = '🔴 Listening…',
+  className,
+}: VoiceCaptureButtonProps) {
   const { supported, listening, transcript, error, start, stop, reset } = useSpeechToText();
   const wasListening = useRef(false);
 
@@ -38,12 +46,15 @@ export default function VoiceCaptureButton({ onTranscript }: VoiceCaptureButtonP
       type="button"
       onClick={() => (listening ? stop() : start())}
       title={listening ? 'Stop dictating' : 'Dictate with voice'}
-      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium ${
-        listening ? 'bg-red-500/20 text-red-300 animate-pulse' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-      }`}
+      className={
+        className ||
+        `flex items-center justify-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-xl text-xs font-medium ${
+          listening ? 'bg-red-500/20 text-red-300 animate-pulse' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+        }`
+      }
     >
       {listening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-      {listening ? '🔴 Listening…' : '🎙️ Dictate'}
+      {listening ? listeningLabel : idleLabel}
     </button>
   );
 }
