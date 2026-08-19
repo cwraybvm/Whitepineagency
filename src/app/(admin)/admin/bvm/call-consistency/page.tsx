@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock, Zap } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock, Zap, Target } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 import BillingTimerWidget from '@/components/BillingTimerWidget';
 import FocusSprintTimer from '@/components/admin/FocusSprintTimer';
@@ -32,6 +32,7 @@ const MIN_CELLS = 45;
 const MAX_CELLS = 70;
 const STEP = 5;
 const DAILY_TARGET = 45;
+const LEADS_TARGET = 10;
 const FOLLOW_UP_STATUSES = new Set(['LVM', 'NA']);
 const QUICK_EMAIL_STATUSES = new Set(['LMGK', 'LVM', 'Yes']);
 
@@ -40,10 +41,21 @@ const QUICK_EMAIL_STATUSES = new Set(['LMGK', 'LVM', 'Yes']);
 const STATUS_EMOJI: Record<string, string> = {
   I: '🟦',
   LMGK: '🟧',
-  LVM: '🟪',
+  LVM: '🟦',
   NA: '🟪',
   No: '🟥',
   Yes: '🟩',
+};
+
+// Clipboard-only labels -- the grid/legend/reports keep the compact status
+// codes, but the SMS summary spells them out for a non-BVM-fluent reader.
+const SMS_STATUS_LABEL: Record<string, string> = {
+  I: 'Info Gathered',
+  LVM: 'Voice Mail Left',
+  LMGK: 'Left Message with GK',
+  NA: 'No Answer',
+  No: 'No',
+  Yes: 'Yes',
 };
 
 function fillTemplate(text: string, vars: Record<string, string>): string {
@@ -77,6 +89,7 @@ export default function CallConsistencyPage() {
   const [date, setDate] = useState(todayStr());
   const [cellCount, setCellCount] = useState(MIN_CELLS);
   const [cellData, setCellData] = useState<CellDatum[]>(buildGrid(MIN_CELLS));
+  const [leadsAdded, setLeadsAdded] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [spawnedCells, setSpawnedCells] = useState<Set<number>>(new Set());
@@ -117,6 +130,7 @@ export default function CallConsistencyPage() {
       .then((data) => {
         setCellCount(data.cellCount || MIN_CELLS);
         setCellData(data.cellData || buildGrid(MIN_CELLS));
+        setLeadsAdded(data.leadsAdded || 0);
         loadedForDate.current = date;
       })
       .catch((err) => {
@@ -136,7 +150,7 @@ export default function CallConsistencyPage() {
       .finally(() => setRecycleLoading(false));
   }, []);
 
-  function scheduleSave(nextCellCount: number, nextCellData: CellDatum[]) {
+  function scheduleSave(nextCellCount: number, nextCellData: CellDatum[], nextLeadsAdded: number) {
     if (loadedForDate.current !== date) return; // don't save over data we haven't finished loading
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
@@ -145,7 +159,7 @@ export default function CallConsistencyPage() {
         const res = await fetch('/api/bvm/call-log', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ date, cellCount: nextCellCount, cellData: nextCellData }),
+          body: JSON.stringify({ date, cellCount: nextCellCount, cellData: nextCellData, leadsAdded: nextLeadsAdded }),
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({}));
@@ -163,7 +177,7 @@ export default function CallConsistencyPage() {
   function setCellStatus(cellNumber: number, status: string | null) {
     const next = cellData.map((c) => (c.cellNumber === cellNumber ? { ...c, status } : c));
     setCellData(next);
-    scheduleSave(cellCount, next);
+    scheduleSave(cellCount, next, leadsAdded);
   }
 
   function resizeGrid(delta: number) {
@@ -177,7 +191,19 @@ export default function CallConsistencyPage() {
     }
     setCellCount(next);
     setCellData(nextData);
-    scheduleSave(next, nextData);
+    scheduleSave(next, nextData, leadsAdded);
+  }
+
+  function adjustLeadsAdded(delta: number) {
+    const next = Math.max(0, leadsAdded + delta);
+    setLeadsAdded(next);
+    scheduleSave(cellCount, cellData, next);
+  }
+
+  function setLeadsAddedDirect(value: number) {
+    const next = Math.max(0, value);
+    setLeadsAdded(next);
+    scheduleSave(cellCount, cellData, next);
   }
 
   async function spawnFollowUpTask(cell: CellDatum) {
@@ -330,18 +356,17 @@ New Addresses Entered Today: ${addressesToday.length}
   async function copyEodTextSummary() {
     setCopyingEod(true);
     try {
-      const { conference, appointmentsToday, addressesToday } = await fetchEodData();
+      const { conference } = await fetchEodData();
 
       const statusLine = BVM_STATUS_OPTIONS.filter((o) => breakdown.counts[o.value] > 0)
-        .map((o) => `${STATUS_EMOJI[o.value] || '⬜'} ${o.label}: ${breakdown.counts[o.value]}`)
+        .map((o) => `${STATUS_EMOJI[o.value] || '⬜'} ${SMS_STATUS_LABEL[o.value] || o.label}: ${breakdown.counts[o.value]}`)
         .join('  ');
 
       const text = `📞 BVM EOD — ${date}
 ✅ Calls: ${breakdown.filled}/${DAILY_TARGET}
 ${statusLine || 'No calls logged'}
-📅 Conference: ${conference.attended ? '✅ Attended' : '❌ Missed'} (${conference.callType || 'Custom'})
-🗓️ Appts Booked: ${appointmentsToday.length}
-🏠 New Addresses: ${addressesToday.length}`;
+🎯 Leads Added: ${leadsAdded} / ${LEADS_TARGET}
+📅 Conference: ${conference.attended ? '✅ Attended' : '❌ Missed'} (${conference.callType || 'Custom'})`;
 
       await navigator.clipboard.writeText(text);
       toast.success('EOD text summary copied — paste into a message');
@@ -445,13 +470,54 @@ ${statusLine || 'No calls logged'}
         )}
       </AnimatePresence>
 
-      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Gauge className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span className="text-sm font-bold text-white tabular-nums">
-            {breakdown.filled}/{DAILY_TARGET} Calls Completed
-          </span>
-          {pace && <span className={`text-xs font-mono font-bold uppercase ${pace.className}`}>— {pace.label}</span>}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Gauge className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-sm font-bold text-white tabular-nums">
+              {breakdown.filled}/{DAILY_TARGET} Calls Completed
+            </span>
+            {pace && <span className={`text-xs font-mono font-bold uppercase ${pace.className}`}>— {pace.label}</span>}
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Target className="w-4 h-4 text-blue-400 shrink-0" />
+              <span className="text-sm font-bold text-white tabular-nums">
+                {leadsAdded} / {LEADS_TARGET} Leads Added — {Math.min(100, Math.round((leadsAdded / LEADS_TARGET) * 100))}%
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => adjustLeadsAdded(-1)}
+                disabled={leadsAdded <= 0}
+                className="flex items-center justify-center min-w-[32px] min-h-[32px] rounded-lg bg-white/5 hover:bg-white/10 text-white disabled:opacity-30"
+              >
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <input
+                type="number"
+                min={0}
+                value={leadsAdded}
+                onChange={(e) => setLeadsAddedDirect(parseInt(e.target.value, 10) || 0)}
+                className="w-12 text-center bg-slate-950 border border-slate-800 rounded-lg py-1 text-xs text-white font-mono"
+              />
+              <button
+                onClick={() => adjustLeadsAdded(1)}
+                className="flex items-center justify-center min-w-[32px] min-h-[32px] rounded-lg bg-white/5 hover:bg-white/10 text-white"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="h-1.5 bg-slate-950 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-blue-500 rounded-full transition-all"
+              style={{ width: `${Math.min(100, Math.round((leadsAdded / LEADS_TARGET) * 100))}%` }}
+            />
+          </div>
         </div>
       </div>
 
