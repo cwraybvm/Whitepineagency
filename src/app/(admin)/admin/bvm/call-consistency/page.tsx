@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'framer-motion';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock, Zap } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 import BillingTimerWidget from '@/components/BillingTimerWidget';
@@ -34,6 +34,17 @@ const STEP = 5;
 const DAILY_TARGET = 45;
 const FOLLOW_UP_STATUSES = new Set(['LVM', 'NA']);
 const QUICK_EMAIL_STATUSES = new Set(['LMGK', 'LVM', 'Yes']);
+
+// Colored-square emoji per status, for the SMS-friendly clipboard summary --
+// loosely matches each status's BVM_STATUS_COLOR hue.
+const STATUS_EMOJI: Record<string, string> = {
+  I: '🟦',
+  LMGK: '🟧',
+  LVM: '🟪',
+  NA: '🟪',
+  No: '🟥',
+  Yes: '🟩',
+};
 
 function fillTemplate(text: string, vars: Record<string, string>): string {
   return text.replace(/\{\{(\w+)\}\}/g, (_, key) => vars[key] || '');
@@ -82,6 +93,7 @@ export default function CallConsistencyPage() {
   const [recallingKey, setRecallingKey] = useState<string | null>(null);
   const [eodRecipient, setEodRecipient] = useState('');
   const [sendingEod, setSendingEod] = useState(false);
+  const [copyingEod, setCopyingEod] = useState(false);
   const [openTimer, setOpenTimer] = useState<'billing' | 'focus' | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
@@ -260,6 +272,19 @@ export default function CallConsistencyPage() {
     localStorage.setItem('bvm-eod-recipient', value);
   }
 
+  // Shared by the email body and the SMS clipboard summary so both pull the
+  // same conference/appointments/addresses data instead of duplicating it.
+  async function fetchEodData() {
+    const [conference, appointmentsMonth, allAddresses] = await Promise.all([
+      fetch(`/api/bvm/conference?date=${date}`).then((r) => r.json()),
+      fetch(`/api/bvm/appointments?month=${date.slice(0, 7)}`).then((r) => r.json()),
+      fetch('/api/bvm/addresses').then((r) => r.json()),
+    ]);
+    const appointmentsToday = (appointmentsMonth as { date: string }[]).filter((a) => a.date.slice(0, 10) === date);
+    const addressesToday = (allAddresses as { createdAt: string }[]).filter((a) => a.createdAt.slice(0, 10) === date);
+    return { conference, appointmentsToday, addressesToday };
+  }
+
   async function sendEodSummary() {
     if (!eodRecipient) {
       toast.error('Enter a recipient email first');
@@ -267,14 +292,7 @@ export default function CallConsistencyPage() {
     }
     setSendingEod(true);
     try {
-      const [conference, appointmentsMonth, allAddresses] = await Promise.all([
-        fetch(`/api/bvm/conference?date=${date}`).then((r) => r.json()),
-        fetch(`/api/bvm/appointments?month=${date.slice(0, 7)}`).then((r) => r.json()),
-        fetch('/api/bvm/addresses').then((r) => r.json()),
-      ]);
-
-      const appointmentsToday = (appointmentsMonth as { date: string }[]).filter((a) => a.date.slice(0, 10) === date);
-      const addressesToday = (allAddresses as { createdAt: string }[]).filter((a) => a.createdAt.slice(0, 10) === date);
+      const { conference, appointmentsToday, addressesToday } = await fetchEodData();
 
       const breakdownLines = BVM_STATUS_OPTIONS.map((o) => `  ${o.label}: ${breakdown.counts[o.value]}`).join('\n');
       const body = `BVM Daily EOD Summary — ${date}
@@ -303,6 +321,34 @@ New Addresses Entered Today: ${addressesToday.length}
       toast.error(err.message || 'Failed to send EOD summary');
     } finally {
       setSendingEod(false);
+    }
+  }
+
+  // Compact, emoji-led format meant to be pasted straight into an SMS/iMessage
+  // thread -- short lines, no long "Breakdown by Status" paragraph like the
+  // email body has room for.
+  async function copyEodTextSummary() {
+    setCopyingEod(true);
+    try {
+      const { conference, appointmentsToday, addressesToday } = await fetchEodData();
+
+      const statusLine = BVM_STATUS_OPTIONS.filter((o) => breakdown.counts[o.value] > 0)
+        .map((o) => `${STATUS_EMOJI[o.value] || '⬜'} ${o.label}: ${breakdown.counts[o.value]}`)
+        .join('  ');
+
+      const text = `📞 BVM EOD — ${date}
+✅ Calls: ${breakdown.filled}/${DAILY_TARGET}
+${statusLine || 'No calls logged'}
+📅 Conference: ${conference.attended ? '✅ Attended' : '❌ Missed'} (${conference.callType || 'Custom'})
+🗓️ Appts Booked: ${appointmentsToday.length}
+🏠 New Addresses: ${addressesToday.length}`;
+
+      await navigator.clipboard.writeText(text);
+      toast.success('EOD text summary copied — paste into a message');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to copy EOD summary');
+    } finally {
+      setCopyingEod(false);
     }
   }
 
@@ -522,18 +568,39 @@ New Addresses Entered Today: ${addressesToday.length}
           {pieData.length === 0 ? (
             <div className="h-[220px] flex items-center justify-center text-slate-500 text-sm">No calls logged yet</div>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2} label={(d) => `${d.name} ${Math.round((d.value / breakdown.filled) * 100)}%`}>
-                  {pieData.map((d, i) => {
-                    const opt = BVM_STATUS_OPTIONS.find((o) => o.label === d.name);
-                    return <Cell key={i} fill={opt?.color || '#64748b'} />;
-                  })}
-                </Pie>
-                <Tooltip contentStyle={{ background: '#0F172A', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            <>
+              {/* No radial label/Legend -- Recharts' built-in label placement
+                  and legend both fight for space in a fixed 220px box, which
+                  is what caused the percentage-label overlap on narrow
+                  screens and the legend clipping against the card's top
+                  edge. The custom legend below replaces both, at every
+                  width, with plain flex-wrap text that can't overlap. */}
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
+                    {pieData.map((d, i) => {
+                      const opt = BVM_STATUS_OPTIONS.find((o) => o.label === d.name);
+                      return <Cell key={i} fill={opt?.color || '#64748b'} />;
+                    })}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: '#0F172A', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1.5">
+                {pieData.map((d, i) => {
+                  const opt = BVM_STATUS_OPTIONS.find((o) => o.label === d.name);
+                  const pct = breakdown.filled > 0 ? Math.round((d.value / breakdown.filled) * 100) : 0;
+                  return (
+                    <div key={i} className="flex items-center gap-1.5 text-xs font-mono">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: opt?.color || '#64748b' }} />
+                      <span className="text-slate-300">{d.name}:</span>
+                      <span className="text-white font-bold tabular-nums">{d.value}</span>
+                      <span className="text-slate-500 tabular-nums">({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -591,10 +658,18 @@ New Addresses Entered Today: ${addressesToday.length}
           <button
             onClick={sendEodSummary}
             disabled={sendingEod}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 min-h-11 sm:min-h-0 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
           >
             {sendingEod ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sendingEod ? 'Sending…' : 'Send EOD Summary'}
+          </button>
+          <button
+            onClick={copyEodTextSummary}
+            disabled={copyingEod}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 min-h-11 sm:min-h-0 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+          >
+            {copyingEod && <Loader2 className="w-4 h-4 animate-spin" />}
+            {copyingEod ? 'Copying…' : '📋 Copy EOD Text Summary'}
           </button>
         </div>
       </div>
