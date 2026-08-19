@@ -18,15 +18,23 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
 
-  const log = await prisma.bvmCallLog.findUnique({ where: { date } });
-  if (log) return NextResponse.json(log);
+  try {
+    const log = await prisma.bvmCallLog.findUnique({ where: { date } });
+    if (log) return NextResponse.json(log);
 
-  return NextResponse.json({
-    id: null,
-    date,
-    cellCount: 45,
-    cellData: Array.from({ length: 45 }, (_, i) => ({ cellNumber: i + 1, status: null })),
-  });
+    return NextResponse.json({
+      id: null,
+      date,
+      cellCount: 45,
+      cellData: Array.from({ length: 45 }, (_, i) => ({ cellNumber: i + 1, status: null })),
+    });
+  } catch (error) {
+    // PUT already logs+wraps its own failures; GET didn't, so a transient DB
+    // hiccup here fell through to a non-JSON 500 the client's res.json()
+    // can't parse, and the load silently failed as an empty/stale grid.
+    console.error('BVM call-log GET failed:', error);
+    return NextResponse.json({ error: 'Failed to load call log' }, { status: 500 });
+  }
 }
 
 // 💾 PUT: upsert a day's grid (auto-save on cell change / expander resize)
