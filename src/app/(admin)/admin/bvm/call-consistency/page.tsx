@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText, Clock, Zap, Target } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
+import { CALL_DAILY_TARGET as DAILY_TARGET, LEADS_TARGET } from '@/lib/bvmTargets';
 import BillingTimerWidget from '@/components/BillingTimerWidget';
 import FocusSprintTimer from '@/components/admin/FocusSprintTimer';
 
@@ -31,8 +32,6 @@ interface RecycleItem {
 const MIN_CELLS = 45;
 const MAX_CELLS = 70;
 const STEP = 5;
-const DAILY_TARGET = 45;
-const LEADS_TARGET = 10;
 const FOLLOW_UP_STATUSES = new Set(['LVM', 'NA']);
 const QUICK_EMAIL_STATUSES = new Set(['LMGK', 'LVM', 'Yes']);
 

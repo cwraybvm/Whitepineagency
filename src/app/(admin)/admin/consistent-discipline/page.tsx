@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Target, Phone, BookOpen, Dumbbell, Droplets, Minus, Plus, Loader2, Check } from 'lucide-react';
+import { Target, Phone, BookOpen, Dumbbell, Droplets, Minus, Plus, Loader2, Check, Flame } from 'lucide-react';
 import { weekRange } from '@/lib/weekRange';
+import { computeDailyStreak, computeWeeklyStreak, type DisciplineLogLite } from '@/lib/disciplineStreaks';
+import { CALL_DAILY_TARGET } from '@/lib/bvmTargets';
 
 interface DisciplineLog {
   id: string | null;
@@ -18,9 +20,59 @@ interface DisciplineLog {
 const PAGES_TARGET = 10;
 const WATER_TARGET = 7;
 const WEEKLY_TARGET = 2;
+const STREAK_WINDOW_DAYS = 180;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDaysStr(dateStr: string, delta: number): string {
+  const d = new Date(`${dateStr}T00:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
+
+// Hand-rolled circular progress ring -- a single hero indicator, not a data
+// -viz surface, so no charting library.
+function ScoreRing({ score }: { score: number }) {
+  const radius = 54;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - score / 100);
+  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+  return (
+    <svg width={140} height={140} viewBox="0 0 140 140">
+      <circle cx={70} cy={70} r={radius} fill="none" stroke="#1e293b" strokeWidth={12} />
+      <circle
+        cx={70}
+        cy={70}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={12}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform="rotate(-90 70 70)"
+        style={{ transition: 'stroke-dashoffset 0.3s ease' }}
+      />
+      <text x={70} y={66} textAnchor="middle" fontSize={28} fontWeight={800} fill="#fff">
+        {score}%
+      </text>
+      <text x={70} y={86} textAnchor="middle" fontSize={10} fill="#94a3b8">
+        Daily Score
+      </text>
+    </svg>
+  );
+}
+
+function StreakBadge({ emoji, count, unit, label }: { emoji: string; count: number; unit: string; label: string }) {
+  return (
+    <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-center">
+      <p className="text-lg font-bold text-white tabular-nums">
+        {emoji} {count}-{unit} {label}
+      </p>
+    </div>
+  );
 }
 
 export default function ConsistentDisciplinePage() {
@@ -30,6 +82,32 @@ export default function ConsistentDisciplinePage() {
   const [weekLogs, setWeekLogs] = useState<DisciplineLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [heroLoading, setHeroLoading] = useState(true);
+  const [heroCallsMade, setHeroCallsMade] = useState(0);
+  const [historyLogs, setHistoryLogs] = useState<DisciplineLogLite[]>([]);
+
+  // Hero stats (score + streaks) are always anchored to real "today",
+  // independent of the `date` picker below (which lets you view/edit past
+  // days) -- a live score that changed while browsing history would be
+  // misleading. Fetched once on mount, not on `date` change.
+  useEffect(() => {
+    const realToday = todayStr();
+    const windowStart = addDaysStr(realToday, -STREAK_WINDOW_DAYS);
+    const windowEnd = addDaysStr(realToday, 1);
+
+    setHeroLoading(true);
+    Promise.all([
+      fetch(`/api/consistent-discipline?start=${windowStart}&end=${windowEnd}`).then((r) => r.json()),
+      fetch(`/api/bvm/call-log?date=${realToday}`).then((r) => r.json()),
+    ])
+      .then(([logs, callLog]) => {
+        setHistoryLogs(logs);
+        const cells = (callLog.cellData as { status: string | null }[]) || [];
+        setHeroCallsMade(cells.filter((c) => c.status).length);
+      })
+      .catch(() => toast.error('Failed to load discipline stats'))
+      .finally(() => setHeroLoading(false));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -80,6 +158,26 @@ export default function ConsistentDisciplinePage() {
   const jiuJitsuWeekCount = weekLogs.filter((l) => l.jiuJitsu).length;
   const workoutWeekCount = weekLogs.filter((l) => l.workout).length;
 
+  const realToday = todayStr();
+  const heroToday = historyLogs.find((l) => l.date === realToday);
+  const heroWeek = weekRange(realToday);
+  const heroWeekLogs = historyLogs.filter((l) => l.date >= heroWeek.start && l.date < heroWeek.end);
+  const heroJiuJitsuWeekCount = heroWeekLogs.filter((l) => l.jiuJitsu).length;
+  const heroWorkoutWeekCount = heroWeekLogs.filter((l) => l.workout).length;
+
+  const dailyScore = Math.round(
+    20 * Math.min(1, heroCallsMade / CALL_DAILY_TARGET) +
+      20 * Math.min(1, (heroToday?.pagesRead ?? 0) / PAGES_TARGET) +
+      20 * Math.min(1, (heroToday?.waterGlasses ?? 0) / WATER_TARGET) +
+      20 * Math.min(1, heroJiuJitsuWeekCount / WEEKLY_TARGET) +
+      20 * Math.min(1, heroWorkoutWeekCount / WEEKLY_TARGET)
+  );
+
+  const readingStreak = computeDailyStreak(historyLogs, realToday, (l) => l.pagesRead >= PAGES_TARGET);
+  const waterStreak = computeDailyStreak(historyLogs, realToday, (l) => l.waterGlasses >= WATER_TARGET);
+  const jiuJitsuStreak = computeWeeklyStreak(historyLogs, realToday, (l) => l.jiuJitsu, (count) => count >= WEEKLY_TARGET);
+  const workoutStreak = computeWeeklyStreak(historyLogs, realToday, (l) => l.workout, (count) => count >= WEEKLY_TARGET);
+
   return (
     <div className="px-6 pb-6 pt-[calc(4rem+env(safe-area-inset-top))] md:px-8 md:pb-8 space-y-6 max-w-4xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
@@ -99,6 +197,22 @@ export default function ConsistentDisciplinePage() {
           className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
         />
       </div>
+
+      {heroLoading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+        </div>
+      ) : (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center gap-5">
+          <ScoreRing score={dailyScore} />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
+            <StreakBadge emoji="🔥" count={readingStreak} unit="Day" label="Reading Streak" />
+            <StreakBadge emoji="💧" count={waterStreak} unit="Day" label="Water Streak" />
+            <StreakBadge emoji="🥋" count={jiuJitsuStreak} unit="Week" label="Jiu-Jitsu Streak" />
+            <StreakBadge emoji="💪" count={workoutStreak} unit="Week" label="Workout Streak" />
+          </div>
+        </div>
+      )}
 
       {loading || !log ? (
         <div className="flex items-center justify-center h-40">
