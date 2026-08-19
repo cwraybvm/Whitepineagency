@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar } = body;
+    const { date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar, appointmentTime, address, startAddress } = body;
 
     if (!date || !clientName) {
       return NextResponse.json({ error: 'Missing date or client name' }, { status: 400 });
@@ -53,6 +53,9 @@ export async function POST(request: Request) {
         notes: notes || '',
         followUp: followUp || '',
         syncToCalendar: Boolean(syncToCalendar),
+        appointmentTime: appointmentTime || null,
+        address: address || null,
+        startAddress: startAddress || null,
       },
     });
 
@@ -70,7 +73,8 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const { id, date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar } = await request.json();
+    const { id, date, clientName, clientEmail, outcome, notes, followUp, syncToCalendar, appointmentTime, address, startAddress } =
+      await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Missing appointment ID' }, { status: 400 });
@@ -84,6 +88,9 @@ export async function PATCH(request: Request) {
     if (notes !== undefined) data.notes = notes;
     if (followUp !== undefined) data.followUp = followUp;
     if (syncToCalendar !== undefined) data.syncToCalendar = Boolean(syncToCalendar);
+    if (appointmentTime !== undefined) data.appointmentTime = appointmentTime || null;
+    if (address !== undefined) data.address = address || null;
+    if (startAddress !== undefined) data.startAddress = startAddress || null;
 
     const appointment = await prisma.bvmAppointment.update({ where: { id }, data });
     return NextResponse.json({ success: true, appointment });
