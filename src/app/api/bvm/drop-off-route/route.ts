@@ -46,6 +46,9 @@ export async function GET() {
       address: `${c.address.street}, ${c.address.city}, ${c.address.state} ${c.address.zip}`,
       lat,
       lng,
+      contactNotes: c.contactNotes,
+      photoUrl: c.photoUrl,
+      lastContacted: c.lastContacted,
     });
   }
 
