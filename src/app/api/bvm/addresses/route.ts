@@ -27,14 +27,25 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { customerName, street, city, state, zip, phone, publicationName, magazineZone } = body;
+    const { customerName, street, city, state, zip, phone, publicationName, magazineZone, lat, lng } = body;
 
     if (!customerName || !street || !city || !state || !zip) {
       return NextResponse.json({ error: 'Missing required address fields' }, { status: 400 });
     }
 
     const address = await prisma.bvmAddress.create({
-      data: { customerName, street, city, state, zip, phone, publicationName, magazineZone },
+      data: {
+        customerName,
+        street,
+        city,
+        state,
+        zip,
+        phone,
+        publicationName,
+        magazineZone,
+        lat: typeof lat === 'number' ? lat : undefined,
+        lng: typeof lng === 'number' ? lng : undefined,
+      },
     });
 
     return NextResponse.json({ success: true, address }, { status: 201 });

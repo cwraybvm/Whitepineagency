@@ -38,6 +38,9 @@ export default function ClientKanbanPage() {
   const [newName, setNewName] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const [activeCard, setActiveCard] = useState<KanbanClient | null>(null);
+  const [addingAddress, setAddingAddress] = useState(false);
+  const [newAddressForm, setNewAddressForm] = useState({ street: '', city: '', state: '', zip: '' });
+  const [savingAddress, setSavingAddress] = useState(false);
 
   function load() {
     setLoading(true);
@@ -92,6 +95,57 @@ export default function ClientKanbanPage() {
   function onDrop(stage: string) {
     if (dragId) updateClient(dragId, { stage });
     setDragId(null);
+  }
+
+  async function saveNewAddress() {
+    if (!activeCard) return;
+    const { street, city, state, zip } = newAddressForm;
+    if (!street.trim() || !city.trim() || !state.trim() || !zip.trim()) {
+      toast.error('Fill in street, city, state, and zip');
+      return;
+    }
+
+    setSavingAddress(true);
+    try {
+      // Best-effort geocode -- an address is still useful without lat/lng
+      // (Drop-Off Route already handles ungeocoded stops with a warning
+      // badge rather than blocking), so a 422 here doesn't stop the save.
+      let lat: number | undefined;
+      let lng: number | undefined;
+      try {
+        const geoRes = await fetch('/api/bvm/drop-off-route/geocode-start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: `${street}, ${city}, ${state} ${zip}` }),
+        });
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          lat = geo.lat;
+          lng = geo.lng;
+        }
+      } catch {
+        // geocode is best-effort, fall through without lat/lng
+      }
+
+      const addrRes = await fetch('/api/bvm/addresses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerName: activeCard.clientName, street, city, state, zip, lat, lng }),
+      });
+      if (!addrRes.ok) throw new Error();
+      const { address } = await addrRes.json();
+
+      await updateClient(activeCard.id, { addressId: address.id });
+      setActiveCard((c) => (c ? { ...c, addressId: address.id } : c));
+      setAddresses((prev) => [...prev, { id: address.id, customerName: address.customerName, street: address.street, city: address.city }]);
+      setNewAddressForm({ street: '', city: '', state: '', zip: '' });
+      setAddingAddress(false);
+      toast.success('Address created and linked');
+    } catch {
+      toast.error('Failed to create address');
+    } finally {
+      setSavingAddress(false);
+    }
   }
 
   return (
@@ -230,7 +284,16 @@ export default function ClientKanbanPage() {
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
             />
 
-            <label className="text-[11px] font-mono uppercase text-slate-500 block">Linked Address</label>
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-mono uppercase text-slate-500 block">Linked Address</label>
+              <button
+                type="button"
+                onClick={() => setAddingAddress((v) => !v)}
+                className="text-[10px] font-bold text-emerald-400 hover:text-emerald-300"
+              >
+                {addingAddress ? 'Cancel' : '+ Add New Address'}
+              </button>
+            </div>
             <select
               value={activeCard.addressId || ''}
               onChange={(e) => {
@@ -247,6 +310,46 @@ export default function ClientKanbanPage() {
                 </option>
               ))}
             </select>
+
+            {addingAddress && (
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2">
+                <input
+                  placeholder="Street Address"
+                  value={newAddressForm.street}
+                  onChange={(e) => setNewAddressForm((f) => ({ ...f, street: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    placeholder="City"
+                    value={newAddressForm.city}
+                    onChange={(e) => setNewAddressForm((f) => ({ ...f, city: e.target.value }))}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                  />
+                  <input
+                    placeholder="State"
+                    value={newAddressForm.state}
+                    onChange={(e) => setNewAddressForm((f) => ({ ...f, state: e.target.value }))}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                  />
+                  <input
+                    placeholder="Zip"
+                    value={newAddressForm.zip}
+                    onChange={(e) => setNewAddressForm((f) => ({ ...f, zip: e.target.value }))}
+                    className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={saveNewAddress}
+                  disabled={savingAddress}
+                  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-2 rounded-lg disabled:opacity-50"
+                >
+                  {savingAddress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  {savingAddress ? 'Saving…' : 'Save Address'}
+                </button>
+              </div>
+            )}
             <p className="text-[10px] text-slate-500">Linking an address makes this client available in Drop-Off Route.</p>
 
             <button onClick={() => setActiveCard(null)} className="w-full bg-white/5 hover:bg-white/10 text-white font-bold text-sm px-4 py-2.5 rounded-xl mt-1">

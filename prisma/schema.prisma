@@ -809,6 +809,21 @@ model BvmAppointment {
   @@index([date])
 }
 
+model ConsistentDisciplineLog {
+  id           String   @id @default(uuid())
+  date         String   @unique // YYYY-MM-DD
+  pagesRead    Int      @default(0)
+  jiuJitsu     Boolean  @default(false)
+  workout      Boolean  @default(false)
+  waterGlasses Int      @default(0)
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([date])
+}
+
 model BvmClientKanban {
   id             String    @id @default(uuid())
   clientName     String

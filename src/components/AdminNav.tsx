@@ -65,6 +65,7 @@ export default function AdminNav() {
     { href: "/admin/analytics", label: "Telemetry Analytics", mobileLabel: "Analytics", icon: "📊" },
     { href: "/admin/cmo", label: "CMO Dashboard", mobileLabel: "CMO", icon: "🧭" },
     { href: "/admin/vault", label: "Integration Vault", mobileLabel: "Vault", icon: "🔐" },
+    { href: "/admin/consistent-discipline", label: "Consistent Discipline", mobileLabel: "Discipline", icon: "🎯" },
   ];
 
   // Mobile bottom bar only has room for 4 anchors -- the 3 highest-traffic
