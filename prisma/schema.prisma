@@ -790,10 +790,12 @@ model BvmAppointment {
   id             String   @id @default(uuid())
   date           DateTime
   clientName     String
+  clientEmail    String?
   outcome        String   @default("")
   notes          String   @default("") @db.Text
   followUp       String   @default("")
   syncToCalendar Boolean  @default(false)
+  inviteSentAt   DateTime?
 
   createdAt DateTime @default(now())
 

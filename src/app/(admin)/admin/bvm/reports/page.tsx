@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { FileBarChart2, Loader2 } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, FunnelChart, Funnel, LabelList } from 'recharts';
+import { FileBarChart2, Loader2, Filter } from 'lucide-react';
 import { BVM_STATUS_OPTIONS } from '@/lib/bvmStatus';
 
 type Range = 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -19,7 +19,15 @@ interface ReportData {
   conferenceAttendanceRate: number;
   newAddressesTotal: number;
   newAddressesSentToBvm: number;
+  funnel: {
+    totalCalls: number;
+    connects: number;
+    appointmentsScheduled: number;
+    closedDeals: number;
+  };
 }
+
+const FUNNEL_COLORS = ['#0EA5E9', '#22C55E', '#F97316', '#A855F7'];
 
 const RANGES: Range[] = ['daily', 'weekly', 'monthly', 'yearly'];
 
@@ -49,6 +57,15 @@ export default function BvmReportsPage() {
         color: o.color,
         value: showPercent && data.totalCalls > 0 ? Math.round((data.statusCounts[o.value] / data.totalCalls) * 100) : data.statusCounts[o.value],
       }))
+    : [];
+
+  const funnelData = data
+    ? [
+        { name: 'Total Calls Made', value: data.funnel.totalCalls, fill: FUNNEL_COLORS[0] },
+        { name: 'Connects (Yes/LMGK)', value: data.funnel.connects, fill: FUNNEL_COLORS[1] },
+        { name: 'Appointments Scheduled', value: data.funnel.appointmentsScheduled, fill: FUNNEL_COLORS[2] },
+        { name: 'Closed Deals', value: data.funnel.closedDeals, fill: FUNNEL_COLORS[3] },
+      ]
     : [];
 
   return (
@@ -129,6 +146,37 @@ export default function BvmReportsPage() {
                 </BarChart>
               </ResponsiveContainer>
             )}
+          </div>
+
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Filter className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-sm font-bold text-white">Conversion Funnel</h3>
+            </div>
+            {data.funnel.totalCalls === 0 ? (
+              <div className="h-[260px] flex items-center justify-center text-slate-500 text-sm">No calls logged in this window</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <FunnelChart>
+                  <Tooltip contentStyle={{ background: '#0F172A', border: '1px solid #1e293b', borderRadius: 8, fontSize: 12 }} />
+                  <Funnel dataKey="value" data={funnelData} isAnimationActive>
+                    <LabelList position="right" dataKey="name" fill="#e2e8f0" stroke="none" fontSize={11} />
+                    <LabelList position="center" dataKey="value" fill="#020617" stroke="none" fontSize={13} fontWeight={700} />
+                    {funnelData.map((d, i) => (
+                      <Cell key={i} fill={d.fill} />
+                    ))}
+                  </Funnel>
+                </FunnelChart>
+              </ResponsiveContainer>
+            )}
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {funnelData.map((d) => (
+                <div key={d.name} className="text-center">
+                  <p className="text-[9px] font-mono uppercase text-slate-500 truncate">{d.name}</p>
+                  <p className="text-sm font-bold tabular-nums" style={{ color: d.fill }}>{d.value}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}

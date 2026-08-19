@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Phone, Minus, Plus, Loader2 } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 
 interface CellDatum {
@@ -14,6 +14,11 @@ interface CellDatum {
 const MIN_CELLS = 45;
 const MAX_CELLS = 70;
 const STEP = 5;
+const DAILY_TARGET = 45;
+const FOLLOW_UP_STATUSES = new Set(['LVM', 'NA']);
+// BVM's working day for pace comparison -- calls logged vs. expected-by-now.
+const WORKDAY_START_MIN = 9 * 60;
+const WORKDAY_END_MIN = 17 * 60;
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -23,18 +28,33 @@ function buildGrid(count: number): CellDatum[] {
   return Array.from({ length: count }, (_, i) => ({ cellNumber: i + 1, status: null }));
 }
 
+function computePace(filled: number, date: string): { label: string; className: string } | null {
+  if (date !== todayStr()) return null;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const frac = Math.min(1, Math.max(0, (nowMin - WORKDAY_START_MIN) / (WORKDAY_END_MIN - WORKDAY_START_MIN)));
+  if (frac <= 0) return { label: 'Not Started', className: 'text-slate-400' };
+  const expected = Math.round(DAILY_TARGET * frac);
+  if (filled >= expected) return { label: 'Ahead of Pace', className: 'text-emerald-400' };
+  if (filled >= expected - 5) return { label: 'On Pace', className: 'text-amber-400' };
+  return { label: 'Behind Pace', className: 'text-red-400' };
+}
+
 export default function CallConsistencyPage() {
   const [date, setDate] = useState(todayStr());
   const [cellCount, setCellCount] = useState(MIN_CELLS);
   const [cellData, setCellData] = useState<CellDatum[]>(buildGrid(MIN_CELLS));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [spawnedCells, setSpawnedCells] = useState<Set<number>>(new Set());
+  const [spawningCell, setSpawningCell] = useState<number | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     loadedForDate.current = null;
+    setSpawnedCells(new Set());
     fetch(`/api/bvm/call-log?date=${date}`)
       .then((res) => res.json())
       .then((data) => {
@@ -86,6 +106,32 @@ export default function CallConsistencyPage() {
     scheduleSave(next, nextData);
   }
 
+  async function spawnFollowUpTask(cell: CellDatum) {
+    setSpawningCell(cell.cellNumber);
+    try {
+      const dueDate = new Date(`${date}T00:00:00.000Z`);
+      dueDate.setUTCDate(dueDate.getUTCDate() + 1);
+      const res = await fetch('/api/focus-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `BVM Follow-up: Cell #${cell.cellNumber} (${cell.status}) — ${date}`,
+          dueDate: dueDate.toISOString(),
+          isUrgent: cell.status === 'NA',
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setSpawnedCells((prev) => new Set(prev).add(cell.cellNumber));
+      toast.success(`Follow-up task created for cell #${cell.cellNumber}`);
+    } catch {
+      toast.error('Failed to spawn follow-up task');
+    } finally {
+      setSpawningCell(null);
+    }
+  }
+
+  const pace = computePace(cellData.filter((c) => c.status).length, date);
+
   const breakdown = useMemo(() => {
     const counts: Record<string, number> = Object.fromEntries(BVM_STATUS_OPTIONS.map((o) => [o.value, 0]));
     let filled = 0;
@@ -119,6 +165,16 @@ export default function CallConsistencyPage() {
             onChange={(e) => setDate(e.target.value)}
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
           />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+        <div className="flex items-center gap-2">
+          <Gauge className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span className="text-sm font-bold text-white tabular-nums">
+            {breakdown.filled}/{DAILY_TARGET} Calls Completed
+          </span>
+          {pace && <span className={`text-xs font-mono font-bold uppercase ${pace.className}`}>— {pace.label}</span>}
         </div>
       </div>
 
@@ -171,6 +227,27 @@ export default function CallConsistencyPage() {
                       </option>
                     ))}
                   </select>
+                  {cell.status && FOLLOW_UP_STATUSES.has(cell.status) && (
+                    spawnedCells.has(cell.cellNumber) ? (
+                      <span className="flex items-center justify-center gap-1 text-[8px] font-bold text-emerald-400 py-1 bg-slate-950">
+                        <Check className="w-2.5 h-2.5" /> Task
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => spawnFollowUpTask(cell)}
+                        disabled={spawningCell === cell.cellNumber}
+                        title="Spawn follow-up task"
+                        className="flex items-center justify-center gap-1 text-[8px] font-bold text-slate-400 hover:text-white py-1 bg-slate-950 hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {spawningCell === cell.cellNumber ? (
+                          <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        ) : (
+                          <ListPlus className="w-2.5 h-2.5" />
+                        )}{' '}
+                        Follow-up
+                      </button>
+                    )
+                  )}
                 </div>
               );
             })}

@@ -29,12 +29,23 @@ const EMPTY_FORM = {
   magazineZone: '',
 };
 
+function toCsv(rows: BvmAddress[]): string {
+  const header = 'Customer Name,Street,City,State,Zip,Phone,Publication,Zone';
+  const lines = rows.map((a) =>
+    [a.customerName, a.street, a.city, a.state, a.zip, a.phone || '', a.publicationName || '', a.magazineZone || '']
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(',')
+  );
+  return [header, ...lines].join('\n');
+}
+
 export default function AddressesPage() {
   const [addresses, setAddresses] = useState<BvmAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   function loadAddresses() {
     setLoading(true);
@@ -83,6 +94,33 @@ export default function AddressesPage() {
     }
   }
 
+  async function handleExportCsv() {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/bvm/addresses/export', { method: 'POST' });
+      if (!res.ok) throw new Error();
+      const { addresses: exported } = await res.json();
+      if (exported.length === 0) {
+        toast.info('No unsent addresses to export');
+        return;
+      }
+      const csv = toCsv(exported);
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `bvm-upload-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Exported ${exported.length} address${exported.length === 1 ? '' : 'es'} — marked Sent to BVM`);
+      loadAddresses();
+    } catch {
+      toast.error('Failed to export addresses');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   function field(key: keyof typeof EMPTY_FORM) {
     return {
       value: form[key],
@@ -100,12 +138,22 @@ export default function AddressesPage() {
           </div>
           <p className="text-gray-400 text-[10px] mt-0.5 font-sans">Business addresses queued for BVM</p>
         </div>
-        <button
-          onClick={() => setModalOpen(true)}
-          className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl"
-        >
-          <Plus className="w-4 h-4" /> New Address
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCsv}
+            disabled={exporting}
+            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+          >
+            {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <span>📥</span>}
+            Export BVM Upload CSV
+          </button>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl"
+          >
+            <Plus className="w-4 h-4" /> New Address
+          </button>
+        </div>
       </div>
 
       {loading ? (

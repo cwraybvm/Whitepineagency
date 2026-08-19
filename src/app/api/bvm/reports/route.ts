@@ -48,10 +48,11 @@ export async function GET(request: Request) {
   const startStr = start.toISOString().slice(0, 10);
   const endStr = end.toISOString().slice(0, 10);
 
-  const [callLogs, conferenceCalls, addresses] = await Promise.all([
+  const [callLogs, conferenceCalls, addresses, appointments] = await Promise.all([
     prisma.bvmCallLog.findMany({ where: { date: { gte: startStr, lt: endStr } } }),
     prisma.bvmConferenceCall.findMany({ where: { date: { gte: startStr, lt: endStr } } }),
     prisma.bvmAddress.findMany({ where: { createdAt: { gte: start, lt: end } } }),
+    prisma.bvmAppointment.findMany({ where: { date: { gte: start, lt: end } } }),
   ]);
 
   const statusCounts: Record<string, number> = Object.fromEntries(BVM_STATUS_OPTIONS.map((o) => [o.value, 0]));
@@ -71,6 +72,12 @@ export async function GET(request: Request) {
   const attendanceRate = conferenceCalls.length ? Math.round((attendedCount / conferenceCalls.length) * 100) : 0;
   const addressesSent = addresses.filter((a) => a.sentToBvm).length;
 
+  // Conversion funnel: total calls -> connects (Yes/LMGK) -> appointments
+  // scheduled -> closed deals (outcome contains "closed", e.g. "Closed - Won").
+  const connects = statusCounts.Yes + statusCounts.LMGK;
+  const appointmentsScheduled = appointments.length;
+  const closedDeals = appointments.filter((a) => a.outcome.toLowerCase().includes('closed')).length;
+
   return NextResponse.json({
     range,
     startDate: startStr,
@@ -82,5 +89,11 @@ export async function GET(request: Request) {
     conferenceAttendanceRate: attendanceRate,
     newAddressesTotal: addresses.length,
     newAddressesSentToBvm: addressesSent,
+    funnel: {
+      totalCalls,
+      connects,
+      appointmentsScheduled,
+      closedDeals,
+    },
   });
 }
