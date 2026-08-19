@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { MapPin, Plus, X, Loader2 } from 'lucide-react';
+import { MapPin, Plus, X, Loader2, Map as MapIcon, List } from 'lucide-react';
+import TerritoryMap from '@/components/bvm/TerritoryMap';
 
 interface BvmAddress {
   id: string;
@@ -46,6 +47,9 @@ export default function AddressesPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [zoneFilter, setZoneFilter] = useState('all');
+  const [publicationFilter, setPublicationFilter] = useState('all');
 
   function loadAddresses() {
     setLoading(true);
@@ -121,6 +125,16 @@ export default function AddressesPage() {
     }
   }
 
+  const zones = useMemo(() => Array.from(new Set(addresses.map((a) => a.magazineZone).filter(Boolean))) as string[], [addresses]);
+  const publications = useMemo(() => Array.from(new Set(addresses.map((a) => a.publicationName).filter(Boolean))) as string[], [addresses]);
+  const filteredAddresses = useMemo(
+    () =>
+      addresses.filter(
+        (a) => (zoneFilter === 'all' || a.magazineZone === zoneFilter) && (publicationFilter === 'all' || a.publicationName === publicationFilter)
+      ),
+    [addresses, zoneFilter, publicationFilter]
+  );
+
   function field(key: keyof typeof EMPTY_FORM) {
     return {
       value: form[key],
@@ -140,6 +154,15 @@ export default function AddressesPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setViewMode((v) => (v === 'list' ? 'map' : 'list'))}
+            className={`flex items-center gap-2 font-bold text-sm px-4 py-2.5 rounded-xl ${
+              viewMode === 'map' ? 'bg-purple-600 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10'
+            }`}
+          >
+            {viewMode === 'map' ? <List className="w-4 h-4" /> : <MapIcon className="w-4 h-4" />}
+            {viewMode === 'map' ? 'List View' : '🗺️ Territory Map View'}
+          </button>
+          <button
             onClick={handleExportCsv}
             disabled={exporting}
             className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
@@ -156,12 +179,32 @@ export default function AddressesPage() {
         </div>
       </div>
 
+      {viewMode === 'map' && (
+        <div className="flex flex-wrap items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5">
+          <span className="text-[11px] font-mono uppercase text-slate-500">Filters:</span>
+          <select value={zoneFilter} onChange={(e) => setZoneFilter(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+            <option value="all">All Zones</option>
+            {zones.map((z) => (
+              <option key={z} value={z}>{z}</option>
+            ))}
+          </select>
+          <select value={publicationFilter} onChange={(e) => setPublicationFilter(e.target.value)} className="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-white">
+            <option value="all">All Publications</option>
+            {publications.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center h-40">
           <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
         </div>
       ) : addresses.length === 0 ? (
         <div className="border border-white/10 rounded-2xl p-6 text-center text-gray-500">No addresses yet — add one above.</div>
+      ) : viewMode === 'map' ? (
+        <TerritoryMap addresses={filteredAddresses} />
       ) : (
         <div className="space-y-2.5">
           {addresses.map((a) => (
