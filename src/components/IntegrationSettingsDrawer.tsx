@@ -99,7 +99,7 @@ export default function IntegrationSettingsDrawer({
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 right-0 h-full w-full max-w-lg bg-white border-l border-slate-200 dark:bg-[#080E1A] dark:border-white/10 z-[150] p-6 shadow-2xl font-mono text-xs flex flex-col justify-between overflow-y-auto"
+            className="fixed top-0 right-0 h-full w-full max-w-lg bg-white border-l border-slate-200 dark:bg-[#080E1A] dark:border-white/10 z-[150] p-6 pt-[calc(4rem+env(safe-area-inset-top))] shadow-2xl font-mono text-xs flex flex-col justify-between overflow-y-auto"
           >
             <div className="space-y-6">
               {/* Header */}
