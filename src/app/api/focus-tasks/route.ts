@@ -16,10 +16,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const tasks = await prisma.task.findMany({
-    orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
-  });
-  return NextResponse.json(tasks);
+  try {
+    const tasks = await prisma.task.findMany({
+      orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
+    });
+    return NextResponse.json(tasks);
+  } catch (err: any) {
+    // A Prisma/DB failure here previously fell through to a non-JSON 500 --
+    // the board's load() call couldn't parse it and the page silently kept
+    // whatever (possibly empty) task list it started with.
+    console.error('GET /api/focus-tasks failed:', err);
+    return NextResponse.json({ error: err?.message || 'Failed to load tasks' }, { status: 500 });
+  }
 }
 
 export async function POST(req: Request) {

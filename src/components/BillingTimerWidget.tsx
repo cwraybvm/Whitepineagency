@@ -117,9 +117,10 @@ export default function BillingTimerWidget({ variant = 'floating' }: BillingTime
     toast.success('Time entry saved as pending billable time');
   }
 
-  // /admin/tasks docks its own inline instance in the page header instead --
+  // These routes dock their own inline instance in the page header instead --
   // suppress the floating one there so the timer never overlaps page content.
-  if (variant === 'floating' && pathname === '/admin/tasks') return null;
+  const DOCKED_ROUTES = ['/admin/tasks', '/admin/bvm/call-consistency'];
+  if (variant === 'floating' && DOCKED_ROUTES.includes(pathname)) return null;
 
   if (variant === 'floating' && dockState === 'collapsed') {
     return (
