@@ -264,12 +264,16 @@ function TasksBoardContent() {
           scheduledAt: optimisticTask.scheduledAt,
         }),
       });
-      if (!res.ok) throw new Error(`POST /api/focus-tasks failed with ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `POST /api/focus-tasks failed with ${res.status}`);
+      }
       const created: FocusTask = await res.json();
       setTasks((prev) => prev.map((t) => (t.id === tempId ? created : t)));
-    } catch {
+    } catch (err) {
+      console.error('Could not add task:', err);
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
-      toast.error('Could not add task. Please try again.');
+      toast.error(err instanceof Error && err.message ? err.message : 'Could not add task. Please try again.');
     }
   }
 

@@ -88,13 +88,25 @@ export default function CallConsistencyPage() {
     setSpawnedCells(new Set());
     setEmailedCells(new Set());
     fetch(`/api/bvm/call-log?date=${date}`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        // A non-ok response (401, a transient DB error, ...) must not be
+        // read as "nothing saved yet" -- that silently hid real failures
+        // behind an empty grid, and left loadedForDate.current pointing at
+        // this date so the next edit's auto-save would PUT over whatever
+        // was actually on the server.
+        if (!res.ok) throw new Error(data.error || `Failed to load call log (${res.status})`);
+        return data;
+      })
       .then((data) => {
         setCellCount(data.cellCount || MIN_CELLS);
         setCellData(data.cellData || buildGrid(MIN_CELLS));
         loadedForDate.current = date;
       })
-      .catch(() => toast.error('Failed to load call log'))
+      .catch((err) => {
+        console.error('Failed to load call log:', err);
+        toast.error(err instanceof Error && err.message ? err.message : 'Failed to load call log');
+      })
       .finally(() => setLoading(false));
   }, [date]);
 
@@ -119,9 +131,13 @@ export default function CallConsistencyPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ date, cellCount: nextCellCount, cellData: nextCellData }),
         });
-        if (!res.ok) throw new Error();
-      } catch {
-        toast.error('Auto-save failed');
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `Auto-save failed (${res.status})`);
+        }
+      } catch (err) {
+        console.error('BVM call-log auto-save failed:', err);
+        toast.error(err instanceof Error && err.message ? err.message : 'Auto-save failed');
       } finally {
         setSaving(false);
       }
