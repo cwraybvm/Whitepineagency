@@ -819,6 +819,8 @@ model BvmClientKanban {
   createdAt DateTime @default(now())
 
   @@index([stage])
+  @@index([lastContacted])
+  @@index([nextContacted])
 }
 
 model BvmAddress {
@@ -850,4 +852,18 @@ model BvmEmailTemplate {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([category])
+}
+
+// 🗞️ Publisher Growth: monthly issue targets + ad content deadlines
+model BvmPublicationIssue {
+  id           String   @id @default(uuid())
+  issueName    String // e.g. "October 2026"
+  deadlineDate DateTime
+  adSpaceGoal  Float
+  adSpaceSold  Float    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([deadlineDate])
 }

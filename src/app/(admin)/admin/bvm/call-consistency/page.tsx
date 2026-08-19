@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send } from 'lucide-react';
+import { Phone, Minus, Plus, Loader2, ListPlus, Check, Gauge, Mail, X, Send, RefreshCw, FileText } from 'lucide-react';
 import { BVM_STATUS_OPTIONS, BVM_STATUS_COLOR } from '@/lib/bvmStatus';
 
 interface CellDatum {
@@ -17,6 +17,12 @@ interface EmailTemplate {
   subject: string;
   body: string;
   category: string;
+}
+
+interface RecycleItem {
+  date: string;
+  cellNumber: number;
+  status: string;
 }
 
 const MIN_CELLS = 45;
@@ -68,6 +74,11 @@ export default function CallConsistencyPage() {
   const [emailForm, setEmailForm] = useState({ to: '', clientName: '', magazineZone: '', senderName: '' });
   const [sendingEmail, setSendingEmail] = useState(false);
   const [emailedCells, setEmailedCells] = useState<Set<number>>(new Set());
+  const [recycleQueue, setRecycleQueue] = useState<RecycleItem[]>([]);
+  const [recycleLoading, setRecycleLoading] = useState(true);
+  const [recallingKey, setRecallingKey] = useState<string | null>(null);
+  const [eodRecipient, setEodRecipient] = useState('');
+  const [sendingEod, setSendingEod] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedForDate = useRef<string | null>(null);
 
@@ -86,6 +97,16 @@ export default function CallConsistencyPage() {
       .catch(() => toast.error('Failed to load call log'))
       .finally(() => setLoading(false));
   }, [date]);
+
+  useEffect(() => {
+    setEodRecipient(localStorage.getItem('bvm-eod-recipient') || '');
+    setRecycleLoading(true);
+    fetch('/api/bvm/call-log/recycle-queue')
+      .then((res) => res.json())
+      .then(setRecycleQueue)
+      .catch(() => toast.error('Failed to load re-engagement queue'))
+      .finally(() => setRecycleLoading(false));
+  }, []);
 
   function scheduleSave(nextCellCount: number, nextCellData: CellDatum[]) {
     if (loadedForDate.current !== date) return; // don't save over data we haven't finished loading
@@ -187,6 +208,81 @@ export default function CallConsistencyPage() {
       toast.error(err.message || 'Failed to send email');
     } finally {
       setSendingEmail(false);
+    }
+  }
+
+  async function recallProspect(item: RecycleItem) {
+    const key = `${item.date}-${item.cellNumber}`;
+    setRecallingKey(key);
+    try {
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 1);
+      const res = await fetch('/api/focus-tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Re-engage: Cell #${item.cellNumber} (${item.status} from ${item.date})`,
+          dueDate: dueDate.toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      setRecycleQueue((prev) => prev.filter((i) => `${i.date}-${i.cellNumber}` !== key));
+      toast.success('Re-engagement task created');
+    } catch {
+      toast.error('Failed to recall prospect');
+    } finally {
+      setRecallingKey(null);
+    }
+  }
+
+  function updateEodRecipient(value: string) {
+    setEodRecipient(value);
+    localStorage.setItem('bvm-eod-recipient', value);
+  }
+
+  async function sendEodSummary() {
+    if (!eodRecipient) {
+      toast.error('Enter a recipient email first');
+      return;
+    }
+    setSendingEod(true);
+    try {
+      const [conference, appointmentsMonth, allAddresses] = await Promise.all([
+        fetch(`/api/bvm/conference?date=${date}`).then((r) => r.json()),
+        fetch(`/api/bvm/appointments?month=${date.slice(0, 7)}`).then((r) => r.json()),
+        fetch('/api/bvm/addresses').then((r) => r.json()),
+      ]);
+
+      const appointmentsToday = (appointmentsMonth as { date: string }[]).filter((a) => a.date.slice(0, 10) === date);
+      const addressesToday = (allAddresses as { createdAt: string }[]).filter((a) => a.createdAt.slice(0, 10) === date);
+
+      const breakdownLines = BVM_STATUS_OPTIONS.map((o) => `  ${o.label}: ${breakdown.counts[o.value]}`).join('\n');
+      const body = `BVM Daily EOD Summary — ${date}
+
+Total Calls: ${breakdown.filled} / ${DAILY_TARGET}
+
+Breakdown by Status:
+${breakdownLines}
+
+Conference Call Attendance: ${conference.attended ? 'Attended' : 'Did Not Attend'} (${conference.callType || 'Custom'})
+
+Appointments Booked Today: ${appointmentsToday.length}
+
+New Addresses Entered Today: ${addressesToday.length}
+`;
+
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: eodRecipient, subject: `BVM Daily EOD Summary — ${date}`, body }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      toast.success(`EOD summary sent to ${eodRecipient}`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send EOD summary');
+    } finally {
+      setSendingEod(false);
     }
   }
 
@@ -364,6 +460,67 @@ export default function CallConsistencyPage() {
               </PieChart>
             </ResponsiveContainer>
           )}
+        </div>
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-1">
+          <RefreshCw className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-bold text-white">Re-engagement Queue</h3>
+        </div>
+        <p className="text-[11px] text-slate-500 mb-3">NA / LVM calls from 7+ days ago with no follow-through</p>
+        {recycleLoading ? (
+          <div className="flex items-center justify-center h-20">
+            <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+          </div>
+        ) : recycleQueue.length === 0 ? (
+          <p className="text-xs text-slate-500">Nothing stuck in the cold queue right now.</p>
+        ) : (
+          <div className="space-y-1.5 max-h-72 overflow-y-auto">
+            {recycleQueue.map((item) => {
+              const key = `${item.date}-${item.cellNumber}`;
+              const color = BVM_STATUS_COLOR[item.status];
+              return (
+                <div key={key} className="flex items-center justify-between gap-3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2">
+                  <span className="text-xs font-mono text-slate-300">
+                    <span className="font-bold" style={{ color }}>{item.status}</span> — Cell #{item.cellNumber} on {item.date}
+                  </span>
+                  <button
+                    onClick={() => recallProspect(item)}
+                    disabled={recallingKey === key}
+                    className="shrink-0 flex items-center gap-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] px-3 py-1.5 rounded-lg disabled:opacity-50"
+                  >
+                    {recallingKey === key ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Recall
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText className="w-4 h-4 text-sky-400" />
+          <h3 className="text-sm font-bold text-white">📧 Send Daily EOD Summary Email</h3>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="email"
+            placeholder="recipient@example.com"
+            value={eodRecipient}
+            onChange={(e) => updateEodRecipient(e.target.value)}
+            className="flex-1 min-w-[200px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+          />
+          <button
+            onClick={sendEodSummary}
+            disabled={sendingEod}
+            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+          >
+            {sendingEod ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {sendingEod ? 'Sending…' : 'Send EOD Summary'}
+          </button>
         </div>
       </div>
 

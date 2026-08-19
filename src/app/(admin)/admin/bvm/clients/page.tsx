@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { KanbanSquare, Plus, Loader2 } from 'lucide-react';
+import { KanbanSquare, Plus, Loader2, AlertTriangle } from 'lucide-react';
 
 interface KanbanClient {
   id: string;
@@ -14,6 +14,13 @@ interface KanbanClient {
 }
 
 const STAGES = ['Lead', 'First Contact', 'Appointment Set', 'Closed/Won', 'Follow-up Needed'];
+const STALE_DAYS = 14;
+
+function isStale(lastContacted: string | null): boolean {
+  if (!lastContacted) return false;
+  const days = (Date.now() - new Date(lastContacted).getTime()) / (1000 * 60 * 60 * 24);
+  return days > STALE_DAYS;
+}
 
 export default function ClientKanbanPage() {
   const [clients, setClients] = useState<KanbanClient[]>([]);
@@ -117,9 +124,18 @@ export default function ClientKanbanPage() {
                     draggable
                     onDragStart={() => setDragId(c.id)}
                     onClick={() => setActiveCard(c)}
-                    className="bg-slate-950 border border-slate-800 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-emerald-500/40"
+                    className={`bg-slate-950 border rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-emerald-500/40 ${
+                      isStale(c.lastContacted) ? 'border-red-500/50' : 'border-slate-800'
+                    }`}
                   >
-                    <p className="text-xs font-bold text-white truncate">{c.clientName}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-white truncate">{c.clientName}</p>
+                      {isStale(c.lastContacted) && (
+                        <span className="shrink-0 flex items-center gap-1 bg-red-500/20 text-red-300 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full">
+                          <AlertTriangle className="w-2.5 h-2.5" /> Stale
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[10px] text-slate-500 font-mono mt-1">
                       Last: {c.lastContacted ? c.lastContacted.slice(0, 10) : '—'}
                     </p>
