@@ -763,10 +763,11 @@ model CampaignVariant {
 // 📇 BVM Business: daily call-consistency grid — one row per calendar day,
 // cellData holds the full { cellNumber, status } array for that day's grid.
 model BvmCallLog {
-  id        String   @id @default(uuid())
-  date      String   @unique // YYYY-MM-DD
-  cellCount Int      @default(45)
-  cellData  Json // [{ cellNumber: number, status: string | null }]
+  id         String   @id @default(uuid())
+  date       String   @unique // YYYY-MM-DD
+  cellCount  Int      @default(45)
+  cellData   Json // [{ cellNumber: number, status: string | null }]
+  leadsAdded Int      @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt

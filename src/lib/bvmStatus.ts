@@ -3,7 +3,7 @@
 export const BVM_STATUS_OPTIONS = [
   { value: 'I', label: 'I', color: '#06B6D4' }, // Cyan
   { value: 'LMGK', label: 'LMGK', color: '#F97316' }, // Orange
-  { value: 'LVM', label: 'LVM', color: '#A855F7' }, // Purple
+  { value: 'LVM', label: 'LVM', color: '#3B82F6' }, // Blue
   { value: 'NA', label: 'NA', color: '#8B5CF6' }, // Violet
   { value: 'No', label: 'No', color: '#EF4444' }, // Red
   { value: 'Yes', label: 'Yes', color: '#22C55E' }, // Green

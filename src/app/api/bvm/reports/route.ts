@@ -57,6 +57,7 @@ export async function GET(request: Request) {
 
   const statusCounts: Record<string, number> = Object.fromEntries(BVM_STATUS_OPTIONS.map((o) => [o.value, 0]));
   let totalCalls = 0;
+  let leadsAddedTotal = 0;
 
   for (const log of callLogs) {
     const cells = (log.cellData as unknown as CellDatum[]) || [];
@@ -66,7 +67,10 @@ export async function GET(request: Request) {
         totalCalls++;
       }
     }
+    leadsAddedTotal += log.leadsAdded;
   }
+
+  const leadCallConversionRate = totalCalls > 0 ? Math.round((leadsAddedTotal / totalCalls) * 100) : 0;
 
   const attendedCount = conferenceCalls.filter((c) => c.attended).length;
   const attendanceRate = conferenceCalls.length ? Math.round((attendedCount / conferenceCalls.length) * 100) : 0;
@@ -84,6 +88,8 @@ export async function GET(request: Request) {
     endDate: end.toISOString().slice(0, 10),
     totalCalls,
     statusCounts,
+    leadsAddedTotal,
+    leadCallConversionRate,
     conferenceCallCount: conferenceCalls.length,
     conferenceAttendedCount: attendedCount,
     conferenceAttendanceRate: attendanceRate,

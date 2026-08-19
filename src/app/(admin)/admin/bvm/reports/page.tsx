@@ -14,6 +14,8 @@ interface ReportData {
   endDate: string;
   totalCalls: number;
   statusCounts: Record<string, number>;
+  leadsAddedTotal: number;
+  leadCallConversionRate: number;
   conferenceCallCount: number;
   conferenceAttendedCount: number;
   conferenceAttendanceRate: number;
@@ -100,10 +102,15 @@ export default function BvmReportsPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
               <p className="text-[11px] font-mono uppercase text-slate-500">Total Calls</p>
               <p className="text-2xl font-bold text-white mt-1 tabular-nums">{data.totalCalls}</p>
+            </div>
+            <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
+              <p className="text-[11px] font-mono uppercase text-slate-500">Leads Added</p>
+              <p className="text-2xl font-bold text-blue-400 mt-1 tabular-nums">{data.leadsAddedTotal}</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">{data.leadCallConversionRate}% of calls</p>
             </div>
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-4">
               <p className="text-[11px] font-mono uppercase text-slate-500">Conference Attendance</p>
