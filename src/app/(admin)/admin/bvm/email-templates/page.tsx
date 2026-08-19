@@ -156,18 +156,18 @@ export default function EmailTemplatesPage() {
             </div>
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Name</label>
-            <input required placeholder="e.g. LMGK Follow-Up" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+            <input required placeholder="e.g. LMGK Follow-Up" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white" />
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Category</label>
-            <input required placeholder="e.g. LMGK Follow-up" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+            <input required placeholder="e.g. LMGK Follow-up" value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white" />
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">Subject</label>
-            <input required placeholder="Email subject line" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" />
+            <input required placeholder="Email subject line" value={form.subject} onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white" />
 
             <label className="text-[11px] font-mono uppercase text-slate-500 block">
               Body <span className="text-slate-600 normal-case">— use {BVM_TEMPLATE_VARIABLES.join(', ')}</span>
             </label>
-            <textarea required rows={10} value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white resize-y font-mono" />
+            <textarea required rows={10} value={form.body} onChange={(e) => setForm((f) => ({ ...f, body: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm leading-relaxed text-white resize-y font-mono" />
 
             <button
               type="submit"

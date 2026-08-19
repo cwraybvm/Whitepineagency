@@ -105,13 +105,13 @@ export default function ClientKanbanPage() {
           <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 overflow-x-auto">
+        <div className="flex md:grid md:grid-cols-5 gap-3 overflow-x-auto snap-x snap-mandatory md:snap-none no-scrollbar -mx-6 px-6 md:mx-0 md:px-0">
           {STAGES.map((stage) => (
             <div
               key={stage}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => onDrop(stage)}
-              className="bg-slate-900 border border-slate-800 rounded-2xl p-3 min-h-[200px] flex flex-col gap-2"
+              className="bg-slate-900 border border-slate-800 rounded-2xl p-3 min-h-[200px] flex flex-col gap-2 w-[85vw] sm:w-80 md:w-auto shrink-0 md:shrink snap-center md:snap-align-none"
             >
               <h3 className="text-[11px] font-mono uppercase text-slate-400 font-bold px-1">
                 {stage} <span className="text-slate-600">({clients.filter((c) => c.stage === stage).length})</span>

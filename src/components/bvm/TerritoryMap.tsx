@@ -36,7 +36,10 @@ export default function TerritoryMap({ addresses }: { addresses: MapAddress[] })
   const height = Math.max(BAND_HEIGHT, zones.length * BAND_HEIGHT);
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 overflow-x-auto">
+    <div
+      className="bg-slate-900 border border-slate-800 rounded-2xl p-4 overflow-x-auto touch-pan-x"
+      style={{ WebkitOverflowScrolling: 'touch' }}
+    >
       <p className="text-[10px] text-slate-500 font-mono mb-2">
         Schematic territory layout by zone (no live geocoding) — <span className="text-emerald-400">green = sent</span>,{' '}
         <span className="text-amber-400">orange = pending</span>

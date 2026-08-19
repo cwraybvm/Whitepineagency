@@ -360,7 +360,7 @@ New Addresses Entered Today: ${addressesToday.length}
         </div>
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-          <div className="grid grid-cols-5 sm:grid-cols-7 md:grid-cols-10 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
             {cellData.map((cell) => {
               const color = cell.status ? BVM_STATUS_COLOR[cell.status] : undefined;
               return (
@@ -373,7 +373,7 @@ New Addresses Entered Today: ${addressesToday.length}
                   <select
                     value={cell.status || ''}
                     onChange={(e) => setCellStatus(cell.cellNumber, e.target.value || null)}
-                    className="w-full text-[10px] font-bold text-center py-1.5 bg-slate-950 focus:outline-none cursor-pointer"
+                    className="w-full min-h-[44px] text-[10px] font-bold text-center py-1.5 bg-slate-950 focus:outline-none cursor-pointer"
                     style={color ? { color, backgroundColor: `${color}1A` } : { color: '#64748b' }}
                   >
                     <option value="">—</option>
@@ -385,7 +385,7 @@ New Addresses Entered Today: ${addressesToday.length}
                   </select>
                   {cell.status && FOLLOW_UP_STATUSES.has(cell.status) && (
                     spawnedCells.has(cell.cellNumber) ? (
-                      <span className="flex items-center justify-center gap-1 text-[8px] font-bold text-emerald-400 py-1 bg-slate-950">
+                      <span className="flex items-center justify-center gap-1 text-[8px] font-bold text-emerald-400 py-1.5 min-h-[32px] bg-slate-950">
                         <Check className="w-2.5 h-2.5" /> Task
                       </span>
                     ) : (
@@ -393,7 +393,7 @@ New Addresses Entered Today: ${addressesToday.length}
                         onClick={() => spawnFollowUpTask(cell)}
                         disabled={spawningCell === cell.cellNumber}
                         title="Spawn follow-up task"
-                        className="flex items-center justify-center gap-1 text-[8px] font-bold text-slate-400 hover:text-white py-1 bg-slate-950 hover:bg-slate-800 disabled:opacity-50"
+                        className="flex items-center justify-center gap-1 text-[8px] font-bold text-slate-400 hover:text-white py-1.5 min-h-[32px] bg-slate-950 hover:bg-slate-800 disabled:opacity-50"
                       >
                         {spawningCell === cell.cellNumber ? (
                           <Loader2 className="w-2.5 h-2.5 animate-spin" />
@@ -408,7 +408,7 @@ New Addresses Entered Today: ${addressesToday.length}
                     <button
                       onClick={() => openQuickEmail(cell)}
                       title="Quick email"
-                      className={`flex items-center justify-center gap-1 text-[8px] font-bold py-1 bg-slate-950 hover:bg-slate-800 ${
+                      className={`flex items-center justify-center gap-1 text-[8px] font-bold py-1.5 min-h-[32px] bg-slate-950 hover:bg-slate-800 ${
                         emailedCells.has(cell.cellNumber) ? 'text-sky-400' : 'text-slate-400 hover:text-white'
                       }`}
                     >
@@ -422,8 +422,8 @@ New Addresses Entered Today: ${addressesToday.length}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+      <div className="flex flex-col lg:flex-row gap-5">
+        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-white mb-3">Daily Breakdown</h3>
           <div className="space-y-2">
             {BVM_STATUS_OPTIONS.map((o) => (
@@ -442,7 +442,7 @@ New Addresses Entered Today: ${addressesToday.length}
           </div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+        <div className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl p-5">
           <h3 className="text-sm font-bold text-white mb-3">Category Split</h3>
           {pieData.length === 0 ? (
             <div className="h-[220px] flex items-center justify-center text-slate-500 text-sm">No calls logged yet</div>
@@ -505,18 +505,18 @@ New Addresses Entered Today: ${addressesToday.length}
           <FileText className="w-4 h-4 text-sky-400" />
           <h3 className="text-sm font-bold text-white">📧 Send Daily EOD Summary Email</h3>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="email"
             placeholder="recipient@example.com"
             value={eodRecipient}
             onChange={(e) => updateEodRecipient(e.target.value)}
-            className="flex-1 min-w-[200px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white"
+            className="flex-1 min-w-[200px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white"
           />
           <button
             onClick={sendEodSummary}
             disabled={sendingEod}
-            className="flex items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-500 text-white font-bold text-sm px-4 py-2.5 rounded-xl disabled:opacity-50"
           >
             {sendingEod ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sendingEod ? 'Sending…' : 'Send EOD Summary'}
