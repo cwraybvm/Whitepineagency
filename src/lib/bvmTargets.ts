@@ -18,3 +18,8 @@ export const BVM_OFFICE_ADDRESS = '700 Cedar Ave, Alexandria, MN 56308';
 
 // IRS standard mileage rate used for the mileage-expense calculator.
 export const IRS_MILEAGE_RATE = 0.67;
+
+// Bonus points added to the Daily Discipline Score for completing today's
+// scheduled tasks (100% completion = full bonus) -- additive on top of the
+// existing 5-component 100-point score, not a re-weighting of it.
+export const TASK_BONUS_MAX = 10;

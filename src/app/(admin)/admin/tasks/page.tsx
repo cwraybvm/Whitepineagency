@@ -57,6 +57,7 @@ interface FocusTask {
   scheduledAt: string | null;
   googleCalendarEventId: string | null;
   syncToGoogleCalendar: boolean;
+  rolloverCount: number;
 }
 
 const COLUMNS: { id: FocusTask['status']; label: string }[] = [
@@ -134,6 +135,7 @@ function TasksBoardContent() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState('');
   const [scheduledFilterOn, setScheduledFilterOn] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [quickAddPriority, setQuickAddPriority] = useState(PRIORITY_META.MEDIUM.value);
   const quickAddRef = useRef<HTMLInputElement>(null);
   const focusSessionStartRef = useRef<number | null>(null);
@@ -243,6 +245,7 @@ function TasksBoardContent() {
       scheduledAt: quickAddScheduledAt ? new Date(quickAddScheduledAt).toISOString() : null,
       googleCalendarEventId: null,
       syncToGoogleCalendar: true,
+      rolloverCount: 0,
     };
     setTasks((prev) => [...prev, optimisticTask]);
     setQuickAddValue('');
@@ -524,7 +527,7 @@ function TasksBoardContent() {
               matchesEnergy
                 ? 'max-h-[1000px] opacity-100 p-3 mb-0'
                 : 'max-h-0 opacity-0 p-0 mb-0 border-0 pointer-events-none'
-            } ${completingIds.has(t.id) ? 'scale-95 opacity-40' : 'scale-100'}`}
+            } ${completingIds.has(t.id) ? 'scale-95 opacity-40' : t.status === 'DONE' ? 'opacity-70' : 'scale-100'}`}
           >
             <div className="flex items-start gap-2">
               <button
@@ -612,11 +615,23 @@ function TasksBoardContent() {
               </div>
             </div>
 
-            {t.scheduledAt && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                📅 {formatScheduledBadge(t.scheduledAt)}
-              </span>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {t.scheduledAt && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  📅 {formatScheduledBadge(t.scheduledAt)}
+                </span>
+              )}
+              {t.status === 'DONE' && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  ✓ Completed
+                </span>
+              )}
+              {t.rolloverCount > 0 && t.status !== 'DONE' && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-red-500/20 text-red-300 border border-red-500/30">
+                  🔥 Rolled Over ({t.rolloverCount} Day{t.rolloverCount === 1 ? '' : 's'} Stale)
+                </span>
+              )}
+            </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">
               <button
@@ -936,6 +951,18 @@ function TasksBoardContent() {
                     </span>
                     {isLowBatteryMode && <span className="text-amber-400 text-[10px] font-mono">ON</span>}
                   </button>
+                  <button
+                    onClick={() => {
+                      setShowCompleted((v) => !v);
+                      setToolkitOpen(false);
+                    }}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium text-gray-300 hover:bg-white/10 text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-400" /> Show Completed Tasks
+                    </span>
+                    {showCompleted && <span className="text-emerald-400 text-[10px] font-mono">ON</span>}
+                  </button>
                   {staleTasks.length > 0 && (
                     <button
                       onClick={() => {
@@ -1176,7 +1203,7 @@ function TasksBoardContent() {
               full-height columns. Desktop keeps the side-by-side grid. */}
           <div className="flex md:hidden items-center gap-1 bg-white/5 border border-white/10 rounded-full p-1 mb-4">
             {COLUMNS.map((col) => {
-              const count = tasks.filter((t) => t.status === col.id && !t.isParked).length;
+              const count = tasks.filter((t) => t.status === col.id && !t.isParked && (col.id !== 'DONE' || showCompleted)).length;
               return (
                 <button
                   key={col.id}
@@ -1193,7 +1220,7 @@ function TasksBoardContent() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {COLUMNS.map((col) => {
-              const colTasks = tasks.filter((t) => t.status === col.id && !t.isParked);
+              const colTasks = tasks.filter((t) => t.status === col.id && !t.isParked && (col.id !== 'DONE' || showCompleted));
               // Inbox groups by priority (High/Medium/Low sections); other
               // columns stay a flat list. Draggable indices must be
               // continuous across the whole droppable, so the grouped
