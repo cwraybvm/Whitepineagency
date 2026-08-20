@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Target, Phone, BookOpen, Dumbbell, Droplets, Minus, Plus, Loader2, Check, Flame } from 'lucide-react';
 import { weekRange } from '@/lib/weekRange';
 import { computeDailyStreak, computeWeeklyStreak, type DisciplineLogLite } from '@/lib/disciplineStreaks';
-import { CALL_DAILY_TARGET } from '@/lib/bvmTargets';
+import { CALL_DAILY_TARGET, TASK_BONUS_MAX } from '@/lib/bvmTargets';
 import CopyWeeklyDigestButton from '@/components/admin/CopyWeeklyDigestButton';
 import AddIncentiveGoalButton from '@/components/admin/AddIncentiveGoalButton';
 import GoalProgressCard, { type RewardGoalData } from '@/components/admin/GoalProgressCard';
@@ -87,6 +87,8 @@ export default function ConsistentDisciplinePage() {
   const [saving, setSaving] = useState(false);
   const [heroLoading, setHeroLoading] = useState(true);
   const [heroCallsMade, setHeroCallsMade] = useState(0);
+  const [heroTasksTotal, setHeroTasksTotal] = useState(0);
+  const [heroTasksCompleted, setHeroTasksCompleted] = useState(0);
   const [historyLogs, setHistoryLogs] = useState<DisciplineLogLite[]>([]);
   const [goals, setGoals] = useState<RewardGoalData[]>([]);
   const [goalsLoading, setGoalsLoading] = useState(true);
@@ -115,11 +117,20 @@ export default function ConsistentDisciplinePage() {
     Promise.all([
       fetch(`/api/consistent-discipline?start=${windowStart}&end=${windowEnd}`).then((r) => r.json()),
       fetch(`/api/bvm/call-log?date=${realToday}`).then((r) => r.json()),
+      fetch('/api/focus-tasks').then((r) => (r.ok ? r.json() : [])),
     ])
-      .then(([logs, callLog]) => {
+      .then(([logs, callLog, allTasks]) => {
         setHistoryLogs(logs);
         const cells = (callLog.cellData as { status: string | null }[]) || [];
         setHeroCallsMade(cells.filter((c) => c.status).length);
+
+        // "Today's tasks" for the discipline-score bonus: organizationId
+        // null scopes to personal/BVM tasks, excluding agency client work.
+        const todaysTasks = (allTasks as { organizationId: string | null; scheduledAt: string | null; status: string }[]).filter(
+          (t) => t.organizationId === null && t.scheduledAt && t.scheduledAt.slice(0, 10) === realToday
+        );
+        setHeroTasksTotal(todaysTasks.length);
+        setHeroTasksCompleted(todaysTasks.filter((t) => t.status === 'DONE').length);
       })
       .catch(() => toast.error('Failed to load discipline stats'))
       .finally(() => setHeroLoading(false));
@@ -181,13 +192,18 @@ export default function ConsistentDisciplinePage() {
   const heroJiuJitsuWeekCount = heroWeekLogs.filter((l) => l.jiuJitsu).length;
   const heroWorkoutWeekCount = heroWeekLogs.filter((l) => l.workout).length;
 
-  const dailyScore = Math.round(
+  // Task-completion bonus is additive on top of the existing 5-component
+  // 100-point score (not a re-weighting of it) -- see design doc for why.
+  // Rolled-over tasks land at scheduledAt = today (see /api/focus-tasks),
+  // so completing one is automatically counted here.
+  const taskBonus = heroTasksTotal > 0 ? TASK_BONUS_MAX * (heroTasksCompleted / heroTasksTotal) : 0;
+  const baseScore =
     20 * Math.min(1, heroCallsMade / CALL_DAILY_TARGET) +
-      20 * Math.min(1, (heroToday?.pagesRead ?? 0) / PAGES_TARGET) +
-      20 * Math.min(1, (heroToday?.waterGlasses ?? 0) / WATER_TARGET) +
-      20 * Math.min(1, heroJiuJitsuWeekCount / WEEKLY_TARGET) +
-      20 * Math.min(1, heroWorkoutWeekCount / WEEKLY_TARGET)
-  );
+    20 * Math.min(1, (heroToday?.pagesRead ?? 0) / PAGES_TARGET) +
+    20 * Math.min(1, (heroToday?.waterGlasses ?? 0) / WATER_TARGET) +
+    20 * Math.min(1, heroJiuJitsuWeekCount / WEEKLY_TARGET) +
+    20 * Math.min(1, heroWorkoutWeekCount / WEEKLY_TARGET);
+  const dailyScore = Math.round(Math.min(100, baseScore + taskBonus));
 
   const readingStreak = computeDailyStreak(historyLogs, realToday, (l) => l.pagesRead >= PAGES_TARGET);
   const waterStreak = computeDailyStreak(historyLogs, realToday, (l) => l.waterGlasses >= WATER_TARGET);
@@ -236,6 +252,11 @@ export default function ConsistentDisciplinePage() {
       ) : (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col items-center gap-5">
           <ScoreRing score={dailyScore} />
+          {heroTasksTotal > 0 && (
+            <p className="text-[11px] text-slate-500 -mt-3 tabular-nums">
+              ✅ Tasks: {heroTasksCompleted}/{heroTasksTotal} today (+{taskBonus.toFixed(1)} bonus)
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
             <StreakBadge emoji="🔥" count={readingStreak} unit="Day" label="Reading Streak" />
             <StreakBadge emoji="💧" count={waterStreak} unit="Day" label="Water Streak" />
