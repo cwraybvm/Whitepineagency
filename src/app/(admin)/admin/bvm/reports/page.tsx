@@ -7,6 +7,7 @@ import { FileBarChart2, Loader2, Filter, Target } from 'lucide-react';
 import { BVM_STATUS_OPTIONS } from '@/lib/bvmStatus';
 import { weekRange } from '@/lib/weekRange';
 import CopyWeeklyDigestButton from '@/components/admin/CopyWeeklyDigestButton';
+import AddIncentiveGoalButton from '@/components/admin/AddIncentiveGoalButton';
 
 interface DisciplineLog {
   date: string;
@@ -142,6 +143,7 @@ export default function BvmReportsPage() {
             ))}
           </div>
           <CopyWeeklyDigestButton date={date} />
+          <AddIncentiveGoalButton />
         </div>
       </div>
 

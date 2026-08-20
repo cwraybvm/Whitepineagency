@@ -7,6 +7,8 @@ import { weekRange } from '@/lib/weekRange';
 import { computeDailyStreak, computeWeeklyStreak, type DisciplineLogLite } from '@/lib/disciplineStreaks';
 import { CALL_DAILY_TARGET } from '@/lib/bvmTargets';
 import CopyWeeklyDigestButton from '@/components/admin/CopyWeeklyDigestButton';
+import AddIncentiveGoalButton from '@/components/admin/AddIncentiveGoalButton';
+import GoalProgressCard, { type RewardGoalData } from '@/components/admin/GoalProgressCard';
 
 interface DisciplineLog {
   id: string | null;
@@ -86,6 +88,19 @@ export default function ConsistentDisciplinePage() {
   const [heroLoading, setHeroLoading] = useState(true);
   const [heroCallsMade, setHeroCallsMade] = useState(0);
   const [historyLogs, setHistoryLogs] = useState<DisciplineLogLite[]>([]);
+  const [goals, setGoals] = useState<RewardGoalData[]>([]);
+  const [goalsLoading, setGoalsLoading] = useState(true);
+
+  function loadGoals() {
+    setGoalsLoading(true);
+    fetch('/api/bvm/goals')
+      .then((r) => r.json())
+      .then(setGoals)
+      .catch(() => toast.error('Failed to load incentive goals'))
+      .finally(() => setGoalsLoading(false));
+  }
+
+  useEffect(loadGoals, []);
 
   // Hero stats (score + streaks) are always anchored to real "today",
   // independent of the `date` picker below (which lets you view/edit past
@@ -191,7 +206,7 @@ export default function ConsistentDisciplinePage() {
             Daily habit tracker {saving && <span className="text-emerald-400">(saving…)</span>}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={date}
@@ -199,8 +214,20 @@ export default function ConsistentDisciplinePage() {
             className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono"
           />
           <CopyWeeklyDigestButton />
+          <AddIncentiveGoalButton onCreated={loadGoals} />
         </div>
       </div>
+
+      {!goalsLoading && goals.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wider">Incentive Goals</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {goals.map((g) => (
+              <GoalProgressCard key={g.id} goal={g} onClaimed={(id) => setGoals((prev) => prev.filter((x) => x.id !== id))} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {heroLoading ? (
         <div className="flex items-center justify-center h-40">
