@@ -834,6 +834,27 @@ model ConsistentDisciplineLog {
   @@index([date])
 }
 
+model RewardGoal {
+  id           String    @id @default(uuid())
+  title        String
+  targetType   String // CALLS_COUNT, DISCIPLINE_SCORE_AVG, LEADS_ADDED, DROP_OFFS_COMPLETED, MILES_LOGGED, COMPOSITE_STREAK
+  targetValue  Float
+  currentValue Float     @default(0)
+  timeframe    String // WEEKLY, MONTHLY, QUARTERLY, CUSTOM
+  startDate    DateTime
+  endDate      DateTime
+  isUnlocked   Boolean   @default(false)
+  unlockedAt   DateTime?
+  rewardIcon   String
+  claimed      Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([claimed])
+  @@index([targetType])
+}
+
 model BvmClientKanban {
   id             String    @id @default(uuid())
   clientName     String
