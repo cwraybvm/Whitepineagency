@@ -17,9 +17,32 @@ export async function GET() {
   }
 
   try {
-    const tasks = await prisma.task.findMany({
+    let tasks = await prisma.task.findMany({
       orderBy: [{ status: 'asc' }, { priority: 'desc' }, { createdAt: 'asc' }],
     });
+
+    // Daily rollover: any open task whose effective date (scheduledAt, or
+    // createdAt when never scheduled) is before today gets bumped onto
+    // Today's Checklist and its rolloverCount incremented. Idempotent within
+    // a day -- once scheduledAt becomes today it won't re-qualify until the
+    // next real day boundary.
+    const todayMidnight = new Date();
+    todayMidnight.setUTCHours(0, 0, 0, 0);
+    const rolloverIds = tasks
+      .filter((t) => t.status !== 'DONE' && !t.isParked && (t.scheduledAt ?? t.createdAt) < todayMidnight)
+      .map((t) => t.id);
+
+    if (rolloverIds.length > 0) {
+      await prisma.task.updateMany({
+        where: { id: { in: rolloverIds } },
+        data: { scheduledAt: todayMidnight, rolloverCount: { increment: 1 } },
+      });
+      const rolledSet = new Set(rolloverIds);
+      tasks = tasks.map((t) =>
+        rolledSet.has(t.id) ? { ...t, scheduledAt: todayMidnight, rolloverCount: t.rolloverCount + 1 } : t
+      );
+    }
+
     return NextResponse.json(tasks);
   } catch (err: any) {
     // A Prisma/DB failure here previously fell through to a non-JSON 500 --

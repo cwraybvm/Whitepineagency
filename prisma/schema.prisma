@@ -690,6 +690,7 @@ model Task {
   isParked     Boolean      @default(false) // Swept off the active board via the Park for Later drawer
   estimatedMinutes Int? // Quick-picked: 5, 15, 30, 60, or 120
   completedAt      DateTime? // Set server-side when status transitions to DONE, cleared otherwise
+  rolloverCount    Int          @default(0) // Bumped each day GET /api/focus-tasks finds it still open past its scheduled day
   isUrgent     Boolean      @default(false) // Roosevelt Matrix: urgent axis
   isImportant  Boolean      @default(false) // Roosevelt Matrix: important axis
   unstickedAt  DateTime? // Set server-side when "Unstick Me" generates steps -- Bingo's Unstick goal
